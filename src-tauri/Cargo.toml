@@ -1,0 +1,26 @@
+[package]
+name = "toomanytabs"
+version = "0.1.0"
+description = "Dispatch board for managing multiple Claude Code sessions"
+authors = ["SebastianElvis"]
+license = "MIT"
+repository = "https://github.com/SebastianElvis/toomanytabs"
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "toomanytabs_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.5.6" }
+
+[dependencies]
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.10.3" }
+tauri-plugin-log = "2"
+tauri-plugin-sql = { version = "2", features = ["sqlite"] }
+tauri-plugin-notification = "2"
+tauri-plugin-shell = "2"

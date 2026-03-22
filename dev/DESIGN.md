@@ -295,14 +295,56 @@ All GitHub interactions (fetching issues, PR details, review comments, opening P
 
 ---
 
-## 8. Open questions
+## 8. Architecture decisions
 
-1. **Session state detection reliability.** Inferring `waiting` vs `running` from Claude Code's stdout is fragile if the output format changes. Is there a more stable hook (e.g. Claude Code's hooks system emitting structured events)?
+### 8.1 Tech stack
 
-2. **Worktree storage location.** Where should worktrees live — alongside the main repo clone, or in a TooManyTabs-managed directory? The latter is cleaner but requires TooManyTabs to manage the clone itself.
+| Layer | Choice |
+|-------|--------|
+| Desktop framework | Tauri v2 |
+| Frontend | React + TypeScript |
+| Styling | Tailwind CSS |
+| State management | Zustand |
+| Database | SQLite via `tauri-plugin-sql` |
+| Target platform | macOS (primary), Linux (community/power-user) |
 
-3. **Token budget per session.** Claude Code sessions can run long and consume significant tokens. Should TooManyTabs expose a per-session token usage display, or enforce a configurable limit before prompting the user?
+### 8.2 Session state detection — Hybrid (hooks + stdout)
 
-4. **Recap generation.** The "recap" button on session cards needs to produce a one-paragraph summary of what the session has done so far. This likely requires a secondary Claude API call against the session's log. Latency and cost need validating.
+Claude Code hooks (`claudeCodeHooks` in settings) emit structured JSON events on state transitions. TooManyTabs registers hooks that write events to a known location. State detection (running → waiting → idle) is driven by these hook events.
 
-5. **Concurrent session limit.** No hard limit is imposed in v1, but running 10+ sessions simultaneously will saturate CPU and API rate limits. Should TooManyTabs warn or throttle above a configurable ceiling?
+Stdout is captured separately for the live terminal output panel only — it is **not** used for state inference.
+
+### 8.3 Process management — Direct child process spawn
+
+Sessions are spawned as direct child processes via Tauri's `Command` API with stdin/stdout pipes. TooManyTabs owns the full process lifecycle (spawn, signal, kill). No tmux dependency.
+
+### 8.4 Log storage — Files on disk, metadata in SQLite
+
+Session metadata (id, repo, branch, status, timestamps, linked issue/PR) is stored in SQLite. Full session logs (Claude stdout/stderr) are written to files on disk at `~/.toomanytabs/logs/<session-id>/`. SQLite stores only a pointer to the log path.
+
+### 8.5 GitHub integration — Hybrid (`gh` auth + REST API)
+
+Authentication leverages the user's existing `gh` CLI auth (`gh auth token` provides an OAuth token). All GitHub API calls (issues, PRs, reviews) are made as structured REST calls from Rust/TypeScript using that token. This avoids requiring a separate OAuth flow while keeping API interactions reliable.
+
+### 8.6 Worktree storage — TooManyTabs-managed directory
+
+All git worktrees are created under `~/.toomanytabs/worktrees/<repo-name>/<session-id>/`. This keeps user repos clean and gives TooManyTabs full control over lifecycle (create on session start, delete on session kill/discard).
+
+### 8.7 IPC pattern
+
+- **Tauri commands** (invoke/response): create session, kill session, reply to session, commit & push, open PR, fetch issues
+- **Tauri events** (pub/sub): session state changes, new stdout lines, notification triggers. Zustand store subscribes to events — no polling.
+
+### 8.8 Browser extension
+
+Deferred. Not in scope for MVP.
+
+---
+
+## 9. Open questions
+
+1. **Token budget per session.** Claude Code sessions can run long and consume significant tokens. Should TooManyTabs expose a per-session token usage display, or enforce a configurable limit before prompting the user?
+
+2. **Recap generation.** The "recap" button on session cards needs to produce a one-paragraph summary of what the session has done so far. This likely requires a secondary Claude API call against the session's log. Latency and cost need validating.
+
+3. **Concurrent session limit.** No hard limit is imposed in v1, but running 10+ sessions simultaneously will saturate CPU and API rate limits. Should TooManyTabs warn or throttle above a configurable ceiling?
