@@ -1,0 +1,44 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: "npm"
+      - run: npm ci --legacy-peer-deps
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm test
+
+  backend:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+      - name: Install Tauri system dependencies
+        run: |
+          # macOS has all needed deps
+          echo "macOS ready"
+      - name: Check formatting
+        run: cd src-tauri && cargo fmt -- --check
+      - name: Clippy
+        run: cd src-tauri && cargo clippy --all-targets -- -D warnings
+      - name: Tests
+        run: cd src-tauri && cargo test
+      - name: Build check
+        run: cd src-tauri && cargo check
