@@ -5,6 +5,7 @@ import type { Session } from "../sessionStore";
 // Reset store between tests
 beforeEach(() => {
   useSessionStore.setState({ sessions: [], outputBuffers: {}, sessionsLoading: false });
+  vi.restoreAllMocks();
 });
 
 const makeSession = (id: string): Session => ({
@@ -88,7 +89,17 @@ describe("sessionStore", () => {
   });
 
   describe("loadSessions", () => {
-    it("populates sessions from tauri backend", async () => {
+    it("returns empty array when not in Tauri environment", async () => {
+      // isTauri() returns false by default in tests (see setup.ts)
+      await useSessionStore.getState().loadSessions();
+      expect(useSessionStore.getState().sessions).toEqual([]);
+      expect(useSessionStore.getState().sessionsLoading).toBe(false);
+    });
+
+    it("populates sessions from tauri backend when in Tauri", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+
       const { invoke } = await import("@tauri-apps/api/core");
       const mockSessions = [makeSession("s1"), makeSession("s2")];
       vi.mocked(invoke).mockResolvedValueOnce(mockSessions);
@@ -98,10 +109,12 @@ describe("sessionStore", () => {
     });
 
     it("silently handles backend errors", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+
       const { invoke } = await import("@tauri-apps/api/core");
       vi.mocked(invoke).mockRejectedValueOnce(new Error("Backend unavailable"));
 
-      // Should not throw
       await expect(useSessionStore.getState().loadSessions()).resolves.toBeUndefined();
       expect(useSessionStore.getState().sessions).toEqual([]);
     });

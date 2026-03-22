@@ -1,6 +1,11 @@
 /// <reference types="vitest/globals" />
 import "@testing-library/jest-dom";
 
+// Mock environment detection — tests always run outside Tauri
+vi.mock("../lib/env", () => ({
+  isTauri: vi.fn(() => false),
+}));
+
 // Mock Tauri APIs
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),

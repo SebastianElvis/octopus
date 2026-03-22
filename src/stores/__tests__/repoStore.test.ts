@@ -5,6 +5,7 @@ import type { Repo } from "../../lib/types";
 // Reset store between tests
 beforeEach(() => {
   useRepoStore.setState({ repos: [] });
+  vi.restoreAllMocks();
 });
 
 const makeRepo = (id: string): Repo => ({
@@ -39,7 +40,15 @@ describe("repoStore", () => {
   });
 
   describe("loadRepos", () => {
-    it("populates repos from tauri backend", async () => {
+    it("returns empty array when not in Tauri environment", async () => {
+      await useRepoStore.getState().loadRepos();
+      expect(useRepoStore.getState().repos).toEqual([]);
+    });
+
+    it("populates repos from tauri backend when in Tauri", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+
       const { invoke } = await import("@tauri-apps/api/core");
       const mockRepos = [makeRepo("r1"), makeRepo("r2")];
       vi.mocked(invoke).mockResolvedValueOnce(mockRepos);
@@ -49,6 +58,9 @@ describe("repoStore", () => {
     });
 
     it("silently handles backend errors", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+
       const { invoke } = await import("@tauri-apps/api/core");
       vi.mocked(invoke).mockRejectedValueOnce(new Error("Backend unavailable"));
 
@@ -59,6 +71,9 @@ describe("repoStore", () => {
 
   describe("addRepo", () => {
     it("adds a repo returned from the backend", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+
       const { invoke } = await import("@tauri-apps/api/core");
       const newRepo = makeRepo("r-new");
       vi.mocked(invoke).mockResolvedValueOnce(newRepo);
@@ -71,6 +86,9 @@ describe("repoStore", () => {
       const existingRepo = makeRepo("r1");
       useRepoStore.setState({ repos: [existingRepo] });
 
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+
       const { invoke } = await import("@tauri-apps/api/core");
       const newRepo = makeRepo("r2");
       vi.mocked(invoke).mockResolvedValueOnce(newRepo);
@@ -80,6 +98,9 @@ describe("repoStore", () => {
     });
 
     it("re-throws errors from the backend", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+
       const { invoke } = await import("@tauri-apps/api/core");
       vi.mocked(invoke).mockRejectedValueOnce(new Error("Invalid URL"));
 
