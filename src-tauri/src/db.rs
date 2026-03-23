@@ -70,6 +70,28 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
+/// Mark any sessions that were running/waiting/paused/stuck when the app last
+/// exited as "interrupted".  Their OS processes are gone after a restart.
+pub fn reap_orphaned_sessions(conn: &Connection) -> usize {
+    let now = chrono::Utc::now().to_rfc3339();
+    match conn.execute(
+        "UPDATE sessions SET status = 'interrupted', state_changed_at = ?1 \
+         WHERE status IN ('running', 'waiting', 'paused', 'stuck')",
+        rusqlite::params![now],
+    ) {
+        Ok(n) => {
+            if n > 0 {
+                log::info!("Reaped {} orphaned session(s) → interrupted", n);
+            }
+            n
+        }
+        Err(e) => {
+            log::error!("Failed to reap orphaned sessions: {}", e);
+            0
+        }
+    }
+}
+
 /// Convenience: open a connection and run migrations in one step.
 pub fn init_db() -> AppResult<Connection> {
     let conn = open_connection()?;

@@ -105,6 +105,11 @@ export async function checkStuckSessions(): Promise<string[]> {
   return tauriInvoke<string[]>("check_stuck_sessions");
 }
 
+export async function readSessionLog(id: string): Promise<string> {
+  if (!isTauri()) return "";
+  return tauriInvoke<string>("read_session_log", { id });
+}
+
 export async function fetchPrReviewComments(
   repoId: string,
   prNumber: number,

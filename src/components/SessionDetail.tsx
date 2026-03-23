@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { timeAgo } from "../lib/utils";
-import { killSession as tauriKillSession, fetchIssues, fetchPRs } from "../lib/tauri";
+import { killSession as tauriKillSession, resumeSession as tauriResumeSession, fetchIssues, fetchPRs } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
 import { useEditorStore } from "../stores/editorStore";
 import { useUIStore } from "../stores/uiStore";
@@ -23,6 +23,7 @@ const STATUS_PILL: Record<string, string> = {
   killed: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
   paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
   stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
+  interrupted: "bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/30 dark:text-amber-400",
 };
 
 type CenterTab = "terminal" | "editor" | "github";
@@ -117,6 +118,16 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     updateSession(session.id, { status: "done", stateChangedAt: Date.now() });
   }
 
+  async function handleResume() {
+    if (!session) return;
+    try {
+      await tauriResumeSession(session.id);
+      updateSession(session.id, { status: "running", stateChangedAt: Date.now() });
+    } catch (err: unknown) {
+      console.error("[SessionDetail] Failed to resume session:", err);
+    }
+  }
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeContent = activeTabId ? contents[activeTabId] : null;
   const showEditor = centerTab === "editor" && activeTab != null && activeContent != null;
@@ -149,6 +160,14 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {session.status === "interrupted" && (
+            <button
+              onClick={() => void handleResume()}
+              className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
+            >
+              Resume
+            </button>
+          )}
           {showKillConfirm ? (
             <>
               <span className="text-xs text-red-600 dark:text-red-400">Kill session?</span>
@@ -184,6 +203,15 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         <div className="flex shrink-0 items-center gap-2 border-b border-orange-200 bg-orange-50 px-4 py-2 dark:border-orange-800/60 dark:bg-orange-950/30">
           <span className="text-xs font-medium text-orange-700 dark:text-orange-400">
             ⚠ Session stuck — no output for 20+ minutes
+          </span>
+        </div>
+      )}
+
+      {/* Interrupted warning */}
+      {session.status === "interrupted" && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800/60 dark:bg-amber-950/30">
+          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
+            ⚠ Session interrupted — the app was restarted while this session was active. Click Resume to continue.
           </span>
         </div>
       )}
