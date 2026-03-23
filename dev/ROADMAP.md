@@ -110,6 +110,159 @@ Tasks:
 
 **Suggested execution order:** H1.4 (foundational) → H1.1 (needed before merge) → H1.2 (biggest differentiator) → H1.3 (small addition) → H1.5 (independent, parallelise with H1.1-H1.3)
 
+#### H1.6 — PTY and session reliability
+
+The session lifecycle has race conditions and failure modes that cause phantom sessions, zombie processes, and silent state divergence. These must be fixed before H1 features add more complexity on top.
+
+Tasks:
+- Throttle PTY output event emission (batch every 16–50ms) to prevent Tauri event system crash (known Tauri issue #8177/#10987)
+- Send signals to process groups (`-pid`), not just the direct child PID — `claude` spawns subprocesses that become orphans on SIGKILL
+- Implement graceful shutdown sequence: SIGINT → wait 3s → SIGTERM → wait 2s → SIGKILL (current code jumps straight to SIGKILL)
+- Add `CancellationToken` / `AtomicBool` to reader threads so they stop on app exit instead of blocking indefinitely
+- Fix race condition between reader thread (removes from `processes` on exit) and signal handlers (reads `processes`) — coordinate access with proper locking
+- Cap frontend output buffer per session (ring buffer or max N chunks) to prevent unbounded memory growth
+- Validate worktree exists and is usable after `create_worktree_internal()` before spawning the PTY process
+
+#### H1.7 — SQLite and state robustness
+
+Database operations use a single `Mutex<Connection>` that becomes permanently bricked if any holder panics. Schema evolution has no versioning. Crash recovery is incomplete.
+
+Tasks:
+- Switch from `std::sync::Mutex` to `parking_lot::Mutex` for the DB connection (doesn't poison on panic)
+- Add `PRAGMA busy_timeout = 5000` to handle concurrent WAL checkpoint contention
+- Add periodic WAL checkpoint (`PRAGMA wal_checkpoint(PASSIVE)` every 5 min) and explicit checkpoint on clean shutdown
+- Add `schema_version` table and versioned migration runner (current `CREATE TABLE IF NOT EXISTS` can't handle column additions)
+- Wrap multi-step operations (worktree creation + DB insert) in transaction-like logic with rollback on failure
+- Add cascade delete or null-out for sessions when a repo is removed (currently orphaned sessions crash the UI)
+- On startup: scan for worktrees on disk that have no matching session in the DB, offer cleanup
+
+#### H1.8 — GitHub API robustness
+
+GitHub integration uses a new HTTP client per request, no rate limiting, no token caching, and swallows error details. At 10+ sessions polling for CI/issues, rate limits will be hit.
+
+Tasks:
+- Cache GitHub token in `AppState` (currently shells out to `gh auth token` on every API call); refresh only on 401 or timer
+- Store a single `reqwest::Client` in `AppState` for connection reuse and TLS session caching
+- Parse `X-RateLimit-Remaining` / `X-RateLimit-Reset` headers; defer non-critical requests when low; respect `Retry-After` on 429
+- Implement conditional requests with `ETag` / `If-None-Match` for polling endpoints (304s don't count against rate limit)
+- Categorise API errors: auth failures (401/403 → prompt re-auth), rate limits (429 → auto-retry), not found (404 → stale data), server errors (5xx → retry with backoff)
+- Replace `.unwrap_or_default()` on response text parsing with proper error propagation so users see actionable messages
+
+#### H1.9 — Frontend error handling and state consistency
+
+The frontend silently swallows many backend errors. Event subscription failures, load failures, and bulk operation failures all leave the user with a stale or misleading UI.
+
+Tasks:
+- Add structured error codes to `AppError` serialisation (currently flat string) so the frontend can distinguish "session not found" from "DB poisoned" from "GitHub auth failed"
+- Show error state in session store when `listSessions()` fails (currently silently sets empty list)
+- Fix bulk operations (kill/resume) to report per-session success/failure instead of catch-and-ignore
+- Add reconnection logic: after frontend reload (crash, HMR), detect blank terminals on running sessions and reload output from log files via `read_session_log`
+- Add IPC timeout wrapper around `tauriInvoke` so deadlocked backends don't hang the UI forever
+- Add in-app toast fallback for system notifications (handles denied permission / revoked permission gracefully)
+
+#### H1.10 — Crash recovery and resilience
+
+After an unclean shutdown, the app marks sessions as "interrupted" but leaves zombie processes running, worktrees orphaned, and paused sessions lost.
+
+Tasks:
+- On startup, check `kill(pid, 0)` for PIDs of previously-running sessions to distinguish alive-but-disconnected from truly dead; kill orphan processes
+- Track clean/unclean shutdown with a sentinel file; on unclean restart, offer "restore sessions" vs. "start fresh"
+- Preserve paused session state across restart (currently reaped as "interrupted", losing the user's intent)
+- On startup, scan worktree directory for entries with no matching DB session and clean them up
+- Add database backup before running schema migrations
+- Persist `editorStore` (open tabs) and active session selection to survive restarts
+
+**Suggested execution order (hardening):** H1.6 (PTY — most critical, unlocks everything) → H1.7 (DB — prevents bricking) → H1.9 (frontend — user-facing) → H1.8 (GitHub — needed before H1.1 CI polling) → H1.10 (recovery — polish)
+
+#### H1.11 — First-run experience and prerequisites
+
+A new user launches the app, adds a repo, creates a session — and claude isn't installed. The session silently fails. There is no onboarding, no prerequisite validation, no guided setup. This is the single biggest adoption barrier.
+
+Tasks:
+- Add startup prerequisite check: detect `claude`, `git`, `gh` in PATH; show clear ✓/✗ status with install instructions for missing tools
+- Validate GitHub auth on first repo add: test API call before cloning to surface auth errors early (not after a 30s clone)
+- Add first-launch onboarding dialog: prerequisites → connect repo → create first session → explain the board columns
+- Improve empty board state: replace generic "No sessions yet" with workflow explanation ("A session runs claude in an isolated worktree. 1. Connect a repo → 2. Create a session → 3. Watch Claude work → 4. Review and ship")
+- Show tooltips on status badges and column headers for first-time discoverability
+- Add "?" help icon in sidebar linking to a keyboard shortcuts overlay (Cmd+K, Cmd+1/2/3, Esc)
+
+#### H1.12 — Session creation UX polish
+
+Session creation works but hides important decisions from the user: no branch name preview, no prompt preview, a 1.2s forced delay on success, and no progress indicator for slow operations (worktree creation can take 30+ seconds on large repos).
+
+Tasks:
+- Show branch name preview below the prompt field so user knows what will be created
+- Show progress steps during creation: "Creating worktree…" → "Spawning session…" → "Done" instead of a spinner with no context
+- Replace forced 1.2s success delay with immediate close + toast notification ("Session 'fix-auth-bug' created")
+- Make worktree conflict a first-class UX choice: radio button "Keep existing worktree / Replace" instead of error → force-retry flow
+- Auto-populate issue body into the prompt when linking an issue (currently only the URL is passed — Claude doesn't see the issue content unless it fetches it)
+- Add keyboard shortcut to open NewSessionModal (e.g., Cmd+N)
+- Validate prompt is non-empty before enabling submit (currently shows error after click)
+
+#### H1.13 — Reply and decision UX
+
+When a session is waiting, the user has no context about what Claude needs without reading raw terminal output. The quick reply on the board card is a 1-line input with no surrounding context. The detail view has no dedicated reply interface — just the raw terminal.
+
+Tasks:
+- Add "waiting context" panel in SessionDetail: when status is `waiting`, show the last 5-10 lines of terminal output above a reply input, visually separated from the full terminal
+- Expand quick reply on KanbanCard to support multi-line input (textarea, not single-line input)
+- Show `lastMessage` on the card when populated (currently field exists but shows nothing — prerequisite: H1.4 populates it)
+- Add "Jump to next waiting session" keyboard shortcut (e.g., Cmd+J) — cycles through waiting sessions without going back to the board
+- Show typing/sending indicator when reply is being transmitted to the PTY
+- Add reply error feedback: if `writeToSession` fails, show inline error instead of console.log
+
+#### H1.14 — Review and ship UX
+
+After Claude finishes, the user must manually stage files, write a commit message (auto-filled with just the session name), push, then leave the app to create a PR on GitHub. There is no diff viewer — clicking a changed file opens the full file in a read-only editor with no diff highlighting.
+
+Tasks:
+- Add inline diff viewer for changed files: click a file in GitChangesPanel → show unified or side-by-side diff (not just the full file). Use CodeMirror merge extension or similar.
+- Smart commit message: extract Claude's suggested commit message from terminal output (look for conventional commit patterns) and pre-fill; fall back to session name
+- Separate "Commit" and "Push" buttons (current single "Commit & Push" conflates two operations — some users want to review before pushing)
+- Add "Create PR" button in GitHubSidebar after push: auto-fill title from commit message, body from session prompt + issue link
+- Show git operation progress: "Staging… → Committing… → Pushing to origin/branch-name… → ✓ Done" with real-time feedback
+- Add discard confirmation: the "⟲" discard button on unstaged files is destructive with no confirmation dialog
+- Show file path breadcrumb in editor when viewing a changed file (currently just filename in tab, ambiguous with duplicate names)
+
+#### H1.15 — Diagnosis and recovery UX
+
+When a session is stuck or failed, the user sees a generic warning banner with no root cause info. Kill is the only recovery action and it's destructive (deletes worktree, loses partial changes). There is no retry, no log viewer, no error extraction.
+
+Tasks:
+- Extract error context from terminal output: parse last 10 lines for "Error:", "fatal:", exit codes; show structured error summary in the stuck/failed banner instead of generic "No output for >20min"
+- Add "View Full Log" button in SessionDetail: opens `~/.toomanytabs/logs/{id}/stdout.log` in the code editor or downloads it
+- Add "Retry" action for failed sessions: re-spawn with same prompt and worktree (don't delete worktree on failure)
+- Add "Save Patch" option before kill: generate `git diff` and save to clipboard or file so partial work isn't lost
+- Improve kill confirmation: use a modal dialog with session name and warning about data loss, not inline button swap (easy to accidentally confirm)
+- Add session elapsed time display in the header (total time since creation, not just "state changed X ago")
+- Differentiate "stuck waiting for input" from "stuck hung process" using PTY activity heuristics (if PTY is readable but no output → likely waiting; if PTY read blocks → process may be hung)
+
+#### H1.16 — Navigation and settings
+
+Keyboard shortcuts are undiscoverable (hardcoded in App.tsx, documented only in CLAUDE.md). There is no settings page — theme toggle and sound toggle are buried in the sidebar. The command palette doesn't show session status, making it useless for triaging.
+
+Tasks:
+- Add settings modal (gear icon in sidebar): appearance (theme), notifications (sound, system notifications, per-type toggle), editor (terminal font size, scrollback lines), shortcuts reference
+- Show session status indicator in CommandPalette results: colored dot or badge next to each session name so users can triage while searching
+- Add terminal font size control: Cmd+= / Cmd+- to zoom, persisted to uiStore (currently hardcoded 13px)
+- Add sidebar collapse/expand toggle button (currently only via keyboard or resize to 0)
+- Add right panel collapse/expand toggle button in SessionDetail header
+- Add "Keyboard Shortcuts" overlay (Cmd+? or from settings) showing all available shortcuts
+- Add Cmd+N shortcut for new session, Cmd+J for next waiting session
+
+#### H1.17 — Consistent loading and error states
+
+Error handling varies wildly across the app: some errors are silently caught, some toast, some show inline red text. Loading states use a mix of skeletons, spinners, "Loading…" text, and nothing. Users can't predict what happened when something fails.
+
+Tasks:
+- Standardise error display: define 3 tiers — inline (form validation), toast (operation failure with retry), modal (critical/blocking). Audit all `.catch()` blocks and replace silent catches with appropriate tier.
+- Standardise loading indicators: use skeleton cards for board loading, spinner+label for async operations (git, GitHub API), disabled+loading text for buttons. Remove bare "Loading…" text strings.
+- Add retry buttons on all retryable errors: GitHub API failures (toast with "Retry"), git operation failures (inline with "Try again"), session spawn failures (modal with "Retry" or "Cancel")
+- Add empty state illustrations/icons: replace plain text empty states ("No changes", "Empty directory", "No sessions yet") with subtle icons and action-oriented copy
+- Add error boundary recovery: ErrorBoundary's "Try again" button should reload the component tree, not just dismiss the error
+
+**Suggested execution order (UX):** H1.11 (onboarding — first thing every new user hits) → H1.17 (consistency — improves all other UX work) → H1.12 (creation — most common flow) → H1.13 (reply — core workflow) → H1.14 (review/ship — biggest differentiator) → H1.15 (diagnosis — needed as usage grows) → H1.16 (settings — polish)
+
 ---
 
 ### Horizon 2 — Make decisions instant
