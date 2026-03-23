@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { timeAgo } from "../lib/utils";
-import { killSession as tauriKillSession } from "../lib/tauri";
+import { killSession as tauriKillSession, fetchIssues, fetchPRs } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
 import { useEditorStore } from "../stores/editorStore";
 import { useUIStore } from "../stores/uiStore";
@@ -10,6 +10,8 @@ import { EditorTabs } from "./EditorTabs";
 import { RightPanel } from "./RightPanel";
 import { ResizeHandle } from "./ResizeHandle";
 import { ReviewComments } from "./ReviewComments";
+import { GitHubDetailView } from "./GitHubDetailView";
+import type { GitHubIssue, GitHubPR } from "../lib/types";
 
 const STATUS_PILL: Record<string, string> = {
   waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
@@ -18,9 +20,12 @@ const STATUS_PILL: Record<string, string> = {
   done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
   completed: "bg-green-200/60 text-green-600 ring-1 ring-green-300/30 dark:bg-green-900/30 dark:text-green-400 dark:ring-green-700/30",
   failed: "bg-red-200/60 text-red-600 ring-1 ring-red-300/30 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-700/30",
+  killed: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
   paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
   stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
 };
+
+type CenterTab = "terminal" | "editor" | "github";
 
 interface SessionDetailProps {
   sessionId: string;
@@ -30,7 +35,6 @@ interface SessionDetailProps {
 export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const updateSession = useSessionStore((s) => s.updateSession);
-  const removeSession = useSessionStore((s) => s.removeSession);
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const contents = useEditorStore((s) => s.contents);
@@ -41,22 +45,46 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
   const [hasCommitted, setHasCommitted] = useState(false);
   const [showKillConfirm, setShowKillConfirm] = useState(false);
-  // "terminal" means Claude tab is active; otherwise activeTabId from editor store
-  const [centerTab, setCenterTab] = useState<"terminal" | "editor">("terminal");
+  const [centerTab, setCenterTab] = useState<CenterTab>("terminal");
 
-  // When a file tab is clicked in EditorTabs (which calls store.setActiveTab),
-  // automatically switch center panel to editor mode
+  // GitHub data for the detail tab
+  const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
+  const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
+
+  const hasGitHubLink = !!(session?.linkedIssue || session?.linkedPR);
+
+  // Fetch linked issue/PR data
+  useEffect(() => {
+    if (!session?.repoId) return;
+    if (session.linkedIssue) {
+      fetchIssues(session.repoId)
+        .then((issues) => {
+          const found = issues.find((i) => i.number === session.linkedIssue!.number);
+          if (found) setGhIssue(found);
+        })
+        .catch(() => {});
+    }
+    if (session.linkedPR) {
+      fetchPRs(session.repoId)
+        .then((prs) => {
+          const found = prs.find((p) => p.number === session.linkedPR!.number);
+          if (found) setGhPR(found);
+        })
+        .catch(() => {});
+    }
+  }, [session?.repoId, session?.linkedIssue, session?.linkedPR]);
+
+  // When a file tab is clicked, switch to editor mode
   const prevTabId = useRef(activeTabId);
   useEffect(() => {
     if (activeTabId && activeTabId !== prevTabId.current) {
       setCenterTab("editor");
     }
-    // If all tabs closed, switch back to terminal
-    if (!activeTabId && tabs.length === 0) {
+    if (!activeTabId && tabs.length === 0 && centerTab === "editor") {
       setCenterTab("terminal");
     }
     prevTabId.current = activeTabId;
-  }, [activeTabId, tabs.length]);
+  }, [activeTabId, tabs.length, centerTab]);
 
   const handleRightResize = useCallback(
     (delta: number) => {
@@ -78,7 +106,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     if (!session) return;
     try {
       await tauriKillSession(session.id);
-      removeSession(session.id);
+      updateSession(session.id, { status: "killed", stateChangedAt: Date.now() });
       onBack();
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to kill session:", err);
@@ -91,14 +119,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     updateSession(session.id, { status: "done", stateChangedAt: Date.now() });
   }
 
-  function handleSelectTerminal() {
-    setCenterTab("terminal");
-  }
-
-  const isTerminalActive = centerTab === "terminal";
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeContent = activeTabId ? contents[activeTabId] : null;
-  const showEditor = !isTerminalActive && activeTab != null && activeContent != null;
+  const showEditor = centerTab === "editor" && activeTab != null && activeContent != null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -169,25 +192,47 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
       {/* Main IDE area */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Center panel: unified tab bar + content */}
+        {/* Center panel */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Unified tab bar: Claude (pinned) + file tabs */}
+          {/* Unified tab bar */}
           <EditorTabs
-            terminalActive={isTerminalActive}
-            onSelectTerminal={handleSelectTerminal}
+            terminalActive={centerTab === "terminal"}
+            onSelectTerminal={() => setCenterTab("terminal")}
             sessionStatus={session.status}
+            hasGitHubTab={hasGitHubLink}
+            githubActive={centerTab === "github"}
+            onSelectGitHub={() => setCenterTab("github")}
+            githubLabel={
+              session.linkedIssue
+                ? `Issue #${session.linkedIssue.number}`
+                : session.linkedPR
+                  ? `PR #${session.linkedPR.number}`
+                  : undefined
+            }
           />
 
-          {/* Content area */}
-          <div className="flex-1 overflow-hidden">
-            {/* Terminal is always mounted but hidden when not active, to preserve state */}
-            <div className={isTerminalActive ? "h-full" : "hidden"}>
-              <TerminalPanel sessionId={session.id} sessionStatus={session.status} />
+          {/* Content area — relative container for visibility-based hiding */}
+          <div className="relative flex-1 overflow-hidden">
+            {/* Terminal — always mounted; uses visibility:hidden instead of display:none
+                so xterm keeps valid dimensions. IntersectionObserver auto-pauses rendering. */}
+            <div
+              className={
+                centerTab === "terminal"
+                  ? "absolute inset-0"
+                  : "invisible absolute inset-0"
+              }
+            >
+              <TerminalPanel sessionId={session.id} sessionStatus={session.status} visible={centerTab === "terminal"} />
             </div>
 
-            {/* Code editor shown when a file tab is active */}
+            {/* GitHub detail view */}
+            {centerTab === "github" && (
+              <GitHubDetailView issue={ghIssue} pr={ghPR} />
+            )}
+
+            {/* Code editor */}
             {showEditor && (
-              <div className={!isTerminalActive ? "h-full" : "hidden"}>
+              <div className="h-full">
                 <CodeEditor
                   content={activeContent}
                   language={activeTab.language}
@@ -198,7 +243,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             )}
 
             {/* No file selected fallback */}
-            {!isTerminalActive && !showEditor && (
+            {centerTab === "editor" && !showEditor && (
               <div className="flex h-full items-center justify-center bg-[#0d1117]">
                 <p className="text-sm text-gray-500">No file open</p>
               </div>
@@ -206,7 +251,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           </div>
         </div>
 
-        {/* Right panel resize handle + right panel */}
+        {/* Right panel */}
         {!rightPanelCollapsed && (
           <>
             <ResizeHandle direction="horizontal" onResize={handleRightResize} />

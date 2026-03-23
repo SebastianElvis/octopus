@@ -1,4 +1,4 @@
-export type SessionStatus = "waiting" | "running" | "idle" | "done" | "completed" | "failed" | "paused" | "stuck";
+export type SessionStatus = "waiting" | "running" | "idle" | "done" | "completed" | "failed" | "killed" | "paused" | "stuck";
 export type BlockType = "decision" | "review" | "confirm";
 
 /** Raw session shape returned by the Tauri backend (camelCase of Rust fields). */

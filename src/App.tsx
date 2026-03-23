@@ -4,7 +4,6 @@ import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
 import { RepoSettings } from "./components/RepoSettings";
 import { IssueBacklog } from "./components/IssueBacklog";
-import { SessionsView } from "./components/SessionsView";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { SidebarTree } from "./components/SidebarTree";
@@ -19,7 +18,7 @@ import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
 
-type View = "home" | "session" | "repos" | "tasks" | "sessions";
+type View = "home" | "session" | "repos" | "tasks";
 
 function App() {
   const [view, setView] = useState<View>("home");
@@ -238,12 +237,6 @@ function App() {
                 badge={openIssueCount > 0 ? openIssueCount : undefined}
                 onClick={() => setView("tasks")}
               />
-              <NavItem
-                label="Sessions"
-                active={view === "sessions"}
-                badge={sessions.length > 0 ? sessions.length : undefined}
-                onClick={() => setView("sessions")}
-              />
               <NavItem label="Repos" active={view === "repos"} onClick={() => setView("repos")} />
             </nav>
 
@@ -262,39 +255,42 @@ function App() {
         </>
       )}
 
-      {/* Main content */}
-      <main className={`flex-1 overflow-hidden ${view === "home" ? "flex flex-col" : ""}`}>
+      {/* Main content — uses relative container so hidden views can be absolutely positioned */}
+      <main className="relative flex-1 overflow-hidden">
         <ErrorBoundary>
           {view === "home" && (
-            <DispatchBoard
-              onViewSession={handleViewSession}
-              onNewSession={() => setShowNewSession(true)}
-            />
+            <div className="flex h-full flex-col">
+              <DispatchBoard
+                onViewSession={handleViewSession}
+                onNewSession={() => setShowNewSession(true)}
+              />
+            </div>
           )}
-          {isSessionView && (
-            <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
+          {/* SessionDetail: kept mounted with visibility:hidden to preserve xterm state.
+              xterm's IntersectionObserver auto-pauses rendering when not visible. */}
+          {activeSessionId && (
+            <div
+              className={
+                isSessionView
+                  ? "absolute inset-0 flex flex-col overflow-hidden"
+                  : "invisible absolute inset-0 overflow-hidden"
+              }
+            >
+              <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
+            </div>
           )}
           {view === "repos" && (
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="h-full overflow-y-auto p-6">
               <RepoSettings />
             </div>
           )}
           {view === "tasks" && (
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="h-full overflow-y-auto p-6">
               <IssueBacklog
                 repos={repos}
                 onSelectIssue={handleSelectIssue}
                 onSelectPR={handleSelectPR}
                 onNavigateSettings={() => setView("repos")}
-              />
-            </div>
-          )}
-          {view === "sessions" && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <SessionsView
-                onViewSession={handleViewSession}
-                onNewSession={() => setShowNewSession(true)}
-                onManageRepos={() => setView("repos")}
               />
             </div>
           )}
@@ -336,7 +332,7 @@ function NavItem({
   return (
     <button
       onClick={onClick}
-      className={`flex items-center justify-between rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+      className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors ${
         active
           ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
           : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200"

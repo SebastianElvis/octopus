@@ -8,6 +8,7 @@ const STATUS_DOT: Record<string, string> = {
   done: "bg-gray-300 dark:bg-gray-600",
   completed: "bg-green-400 dark:bg-green-600",
   failed: "bg-red-400 dark:bg-red-600",
+  killed: "bg-gray-400 dark:bg-gray-600",
   paused: "bg-gray-400",
   stuck: "bg-orange-500",
 };
@@ -51,10 +52,6 @@ export function SidebarTree({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <div className="mb-1 px-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-600">
-        Sessions
-      </div>
-
       {repos.map((repo) => {
         const repoSessions = sessionsByRepo.get(repo.id) ?? [];
         const isExpanded = expandedRepos.has(repo.id);
