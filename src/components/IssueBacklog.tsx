@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import type { GitHubIssue, GitHubPR, Repo, LabelInfo } from "../lib/types";
 import { fetchIssues, fetchPRs } from "../lib/tauri";
 import { formatError } from "../lib/errors";
@@ -66,6 +66,19 @@ export function IssueBacklog({
   const [search, setSearch] = useState("");
   const [selectedRepo, setSelectedRepo] = useState<string>("all");
   const [selectedLabel, setSelectedLabel] = useState<string>("all");
+  const [labelDropdownOpen, setLabelDropdownOpen] = useState(false);
+  const labelDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close label dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (labelDropdownRef.current && !labelDropdownRef.current.contains(e.target as Node)) {
+        setLabelDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   const hasRepos = repos.length > 0;
 
@@ -150,13 +163,15 @@ export function IssueBacklog({
     };
   }, [hasRepos, repos]);
 
-  // Collect all unique labels for the label filter
+  // Collect all unique labels (with color) for the label filter
   const allLabels = useMemo(() => {
-    const set = new Set<string>();
+    const map = new Map<string, LabelInfo>();
     for (const item of items) {
-      for (const l of item.labels) set.add(l.name);
+      for (const l of item.labels) {
+        if (!map.has(l.name)) map.set(l.name, l);
+      }
     }
-    return Array.from(set).sort();
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [items]);
 
   const filtered = useMemo(() => {
@@ -266,19 +281,48 @@ export function IssueBacklog({
 
         {/* Label filter */}
         {allLabels.length > 0 && (
-          <select
-            value={selectedLabel}
-            onChange={(e) => setSelectedLabel(e.target.value)}
-            className="appearance-none rounded-lg border border-gray-200 bg-white py-1.5 pl-3 pr-8 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600 dark:focus:border-blue-500"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 0.5rem center" }}
-          >
-            <option value="all">All labels</option>
-            {allLabels.map((l) => (
-              <option key={l} value={l}>
-                {l}
-              </option>
-            ))}
-          </select>
+          <div className="relative" ref={labelDropdownRef}>
+            <button
+              onClick={() => setLabelDropdownOpen((o) => !o)}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white py-1.5 pl-3 pr-8 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600 dark:focus:border-blue-500"
+              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 0.5rem center" }}
+            >
+              {selectedLabel === "all" ? (
+                "All labels"
+              ) : (
+                <>
+                  <span
+                    className="inline-block h-3 w-3 rounded-full"
+                    style={{ backgroundColor: `#${allLabels.find((l) => l.name === selectedLabel)?.color ?? "ccc"}` }}
+                  />
+                  {selectedLabel}
+                </>
+              )}
+            </button>
+            {labelDropdownOpen && (
+              <div className="absolute left-0 z-50 mt-1 max-h-64 min-w-[10rem] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <button
+                  onClick={() => { setSelectedLabel("all"); setLabelDropdownOpen(false); }}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedLabel === "all" ? "font-medium text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300"}`}
+                >
+                  All labels
+                </button>
+                {allLabels.map((l) => (
+                  <button
+                    key={l.name}
+                    onClick={() => { setSelectedLabel(l.name); setLabelDropdownOpen(false); }}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedLabel === l.name ? "font-medium text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300"}`}
+                  >
+                    <span
+                      className="inline-block h-3 w-3 flex-shrink-0 rounded-full border border-black/10"
+                      style={{ backgroundColor: `#${l.color}` }}
+                    />
+                    {l.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         )}
       </div>
 
