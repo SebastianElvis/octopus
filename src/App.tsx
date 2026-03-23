@@ -4,6 +4,7 @@ import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
 import { RepoSettings } from "./components/RepoSettings";
 import { IssueBacklog } from "./components/IssueBacklog";
+import { SessionsView } from "./components/SessionsView";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { SidebarTree } from "./components/SidebarTree";
@@ -18,10 +19,10 @@ import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
 
-type View = "board" | "session" | "repos" | "issues";
+type View = "home" | "session" | "repos" | "tasks" | "sessions";
 
 function App() {
-  const [view, setView] = useState<View>("board");
+  const [view, setView] = useState<View>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
   const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
@@ -161,7 +162,7 @@ function App() {
   }
 
   function handleBack() {
-    setView("board");
+    setView("home");
     setActiveSessionId(null);
   }
 
@@ -223,19 +224,25 @@ function App() {
             {/* Nav */}
             <nav className="flex shrink-0 flex-col gap-0.5 px-2">
               <NavItem
-                label="Board"
-                active={view === "board"}
+                label="Home"
+                active={view === "home" || view === "session"}
                 badge={waitingCount > 0 ? waitingCount : undefined}
                 onClick={() => {
-                  setView("board");
+                  setView("home");
                   setActiveSessionId(null);
                 }}
               />
               <NavItem
-                label="Issues"
-                active={view === "issues"}
+                label="Tasks"
+                active={view === "tasks"}
                 badge={openIssueCount > 0 ? openIssueCount : undefined}
-                onClick={() => setView("issues")}
+                onClick={() => setView("tasks")}
+              />
+              <NavItem
+                label="Sessions"
+                active={view === "sessions"}
+                badge={sessions.length > 0 ? sessions.length : undefined}
+                onClick={() => setView("sessions")}
               />
               <NavItem label="Repos" active={view === "repos"} onClick={() => setView("repos")} />
             </nav>
@@ -256,15 +263,13 @@ function App() {
       )}
 
       {/* Main content */}
-      <main className="flex flex-1 flex-col overflow-hidden">
+      <main className={`flex-1 overflow-hidden ${view === "home" ? "flex flex-col" : ""}`}>
         <ErrorBoundary>
-          {view === "board" && (
-            <div className="flex-1 overflow-y-auto p-6">
-              <DispatchBoard
-                onViewSession={handleViewSession}
-                onNewSession={() => setShowNewSession(true)}
-              />
-            </div>
+          {view === "home" && (
+            <DispatchBoard
+              onViewSession={handleViewSession}
+              onNewSession={() => setShowNewSession(true)}
+            />
           )}
           {isSessionView && (
             <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
@@ -274,13 +279,22 @@ function App() {
               <RepoSettings />
             </div>
           )}
-          {view === "issues" && (
+          {view === "tasks" && (
             <div className="flex-1 overflow-y-auto p-6">
               <IssueBacklog
                 repos={repos}
                 onSelectIssue={handleSelectIssue}
                 onSelectPR={handleSelectPR}
                 onNavigateSettings={() => setView("repos")}
+              />
+            </div>
+          )}
+          {view === "sessions" && (
+            <div className="flex-1 overflow-y-auto p-6">
+              <SessionsView
+                onViewSession={handleViewSession}
+                onNewSession={() => setShowNewSession(true)}
+                onManageRepos={() => setView("repos")}
               />
             </div>
           )}
