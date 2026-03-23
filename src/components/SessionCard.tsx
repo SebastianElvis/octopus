@@ -31,9 +31,10 @@ interface SessionCardProps {
   onReply?: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
+  onKill?: (id: string) => void;
 }
 
-export function SessionCard({ session, onView, onReply, onInterrupt, onResume }: SessionCardProps) {
+export function SessionCard({ session, onView, onReply, onInterrupt, onResume, onKill }: SessionCardProps) {
   return (
     <div className="flex overflow-hidden rounded-lg border border-gray-200 bg-white transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
       {/* Accent bar */}
@@ -128,6 +129,14 @@ export function SessionCard({ session, onView, onReply, onInterrupt, onResume }:
           >
             View
           </button>
+          {onKill && (
+            <button
+              onClick={() => onKill(session.id)}
+              className="rounded-md border border-red-300 px-2.5 py-1 text-xs font-medium text-red-600 hover:border-red-400 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30"
+            >
+              Kill
+            </button>
+          )}
 
           {(session.linkedIssue ?? session.linkedPR) && (
             <div className="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-gray-600">

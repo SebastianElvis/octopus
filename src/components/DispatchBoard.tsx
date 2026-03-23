@@ -1,7 +1,7 @@
-import { useEffect, useCallback, type ReactNode } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { SessionCard } from "./SessionCard";
-import { checkStuckSessions } from "../lib/tauri";
+import { checkStuckSessions, killSession as tauriKillSession } from "../lib/tauri";
 
 interface DispatchBoardProps {
   onViewSession: (id: string) => void;
@@ -42,16 +42,34 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     return () => clearInterval(interval);
   }, [markStuck]);
 
+  const removeSession = useSessionStore((s) => s.removeSession);
+  const [killConfirmId, setKillConfirmId] = useState<string | null>(null);
+
   function handleReply(id: string) {
     onViewSession(id);
   }
 
   function handleInterrupt(id: string) {
-    updateSession(id, { status: "idle", stateChangedAt: Date.now() });
+    onViewSession(id);
   }
 
   function handleResume(id: string) {
     onViewSession(id);
+  }
+
+  function handleKill(id: string) {
+    setKillConfirmId(id);
+  }
+
+  async function confirmKill() {
+    if (!killConfirmId) return;
+    try {
+      await tauriKillSession(killConfirmId);
+      removeSession(killConfirmId);
+    } catch (err) {
+      console.error("[DispatchBoard] Failed to kill session:", err);
+    }
+    setKillConfirmId(null);
   }
 
   if (sessionsLoading) {
@@ -85,6 +103,29 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
 
   return (
     <div className="space-y-8">
+      {/* Kill confirmation dialog */}
+      {killConfirmId && (
+        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800/60 dark:bg-red-950/30">
+          <p className="text-sm text-red-700 dark:text-red-400">
+            Kill this session? The process will be terminated.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setKillConfirmId(null)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => { void confirmKill(); }}
+              className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-500"
+            >
+              Kill
+            </button>
+          </div>
+        </div>
+      )}
+
       <Zone
         title="Needs Input"
         count={waiting.length}
@@ -92,7 +133,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         empty="No sessions waiting for input."
       >
         {waiting.map((s) => (
-          <SessionCard key={s.id} session={s} onView={onViewSession} onReply={handleReply} />
+          <SessionCard key={s.id} session={s} onView={onViewSession} onReply={handleReply} onKill={handleKill} />
         ))}
       </Zone>
 
@@ -103,19 +144,20 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             session={s}
             onView={onViewSession}
             onInterrupt={handleInterrupt}
+            onKill={handleKill}
           />
         ))}
       </Zone>
 
       <Zone title="Paused" count={paused.length} accentColor="gray" empty="No paused sessions.">
         {paused.map((s) => (
-          <SessionCard key={s.id} session={s} onView={onViewSession} onResume={handleResume} />
+          <SessionCard key={s.id} session={s} onView={onViewSession} onResume={handleResume} onKill={handleKill} />
         ))}
       </Zone>
 
       <Zone title="Idle / Done" count={idle.length} accentColor="gray" empty="No idle sessions.">
         {idle.map((s) => (
-          <SessionCard key={s.id} session={s} onView={onViewSession} onResume={handleResume} />
+          <SessionCard key={s.id} session={s} onView={onViewSession} onResume={handleResume} onKill={handleKill} />
         ))}
       </Zone>
 

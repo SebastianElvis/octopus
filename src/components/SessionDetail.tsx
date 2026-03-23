@@ -4,6 +4,7 @@ import { timeAgo } from "../lib/utils";
 import {
   replyToSession,
   interruptSession,
+  killSession as tauriKillSession,
   pauseSession as tauriPauseSession,
   resumeSession as tauriResumeSession,
 } from "../lib/tauri";
@@ -32,9 +33,14 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const updateSession = useSessionStore((s) => s.updateSession);
 
+  const removeSession = useSessionStore((s) => s.removeSession);
+
   const [replyText, setReplyText] = useState("");
+  const [interruptText, setInterruptText] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [hasCommitted, setHasCommitted] = useState(false);
+  const [showKillConfirm, setShowKillConfirm] = useState(false);
 
   if (!session) {
     return (
@@ -62,11 +68,29 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   async function handleInterrupt() {
     if (!session) return;
     try {
-      await interruptSession(session.id);
-      updateSession(session.id, { status: "idle", stateChangedAt: Date.now() });
+      await interruptSession(session.id, interruptText.trim() || undefined);
+      setInterruptText("");
+      // Session continues running after interrupt — don't change status
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to interrupt session:", formatError(err));
     }
+  }
+
+  async function handleKill() {
+    if (!session) return;
+    try {
+      await tauriKillSession(session.id);
+      removeSession(session.id);
+      onBack();
+    } catch (err: unknown) {
+      console.error("[SessionDetail] Failed to kill session:", formatError(err));
+    }
+  }
+
+  function handleCommitted() {
+    if (!session) return;
+    setHasCommitted(true);
+    updateSession(session.id, { status: "done", stateChangedAt: Date.now() });
   }
 
   async function handlePause() {
@@ -106,6 +130,8 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       {/* Session header */}
       <SessionHeader
         session={session}
+        interruptText={interruptText}
+        onInterruptTextChange={setInterruptText}
         onInterrupt={() => {
           void handleInterrupt();
         }}
@@ -115,7 +141,34 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         onResume={() => {
           void handleResume();
         }}
+        onKill={() => setShowKillConfirm(true)}
       />
+
+      {/* Kill confirmation dialog */}
+      {showKillConfirm && (
+        <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-800/60 dark:bg-red-950/30">
+          <p className="text-sm text-red-700 dark:text-red-400">
+            Kill this session? The process will be terminated and the worktree cleaned up.
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowKillConfirm(false)}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setShowKillConfirm(false);
+                void handleKill();
+              }}
+              className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-500"
+            >
+              Kill Session
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stuck warning banner */}
       {session.status === "stuck" && (
@@ -158,7 +211,11 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         {/* Left column */}
         <div className="flex flex-col gap-4">
           <TerminalPanel sessionId={session.id} sessionStatus={session.status} />
-          <DiffPanel worktreePath={session.worktreePath} />
+          <DiffPanel
+            worktreePath={session.worktreePath}
+            sessionName={session.name}
+            onCommitted={handleCommitted}
+          />
         </div>
 
         {/* Right sidebar */}
@@ -168,6 +225,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           linkedPRNumber={session.linkedPR?.number}
           branch={session.branch}
           sessionName={session.name}
+          hasCommittedChanges={hasCommitted}
         />
       </div>
 
@@ -181,67 +239,99 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
 function SessionHeader({
   session,
+  interruptText,
+  onInterruptTextChange,
   onInterrupt,
   onPause,
   onResume,
+  onKill,
 }: {
   session: Session;
+  interruptText: string;
+  onInterruptTextChange: (v: string) => void;
   onInterrupt: () => void;
   onPause: () => void;
   onResume: () => void;
+  onKill: () => void;
 }) {
   return (
-    <div className="flex items-start justify-between rounded-lg border border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{session.name}</h1>
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_PILL[session.status]}`}
-          >
-            {session.status}
-          </span>
+    <div className="flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-start justify-between">
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{session.name}</h1>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_PILL[session.status]}`}
+            >
+              {session.status}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 text-sm text-gray-500">
+            <span>{session.repo}</span>
+            {session.branch && (
+              <>
+                <span className="text-gray-400 dark:text-gray-700">·</span>
+                <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+                  {session.branch}
+                </span>
+              </>
+            )}
+            <span className="text-gray-400 dark:text-gray-700">·</span>
+            <span className="text-xs">{timeAgo(session.stateChangedAt)}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-3 text-sm text-gray-500">
-          <span>{session.repo}</span>
-          {session.branch && (
+
+        <div className="flex items-center gap-2">
+          {session.status === "running" && (
             <>
-              <span className="text-gray-400 dark:text-gray-700">·</span>
-              <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
-                {session.branch}
-              </span>
+              <button
+                onClick={onPause}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
+              >
+                Pause
+              </button>
+              <button
+                onClick={onInterrupt}
+                className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-500"
+              >
+                Interrupt
+              </button>
             </>
           )}
-          <span className="text-gray-400 dark:text-gray-700">·</span>
-          <span className="text-xs">{timeAgo(session.stateChangedAt)}</span>
+          {session.status === "paused" && (
+            <button
+              onClick={onResume}
+              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+            >
+              Resume
+            </button>
+          )}
+          <button
+            onClick={onKill}
+            className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:border-red-400 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30"
+          >
+            Kill
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        {session.status === "running" && (
-          <>
-            <button
-              onClick={onPause}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
-            >
-              Pause
-            </button>
-            <button
-              onClick={onInterrupt}
-              className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-500"
-            >
-              Interrupt
-            </button>
-          </>
-        )}
-        {session.status === "paused" && (
-          <button
-            onClick={onResume}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
-          >
-            Resume
-          </button>
-        )}
-      </div>
+      {/* Interrupt message input — shown when running */}
+      {session.status === "running" && (
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={interruptText}
+            onChange={(e) => onInterruptTextChange(e.target.value)}
+            placeholder="Type a correction message and press Interrupt…"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                onInterrupt();
+              }
+            }}
+            className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-yellow-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+          />
+        </div>
+      )}
     </div>
   );
 }

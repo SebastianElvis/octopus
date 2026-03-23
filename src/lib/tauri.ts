@@ -8,7 +8,8 @@
  */
 
 import { isTauri } from "./env";
-import type { Session, Repo, GitHubIssue, GitHubPR, ReviewComment } from "./types";
+import type { Session, BackendSession, Repo, GitHubIssue, GitHubPR, ReviewComment } from "./types";
+import { mapBackendSession } from "./types";
 
 /** No-op unlisten stub for when Tauri is not available. */
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -48,7 +49,8 @@ export async function spawnSession(params: {
   force?: boolean;
 }): Promise<Session> {
   requireTauri("spawn_session");
-  return tauriInvoke<Session>("spawn_session", { params });
+  const raw = await tauriInvoke<BackendSession>("spawn_session", { params });
+  return mapBackendSession(raw);
 }
 
 export async function replyToSession(id: string, message: string): Promise<void> {
@@ -66,9 +68,9 @@ export async function resizeSession(id: string, rows: number, cols: number): Pro
   return tauriInvoke<void>("resize_session", { id, rows, cols });
 }
 
-export async function interruptSession(id: string): Promise<void> {
+export async function interruptSession(id: string, message?: string): Promise<void> {
   requireTauri("interrupt_session");
-  return tauriInvoke<void>("interrupt_session", { id });
+  return tauriInvoke<void>("interrupt_session", { id, message: message ?? null });
 }
 
 export async function killSession(id: string): Promise<void> {
@@ -78,12 +80,14 @@ export async function killSession(id: string): Promise<void> {
 
 export async function listSessions(): Promise<Session[]> {
   if (!isTauri()) return [];
-  return tauriInvoke<Session[]>("list_sessions");
+  const raw = await tauriInvoke<BackendSession[]>("list_sessions");
+  return raw.map(mapBackendSession);
 }
 
 export async function getSession(id: string): Promise<Session> {
   requireTauri("get_session");
-  return tauriInvoke<Session>("get_session", { id });
+  const raw = await tauriInvoke<BackendSession>("get_session", { id });
+  return mapBackendSession(raw);
 }
 
 export async function pauseSession(id: string): Promise<void> {
@@ -115,23 +119,38 @@ export async function createSessionFromReview(params: {
   commentIds: number[];
 }): Promise<Session> {
   requireTauri("create_session_from_review");
-  return tauriInvoke<Session>("create_session_from_review", { params });
+  const raw = await tauriInvoke<BackendSession>("create_session_from_review", {
+    repoId: params.repoId,
+    prNumber: params.prNumber,
+    commentIds: params.commentIds,
+  });
+  return mapBackendSession(raw);
 }
 
 // ── Worktree commands ────────────────────────────────────────────────────────
 
 export async function createWorktree(params: {
-  repoId: string;
+  repoLocalPath: string;
   branch: string;
-  baseBranch?: string;
+  sessionId: string;
+  force?: boolean;
 }): Promise<string> {
   requireTauri("create_worktree");
-  return tauriInvoke<string>("create_worktree", { params });
+  return tauriInvoke<string>("create_worktree", {
+    repoLocalPath: params.repoLocalPath,
+    branch: params.branch,
+    sessionId: params.sessionId,
+    force: params.force ?? null,
+  });
 }
 
-export async function removeWorktree(worktreePath: string): Promise<void> {
+export async function removeWorktree(
+  repoLocalPath: string,
+  worktreePath: string,
+  branch: string,
+): Promise<void> {
   requireTauri("remove_worktree");
-  return tauriInvoke<void>("remove_worktree", { worktreePath });
+  return tauriInvoke<void>("remove_worktree", { repoLocalPath, worktreePath, branch });
 }
 
 // ── Repo commands ────────────────────────────────────────────────────────────
@@ -175,7 +194,10 @@ export async function gitCommitAndPush(params: {
   message: string;
 }): Promise<void> {
   requireTauri("git_commit_and_push");
-  return tauriInvoke<void>("git_commit_and_push", { params });
+  return tauriInvoke<void>("git_commit_and_push", {
+    worktreePath: params.worktreePath,
+    commitMessage: params.message,
+  });
 }
 
 export async function createPR(params: {
@@ -185,7 +207,12 @@ export async function createPR(params: {
   body?: string;
 }): Promise<GitHubPR> {
   requireTauri("create_pr");
-  return tauriInvoke<GitHubPR>("create_pr", { params });
+  return tauriInvoke<GitHubPR>("create_pr", {
+    repoId: params.repoId,
+    headBranch: params.headBranch,
+    title: params.title,
+    body: params.body ?? null,
+  });
 }
 
 export async function getDiff(worktreePath: string): Promise<string> {
@@ -199,6 +226,10 @@ export type SessionStateChangedPayload = {
   session: Session;
 };
 
+type BackendSessionStateChangedPayload = {
+  session: BackendSession;
+};
+
 export type SessionOutputPayload = {
   sessionId: string;
   data: string;
@@ -209,9 +240,10 @@ export async function onSessionStateChanged(
   callback: (payload: SessionStateChangedPayload) => void,
 ): Promise<() => void> {
   if (!isTauri()) return noop;
-  return tauriListen("session-state-changed", (event) =>
-    callback(event.payload as SessionStateChangedPayload),
-  );
+  return tauriListen("session-state-changed", (event) => {
+    const raw = event.payload as BackendSessionStateChangedPayload;
+    callback({ session: mapBackendSession(raw.session) });
+  });
 }
 
 /** Returns a no-op unlisten function when outside Tauri. */

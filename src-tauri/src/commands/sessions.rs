@@ -438,13 +438,14 @@ pub async fn interrupt_session(
     Ok(())
 }
 
-/// Kill the process for a session and mark it stopped in the DB.
+/// Kill the process for a session, clean up worktree/branch, and remove from DB.
 #[tauri::command]
 pub async fn kill_session(
-    app: AppHandle,
+    _app: AppHandle,
     state: State<'_, AppState>,
     id: String,
 ) -> AppResult<()> {
+    // Kill the process
     {
         let mut map = state
             .processes
@@ -462,8 +463,50 @@ pub async fn kill_session(
         }
     }
 
-    update_session_status(&app, &id, "stopped")?;
-    emit_session_changed(&app, &id);
+    // Clean up last_output_at
+    if let Ok(mut lo) = state.last_output_at.lock() {
+        lo.remove(&id);
+    }
+
+    // Look up session info for worktree cleanup
+    let (worktree_path, branch, repo_id) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let result: Result<(Option<String>, Option<String>, Option<String>), _> = db.query_row(
+            "SELECT worktree_path, branch, repo_id FROM sessions WHERE id = ?1",
+            rusqlite::params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        );
+        result.unwrap_or((None, None, None))
+    };
+
+    // Remove worktree and delete branch
+    if let (Some(wt_path), Some(br), Some(rid)) = (worktree_path, branch, repo_id) {
+        if let Ok(repo_local_path) = lookup_repo_local_path(&state, &rid) {
+            if let Err(e) = crate::commands::worktree::remove_worktree(
+                repo_local_path,
+                wt_path,
+                br,
+            )
+            .await
+            {
+                log::warn!("Failed to clean up worktree for session {}: {}", id, e);
+            }
+        }
+    }
+
+    // Delete session from DB
+    {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        db.execute("DELETE FROM sessions WHERE id = ?1", rusqlite::params![id])?;
+    }
+
+    log::info!("Killed and removed session {}", id);
     Ok(())
 }
 
