@@ -186,6 +186,11 @@ function App() {
     setPrefillPR(null);
   }
 
+  function handleSessionCreated(_sessionId: string) {
+    setView("home");
+    setActiveSessionId(null);
+  }
+
   function dismissToast(id: string) {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }
@@ -302,6 +307,7 @@ function App() {
         <NewSessionModal
           repos={repos}
           onClose={handleCloseModal}
+          onCreated={handleSessionCreated}
           prefillRepo={prefillRepo ?? undefined}
           prefillIssue={prefillIssue ?? undefined}
           prefillPR={prefillPR ?? undefined}
