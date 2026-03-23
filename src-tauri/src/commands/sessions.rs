@@ -1,4 +1,5 @@
 use std::io::{Read as IoRead, Write as IoWrite};
+use std::path::Path;
 
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::{Deserialize, Serialize};
@@ -271,13 +272,21 @@ pub async fn spawn_session(
         last_output_map.insert(session_id.clone(), std::time::Instant::now());
     }
 
-    // Background thread: read PTY output, emit events, detect exit
+    // Background thread: read PTY output, emit events, log to file, detect exit
     let sid = session_id.clone();
     let app2 = app.clone();
+    let log_file_path = std::path::PathBuf::from(&log_path).join("stdout.log");
     std::thread::spawn(move || {
         let mut reader = reader;
         let mut child = child;
         let mut buf = [0u8; 4096];
+
+        // Open log file for appending (best-effort)
+        let mut log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_file_path)
+            .ok();
 
         loop {
             match reader.read(&mut buf) {
@@ -291,6 +300,10 @@ pub async fn spawn_session(
                             data,
                         },
                     );
+                    // Write raw bytes to log file
+                    if let Some(ref mut f) = log_file {
+                        let _ = f.write_all(&buf[..n]);
+                    }
                     // Update activity timestamp
                     let app_state = app2.state::<AppState>();
                     if let Ok(mut lo) = app_state.last_output_at.lock() {
@@ -566,14 +579,26 @@ pub async fn pause_session(
     Ok(())
 }
 
-/// Send SIGCONT to resume the session.
+/// Resume a session. If the process is still alive (paused), send SIGCONT.
+/// If the process is dead (interrupted/failed/stuck), re-spawn claude in
+/// the existing worktree.
 #[tauri::command]
 pub async fn resume_session(
     app: AppHandle,
     state: State<'_, AppState>,
     id: String,
 ) -> AppResult<()> {
-    {
+    // Check if process is still alive in memory
+    let has_process = {
+        let map = state
+            .processes
+            .lock()
+            .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+        map.contains_key(&id)
+    };
+
+    if has_process {
+        // Process alive — send SIGCONT (paused session)
         let map = state
             .processes
             .lock()
@@ -589,6 +614,155 @@ pub async fn resume_session(
             kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGCONT)
                 .map_err(|e| AppError::Custom(format!("failed to send SIGCONT: {}", e)))?;
         }
+    } else {
+        // Process dead — re-spawn claude in existing worktree
+        let session = {
+            let db = state
+                .db
+                .lock()
+                .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+            query_session_by_id(&db, &id)?
+        };
+
+        let worktree_path = session
+            .worktree_path
+            .as_deref()
+            .ok_or_else(|| AppError::Custom("session has no worktree path".to_string()))?;
+
+        // Validate worktree still exists
+        if !Path::new(worktree_path).is_dir() {
+            return Err(AppError::Custom(
+                "Worktree no longer exists. Session cannot be resumed.".to_string(),
+            ));
+        }
+
+        let log_path = session
+            .log_path
+            .as_deref()
+            .unwrap_or("");
+
+        // Create PTY
+        let pty_system = native_pty_system();
+        let pty_pair = pty_system
+            .openpty(PtySize {
+                rows: 24,
+                cols: 80,
+                pixel_width: 0,
+                pixel_height: 0,
+            })
+            .map_err(|e| AppError::Custom(format!("failed to create PTY: {}", e)))?;
+
+        let reader = pty_pair
+            .master
+            .try_clone_reader()
+            .map_err(|e| AppError::Custom(format!("failed to clone PTY reader: {}", e)))?;
+        let writer = pty_pair
+            .master
+            .take_writer()
+            .map_err(|e| AppError::Custom(format!("failed to take PTY writer: {}", e)))?;
+
+        // Spawn claude --continue in the existing worktree
+        let mut cmd = CommandBuilder::new("claude");
+        cmd.arg("--continue");
+        cmd.cwd(worktree_path);
+        cmd.env("TERM", "xterm-256color");
+
+        let child = pty_pair
+            .slave
+            .spawn_command(cmd)
+            .map_err(|e| AppError::Custom(format!("failed to spawn claude: {}", e)))?;
+
+        let pid = child.process_id().unwrap_or(0);
+        log::info!("Resumed session {} (pid {}) in PTY", id, pid);
+
+        drop(pty_pair.slave);
+
+        // Store PTY session in state
+        {
+            let mut map = state
+                .processes
+                .lock()
+                .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+            map.insert(
+                id.clone(),
+                PtySession {
+                    writer,
+                    pid,
+                    master: SendableMaster(pty_pair.master),
+                },
+            );
+        }
+
+        // Record initial last_output_at
+        {
+            let mut last_output_map = state
+                .last_output_at
+                .lock()
+                .map_err(|e| AppError::Custom(format!("last_output_at lock poisoned: {}", e)))?;
+            last_output_map.insert(id.clone(), std::time::Instant::now());
+        }
+
+        // Background thread: read PTY output, emit events, log to file
+        let sid = id.clone();
+        let app2 = app.clone();
+        let log_file_path = std::path::PathBuf::from(log_path).join("stdout.log");
+        std::thread::spawn(move || {
+            let mut reader = reader;
+            let mut child = child;
+            let mut buf = [0u8; 4096];
+
+            let mut log_file = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&log_file_path)
+                .ok();
+
+            loop {
+                match reader.read(&mut buf) {
+                    Ok(0) => break,
+                    Ok(n) => {
+                        let data = String::from_utf8_lossy(&buf[..n]).to_string();
+                        let _ = app2.emit(
+                            "session-output",
+                            SessionOutputPayload {
+                                session_id: sid.clone(),
+                                data,
+                            },
+                        );
+                        if let Some(ref mut f) = log_file {
+                            let _ = f.write_all(&buf[..n]);
+                        }
+                        let app_state = app2.state::<AppState>();
+                        if let Ok(mut lo) = app_state.last_output_at.lock() {
+                            lo.insert(sid.clone(), std::time::Instant::now());
+                        };
+                    }
+                    Err(e) => {
+                        log::error!("PTY read error for {}: {}", sid, e);
+                        break;
+                    }
+                }
+            }
+
+            let final_status = match child.wait() {
+                Ok(status) if status.success() => "completed",
+                _ => "failed",
+            };
+            log::info!("Session {} exited ({})", sid, final_status);
+
+            let app_state = app2.state::<AppState>();
+            if let Ok(mut map) = app_state.processes.lock() {
+                map.remove(&sid);
+            }
+            if let Ok(mut lo) = app_state.last_output_at.lock() {
+                lo.remove(&sid);
+            }
+
+            if let Err(e) = update_session_status(&app2, &sid, final_status) {
+                log::error!("Failed to update session {} status: {}", sid, e);
+            }
+            emit_session_changed(&app2, &sid);
+        });
     }
 
     update_session_status(&app, &id, "running")?;
@@ -658,4 +832,27 @@ pub async fn check_stuck_sessions(
     }
 
     Ok(stuck_ids)
+}
+
+/// Read the saved terminal output log for a session.
+#[tauri::command]
+pub async fn read_session_log(state: State<'_, AppState>, id: String) -> AppResult<String> {
+    let log_path = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let session = query_session_by_id(&db, &id)?;
+        session.log_path.unwrap_or_default()
+    };
+
+    if log_path.is_empty() {
+        return Ok(String::new());
+    }
+
+    let log_file = Path::new(&log_path).join("stdout.log");
+    match std::fs::read_to_string(&log_file) {
+        Ok(contents) => Ok(contents),
+        Err(_) => Ok(String::new()),
+    }
 }

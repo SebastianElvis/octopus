@@ -11,6 +11,7 @@ const STATUS_PILL: Record<string, string> = {
   killed: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
   paused: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
   stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
+  interrupted: "bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/30 dark:text-amber-400",
 };
 
 // Human-friendly labels for statuses
@@ -24,6 +25,7 @@ const STATUS_LABEL: Record<string, string> = {
   running: "running",
   paused: "paused",
   stuck: "stuck",
+  interrupted: "interrupted",
 };
 
 // GitHub-style left border color for closed sessions
@@ -33,6 +35,7 @@ const CLOSED_BORDER: Record<string, string> = {
   failed: "border-l-red-500",
   killed: "border-l-gray-400",
   idle: "border-l-gray-400",
+  interrupted: "border-l-amber-500",
 };
 
 const BLOCK_TYPE_PILL: Record<string, string> = {
@@ -136,7 +139,7 @@ export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: 
             Interrupt
           </button>
         )}
-        {(session.status === "idle" || session.status === "paused") && (
+        {(session.status === "idle" || session.status === "paused" || session.status === "interrupted") && (
           <button
             onClick={() => onResume?.(session.id)}
             className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-blue-500"

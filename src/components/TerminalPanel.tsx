@@ -4,7 +4,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { isTauri } from "../lib/env";
-import { onSessionOutput, writeToSession, resizeSession } from "../lib/tauri";
+import { onSessionOutput, writeToSession, resizeSession, readSessionLog } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
 import { useTauriEvent } from "../hooks/useTauriEvent";
 
@@ -82,8 +82,21 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
       for (const chunk of currentBuffer) {
         terminal.write(chunk);
       }
-    } else if (["done", "completed", "failed", "killed", "idle"].includes(sessionStatus)) {
-      terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
+    } else if (["done", "completed", "failed", "killed", "idle", "interrupted"].includes(sessionStatus)) {
+      // Try to replay saved log output
+      if (isTauri()) {
+        void readSessionLog(sessionId).then((log) => {
+          if (log) {
+            terminal.write(log);
+          } else {
+            terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
+          }
+        }).catch(() => {
+          terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
+        });
+      } else {
+        terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
+      }
     }
 
     // Handle terminal input → send to backend PTY

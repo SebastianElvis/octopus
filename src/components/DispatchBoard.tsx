@@ -14,7 +14,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   const updateSession = useSessionStore((s) => s.updateSession);
 
   const needsAttention = [...sessions.filter(
-    (s) => s.status === "waiting" || s.status === "paused" || s.status === "stuck",
+    (s) => s.status === "waiting" || s.status === "paused" || s.status === "stuck" || s.status === "interrupted",
   )].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
   const running = sessions.filter((s) => s.status === "running");
   const closed = sessions.filter(
@@ -112,7 +112,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             session={s}
             onView={onViewSession}
             onReply={s.status === "waiting" ? handleReply : undefined}
-            onResume={s.status === "paused" ? handleResume : undefined}
+            onResume={s.status === "paused" || s.status === "interrupted" ? handleResume : undefined}
           />
         ))}
       </Column>
