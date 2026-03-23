@@ -10,7 +10,7 @@ import {
 import { useSessionStore } from "../stores/sessionStore";
 import { formatError } from "../lib/errors";
 import { DiffPanel } from "./DiffPanel";
-import { OutputPanel } from "./OutputPanel";
+import { TerminalPanel } from "./TerminalPanel";
 import { GitHubSidebar } from "./GitHubSidebar";
 import { ReviewComments } from "./ReviewComments";
 
@@ -157,8 +157,8 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       <div className="grid grid-cols-[1fr_280px] gap-6">
         {/* Left column */}
         <div className="flex flex-col gap-4">
+          <TerminalPanel sessionId={session.id} sessionStatus={session.status} />
           <DiffPanel worktreePath={session.worktreePath} />
-          <OutputPanel sessionId={session.id} />
         </div>
 
         {/* Right sidebar */}

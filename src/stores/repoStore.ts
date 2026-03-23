@@ -1,14 +1,14 @@
 import { create } from "zustand";
 import type { Repo } from "../lib/types";
-import { listRepos, addRepo as tauriAddRepo } from "../lib/tauri";
+import { listRepos, addRepo as tauriAddRepo, removeRepo as tauriRemoveRepo } from "../lib/tauri";
 
 interface RepoState {
   repos: Repo[];
 
   // Actions
   loadRepos: () => Promise<void>;
-  addRepo: (githubUrl: string, localPath: string) => Promise<void>;
-  removeRepo: (id: string) => void;
+  addRepo: (githubUrl: string, localPath?: string) => Promise<void>;
+  removeRepo: (id: string) => Promise<void>;
 }
 
 export const useRepoStore = create<RepoState>((set) => ({
@@ -23,13 +23,15 @@ export const useRepoStore = create<RepoState>((set) => ({
     }
   },
 
-  addRepo: async (githubUrl: string, localPath: string) => {
+  addRepo: async (githubUrl: string, localPath?: string) => {
     const repo = await tauriAddRepo(githubUrl, localPath);
     set((state) => ({ repos: [...state.repos, repo] }));
   },
 
-  removeRepo: (id: string) =>
+  removeRepo: async (id: string) => {
+    await tauriRemoveRepo(id);
     set((state) => ({
       repos: state.repos.filter((r) => r.id !== id),
-    })),
+    }));
+  },
 }));

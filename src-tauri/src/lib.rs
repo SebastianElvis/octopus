@@ -7,10 +7,11 @@ use commands::github::{
     create_pr, create_session_from_review, fetch_issues, fetch_pr_review_comments, fetch_prs,
     get_github_token, git_commit_and_push,
 };
-use commands::repos::{add_repo, list_repos};
+use commands::repos::{add_repo, list_repos, remove_repo};
 use commands::sessions::{
     check_stuck_sessions, get_session, interrupt_session, kill_session, list_sessions,
-    pause_session, reply_to_session, resume_session, spawn_session,
+    pause_session, reply_to_session, resize_session, resume_session, spawn_session,
+    write_to_session,
 };
 use commands::worktree::{create_worktree, get_diff, remove_worktree};
 use state::AppState;
@@ -45,6 +46,8 @@ pub fn run() {
             // sessions
             spawn_session,
             reply_to_session,
+            write_to_session,
+            resize_session,
             interrupt_session,
             kill_session,
             list_sessions,
@@ -55,6 +58,7 @@ pub fn run() {
             // repos
             add_repo,
             list_repos,
+            remove_repo,
             // github
             get_github_token,
             fetch_issues,

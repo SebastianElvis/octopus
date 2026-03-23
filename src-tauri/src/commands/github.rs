@@ -11,15 +11,28 @@ use crate::state::AppState;
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct LabelInfo {
+    pub name: String,
+    pub color: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GitHubIssue {
     pub number: u64,
     pub title: String,
     pub body: Option<String>,
     pub state: String,
     pub html_url: String,
+    pub labels: Vec<LabelInfo>,
+    pub user: String,
+    pub comments: u64,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GitHubPR {
     pub number: u64,
     pub title: String,
@@ -28,6 +41,16 @@ pub struct GitHubPR {
     pub html_url: String,
     pub head_ref: String,
     pub base_ref: String,
+    pub user: String,
+    pub comments: u64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiLabel {
+    name: String,
+    color: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +60,13 @@ struct ApiIssue {
     body: Option<String>,
     state: String,
     html_url: String,
+    #[serde(default)]
+    labels: Vec<ApiLabel>,
+    user: ApiUser,
+    #[serde(default)]
+    comments: u64,
+    created_at: String,
+    updated_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -48,6 +78,11 @@ struct ApiPR {
     html_url: String,
     head: ApiRef,
     base: ApiRef,
+    user: ApiUser,
+    #[serde(default)]
+    comments: u64,
+    created_at: String,
+    updated_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -77,6 +112,7 @@ struct ApiUser {
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct ReviewComment {
     pub id: i64,
     pub body: String,
@@ -90,6 +126,21 @@ pub struct ReviewComment {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+fn lookup_github_url(state: &AppState, repo_id: &str) -> AppResult<String> {
+    let db = state
+        .db
+        .lock()
+        .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+    let url: String = db
+        .query_row(
+            "SELECT github_url FROM repos WHERE id = ?1",
+            rusqlite::params![repo_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| AppError::Custom(format!("repo not found: {}", repo_id)))?;
+    Ok(url)
+}
 
 fn parse_owner_repo(github_url: &str) -> AppResult<(String, String)> {
     // Handles:
@@ -171,7 +222,11 @@ pub async fn get_github_token() -> AppResult<String> {
 
 /// Fetch open issues for a repository via the GitHub REST API.
 #[tauri::command]
-pub async fn fetch_issues(github_url: String) -> AppResult<Vec<GitHubIssue>> {
+pub async fn fetch_issues(
+    state: State<'_, AppState>,
+    repo_id: String,
+) -> AppResult<Vec<GitHubIssue>> {
+    let github_url = lookup_github_url(&state, &repo_id)?;
     let token = get_github_token().await?;
     let (owner, repo) = parse_owner_repo(&github_url)?;
 
@@ -210,13 +265,22 @@ pub async fn fetch_issues(github_url: String) -> AppResult<Vec<GitHubIssue>> {
             body: i.body,
             state: i.state,
             html_url: i.html_url,
+            labels: i.labels.into_iter().map(|l| LabelInfo { name: l.name, color: l.color }).collect(),
+            user: i.user.login,
+            comments: i.comments,
+            created_at: i.created_at,
+            updated_at: i.updated_at,
         })
         .collect())
 }
 
 /// Fetch open pull requests for a repository via the GitHub REST API.
 #[tauri::command]
-pub async fn fetch_prs(github_url: String) -> AppResult<Vec<GitHubPR>> {
+pub async fn fetch_prs(
+    state: State<'_, AppState>,
+    repo_id: String,
+) -> AppResult<Vec<GitHubPR>> {
+    let github_url = lookup_github_url(&state, &repo_id)?;
     let token = get_github_token().await?;
     let (owner, repo) = parse_owner_repo(&github_url)?;
 
@@ -257,6 +321,10 @@ pub async fn fetch_prs(github_url: String) -> AppResult<Vec<GitHubPR>> {
             html_url: p.html_url,
             head_ref: p.head.ref_name,
             base_ref: p.base.ref_name,
+            user: p.user.login,
+            comments: p.comments,
+            created_at: p.created_at,
+            updated_at: p.updated_at,
         })
         .collect())
 }
@@ -373,6 +441,10 @@ pub async fn create_pr(
         html_url: api_pr.html_url,
         head_ref: api_pr.head.ref_name,
         base_ref: api_pr.base.ref_name,
+        user: api_pr.user.login,
+        comments: api_pr.comments,
+        created_at: api_pr.created_at,
+        updated_at: api_pr.updated_at,
     })
 }
 
@@ -461,9 +533,9 @@ pub async fn create_session_from_review(
     repo_id: String,
     pr_number: u64,
     comment_ids: Vec<i64>,
-) -> AppResult<String> {
+) -> AppResult<crate::commands::sessions::Session> {
     // Look up repo info
-    let (_github_url, worktree_path, default_branch) = {
+    let (_github_url, _worktree_path, default_branch) = {
         let db = state
             .db
             .lock()
@@ -513,16 +585,16 @@ pub async fn create_session_from_review(
     let branch = default_branch.clone();
 
     // Delegate to spawn_session
-    crate::commands::sessions::spawn_session(
-        app,
-        state,
+    let params = crate::commands::sessions::SpawnSessionParams {
         repo_id,
-        session_name,
         branch,
         prompt,
-        worktree_path,
-    )
-    .await
+        name: Some(session_name),
+        issue_number: None,
+        pr_number: Some(pr_number as i64),
+        force: None,
+    };
+    crate::commands::sessions::spawn_session(app, state, params).await
 }
 
 #[cfg(test)]

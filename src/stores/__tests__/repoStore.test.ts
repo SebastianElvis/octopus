@@ -18,29 +18,47 @@ const makeRepo = (id: string): Repo => ({
 
 describe("repoStore", () => {
   describe("removeRepo", () => {
-    it("removes a repo by id", () => {
+    it("removes a repo by id", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+      const { invoke } = await import("@tauri-apps/api/core");
+      vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
       useRepoStore.setState({ repos: [makeRepo("r1"), makeRepo("r2")] });
-      useRepoStore.getState().removeRepo("r1");
+      await useRepoStore.getState().removeRepo("r1");
       const ids = useRepoStore.getState().repos.map((r) => r.id);
       expect(ids).not.toContain("r1");
       expect(ids).toContain("r2");
     });
 
-    it("is a no-op for unknown id", () => {
+    it("is a no-op for unknown id", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+      const { invoke } = await import("@tauri-apps/api/core");
+      vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
       useRepoStore.setState({ repos: [makeRepo("r1")] });
-      useRepoStore.getState().removeRepo("unknown");
+      await useRepoStore.getState().removeRepo("unknown");
       expect(useRepoStore.getState().repos).toHaveLength(1);
     });
 
-    it("results in empty list when last repo is removed", () => {
+    it("results in empty list when last repo is removed", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(true);
+      const { invoke } = await import("@tauri-apps/api/core");
+      vi.mocked(invoke).mockResolvedValueOnce(undefined);
+
       useRepoStore.setState({ repos: [makeRepo("r1")] });
-      useRepoStore.getState().removeRepo("r1");
+      await useRepoStore.getState().removeRepo("r1");
       expect(useRepoStore.getState().repos).toHaveLength(0);
     });
   });
 
   describe("loadRepos", () => {
     it("returns empty array when not in Tauri environment", async () => {
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(false);
+
       await useRepoStore.getState().loadRepos();
       expect(useRepoStore.getState().repos).toEqual([]);
     });

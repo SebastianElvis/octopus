@@ -20,18 +20,27 @@ export interface Session {
 export interface Repo {
   id: string;
   githubUrl: string;
-  localPath: string;
+  localPath: string | null;
   defaultBranch: string;
   addedAt: number;
+}
+
+export interface LabelInfo {
+  name: string;
+  color: string;
 }
 
 export interface GitHubIssue {
   number: number;
   title: string;
   body?: string;
-  labels: string[];
+  labels: LabelInfo[];
   state: "open" | "closed";
-  url: string;
+  htmlUrl: string;
+  user: string;
+  comments: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface GitHubPR {
@@ -39,9 +48,13 @@ export interface GitHubPR {
   title: string;
   body?: string;
   state: "open" | "closed" | "merged";
-  url: string;
-  headBranch: string;
-  ciStatus: "pending" | "success" | "failure" | "unknown";
+  htmlUrl: string;
+  headRef: string;
+  baseRef: string;
+  user: string;
+  comments: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ReviewComment {

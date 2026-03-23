@@ -1,9 +1,26 @@
 use std::collections::HashMap;
-use std::process::Child;
 use std::sync::Mutex;
 use std::time::Instant;
 
 use rusqlite::Connection;
+
+/// Wrapper to make `Box<dyn MasterPty>` Send.
+///
+/// SAFETY: On Unix (macOS / Linux), the concrete type `UnixMasterPty` wraps
+/// an `OwnedFd` (a plain integer) with no thread-local or non-Send state.
+/// We only target Unix platforms.
+pub struct SendableMaster(pub Box<dyn portable_pty::MasterPty>);
+unsafe impl Send for SendableMaster {}
+
+/// A running PTY-backed Claude Code session.
+pub struct PtySession {
+    /// Writer handle to send input to the terminal.
+    pub writer: Box<dyn std::io::Write + Send>,
+    /// Process ID (for sending signals: SIGINT, SIGSTOP, SIGCONT, SIGKILL).
+    pub pid: u32,
+    /// Master PTY handle (for resize).
+    pub master: SendableMaster,
+}
 
 /// Application-wide shared state, managed by Tauri.
 pub struct AppState {
@@ -11,8 +28,8 @@ pub struct AppState {
     /// shared safely across Tauri command handlers.
     pub db: Mutex<Connection>,
 
-    /// Map of session_id -> running child process.
-    pub processes: Mutex<HashMap<String, Child>>,
+    /// Map of session_id -> running PTY session.
+    pub processes: Mutex<HashMap<String, PtySession>>,
 
     /// Map of session_id -> last time stdout output was observed from the process.
     pub last_output_at: Mutex<HashMap<String, Instant>>,

@@ -3,12 +3,6 @@ import type { GitHubIssue, GitHubPR } from "../lib/types";
 import { fetchIssues, fetchPRs, createPR } from "../lib/tauri";
 import { formatError } from "../lib/errors";
 
-const CI_STATUS_PILL: Record<string, string> = {
-  success: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
-  failure: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
-  pending: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
-  unknown: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
-};
 
 interface GitHubSidebarProps {
   repoId?: string;
@@ -134,20 +128,28 @@ export function GitHubSidebar({
                 </span>
               </div>
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{issue.title}</p>
-              {issue.labels.length > 0 && (
+              {(issue.labels ?? []).length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {issue.labels.map((label) => (
-                    <span
-                      key={label}
-                      className="rounded-full bg-blue-500/20 px-2 py-0.5 text-xs text-blue-600 ring-1 ring-blue-500/30 dark:text-blue-400"
-                    >
-                      {label}
-                    </span>
-                  ))}
+                  {(issue.labels ?? []).map((label) => {
+                    const bg = `#${label.color}`;
+                    const r = parseInt(label.color.slice(0, 2), 16);
+                    const g = parseInt(label.color.slice(2, 4), 16);
+                    const b = parseInt(label.color.slice(4, 6), 16);
+                    const fg = (r * 299 + g * 587 + b * 114) / 1000 > 128 ? "#000" : "#fff";
+                    return (
+                      <span
+                        key={label.name}
+                        className="rounded-full px-2 py-0.5 text-xs font-medium"
+                        style={{ backgroundColor: bg, color: fg, border: `1px solid ${bg}40` }}
+                      >
+                        {label.name}
+                      </span>
+                    );
+                  })}
                 </div>
               )}
               <a
-                href={issue.url}
+                href={issue.htmlUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-2 block text-xs text-blue-600 hover:underline dark:text-blue-500"
@@ -192,15 +194,11 @@ export function GitHubSidebar({
                 </span>
               </div>
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{pr.title}</p>
-              <div className="mt-2 flex items-center gap-2">
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${CI_STATUS_PILL[pr.ciStatus]}`}
-                >
-                  CI: {pr.ciStatus}
-                </span>
+              <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
+                <span>{pr.headRef} → {pr.baseRef}</span>
               </div>
               <a
-                href={pr.url}
+                href={pr.htmlUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="mt-2 block text-xs text-blue-600 hover:underline dark:text-blue-500"

@@ -11,6 +11,7 @@ use crate::state::AppState;
 // ---------------------------------------------------------------------------
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct Repo {
     pub id: String,
     pub github_url: Option<String>,
@@ -93,18 +94,21 @@ pub async fn add_repo(
         let repos_dir = home.join(".toomanytabs").join("repos");
         std::fs::create_dir_all(&repos_dir)?;
 
-        let repo_name = github_url
-            .trim_end_matches(".git")
-            .rsplit('/')
-            .next()
-            .unwrap_or("repo")
-            .to_string();
-
-        let dest = repos_dir.join(&repo_name);
+        // Derive owner/repo from the URL to avoid duplication across orgs
+        let trimmed_url = github_url.trim_end_matches(".git").trim_end_matches('/');
+        let parts: Vec<&str> = trimmed_url.rsplit('/').take(2).collect();
+        let dest = if parts.len() >= 2 {
+            repos_dir.join(parts[1]).join(parts[0])
+        } else {
+            repos_dir.join(parts.first().unwrap_or(&"repo"))
+        };
 
         if dest.exists() {
             dest.to_string_lossy().to_string()
         } else {
+            if let Some(parent) = dest.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
             let dest_str = dest
                 .to_str()
                 .ok_or_else(|| AppError::Custom("non-UTF-8 path".to_string()))?;
@@ -150,6 +154,50 @@ pub async fn add_repo(
         default_branch: Some(default_branch),
         added_at: Some(now),
     })
+}
+
+/// Remove a repo from the database and optionally delete its local clone.
+#[tauri::command]
+pub async fn remove_repo(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    let local_path: Option<String> = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        db.query_row(
+            "SELECT local_path FROM repos WHERE id = ?1",
+            rusqlite::params![id],
+            |row| row.get(0),
+        )
+        .ok()
+    };
+
+    // Delete from database
+    {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        db.execute("DELETE FROM repos WHERE id = ?1", rusqlite::params![id])?;
+    }
+
+    // If the repo was cloned under ~/.toomanytabs/repos/, remove it
+    if let Some(ref path) = local_path {
+        let p = std::path::Path::new(path);
+        if let Some(home) = dirs::home_dir() {
+            let managed_dir = home.join(".toomanytabs").join("repos");
+            if p.starts_with(&managed_dir) && p.exists() {
+                if let Err(e) = std::fs::remove_dir_all(p) {
+                    log::warn!("Failed to remove repo directory {}: {}", path, e);
+                } else {
+                    log::info!("Removed repo directory {}", path);
+                }
+            }
+        }
+    }
+
+    log::info!("Removed repo {}", id);
+    Ok(())
 }
 
 /// Return all repos from the database.

@@ -31,7 +31,7 @@ describe("IssueBacklog", () => {
     );
 
     expect(getByText("No repos connected")).toBeInTheDocument();
-    expect(getByText("Go to Settings")).toBeInTheDocument();
+    expect(getByText("Add a Repo")).toBeInTheDocument();
   });
 
   it("renders loading state while fetching", () => {
@@ -48,7 +48,7 @@ describe("IssueBacklog", () => {
     );
 
     expect(getByText("Issue Backlog")).toBeInTheDocument();
-    expect(getByPlaceholderText("Search issues and PRs...")).toBeInTheDocument();
+    expect(getByPlaceholderText("Search by title, #number, label, or author...")).toBeInTheDocument();
   });
 
   it("renders issues when loaded", async () => {
@@ -57,16 +57,24 @@ describe("IssueBacklog", () => {
         number: 42,
         title: "Fix the login bug",
         body: "Login is broken",
-        labels: ["bug"],
+        labels: [{ name: "bug", color: "d73a4a" }],
         state: "open",
-        url: "https://github.com/owner/repo-1/issues/42",
+        htmlUrl: "https://github.com/owner/repo-1/issues/42",
+        user: "alice",
+        comments: 3,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-02T00:00:00Z",
       },
       {
         number: 43,
         title: "Add dark mode",
-        labels: ["enhancement"],
+        labels: [{ name: "enhancement", color: "a2eeef" }],
         state: "open",
-        url: "https://github.com/owner/repo-1/issues/43",
+        htmlUrl: "https://github.com/owner/repo-1/issues/43",
+        user: "bob",
+        comments: 0,
+        createdAt: "2026-01-01T00:00:00Z",
+        updatedAt: "2026-01-02T00:00:00Z",
       },
     ];
 

@@ -29,22 +29,12 @@ export function NewSessionModal({
   );
   const [url, setUrl] = useState("");
   const [prompt, setPrompt] = useState("");
-  const [baseBranch, setBaseBranch] = useState("");
-  const [branchName, setBranchName] = useState("");
-  const [sessionName, setSessionName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [worktreeConflict, setWorktreeConflict] = useState(false);
 
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [selectedIssue, setSelectedIssue] = useState<GitHubIssue | null>(null);
-
-  const selectedRepo = repos.find((r) => r.id === repoId);
-
-  useEffect(() => {
-    if (selectedRepo) {
-      setBaseBranch(selectedRepo.defaultBranch);
-    }
-  }, [selectedRepo]);
 
   useEffect(() => {
     if (repoId && sourceType === "issue") {
@@ -59,12 +49,6 @@ export function NewSessionModal({
   useEffect(() => {
     if (selectedIssue) {
       setPrompt(selectedIssue.body ?? "");
-      const slug = selectedIssue.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .slice(0, 40);
-      setBranchName(`issue-${selectedIssue.number}-${slug}`);
-      setSessionName(selectedIssue.title.slice(0, 60));
     }
   }, [selectedIssue]);
 
@@ -75,41 +59,58 @@ export function NewSessionModal({
     }
     if (prefillPR) {
       setPrompt(prefillPR.body ?? "");
-      const slug = prefillPR.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .slice(0, 40);
-      setBranchName(prefillPR.headBranch || `pr-${prefillPR.number}-${slug}`);
-      setSessionName(prefillPR.title.slice(0, 60));
     }
   }, [prefillIssue, prefillPR]);
 
-  useEffect(() => {
-    if (!selectedIssue && branchName === "") {
-      setBranchName(`session-${Date.now()}`);
+  function deriveBranchName(): string {
+    if (selectedIssue) {
+      const slug = selectedIssue.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .slice(0, 40);
+      return `issue-${selectedIssue.number}-${slug}`;
     }
-  }, [selectedIssue, branchName]);
+    if (prefillPR) {
+      return prefillPR.headRef || `pr-${prefillPR.number}`;
+    }
+    return `session-${Date.now()}`;
+  }
 
-  async function handleSubmit() {
-    if (!repoId || !prompt.trim() || !branchName.trim()) {
-      setError("Please fill in all required fields.");
+  function deriveSessionName(): string {
+    if (selectedIssue) return selectedIssue.title.slice(0, 60);
+    if (prefillPR) return prefillPR.title.slice(0, 60);
+    return prompt.trim().slice(0, 60) || `session-${Date.now()}`;
+  }
+
+  async function handleSubmit(force = false) {
+    if (!repoId || !prompt.trim()) {
+      setError("Please select a repository and provide a prompt.");
       return;
     }
     setSubmitting(true);
     setError(null);
+    setWorktreeConflict(false);
     try {
+      const branch = deriveBranchName();
       const session = await spawnSession({
         repoId,
-        branch: branchName,
+        branch,
         prompt: prompt.trim(),
-        name: sessionName || branchName,
+        name: deriveSessionName(),
         issueNumber: selectedIssue?.number,
         prNumber: prefillPR?.number,
+        force,
       });
       addSession(session);
       onClose();
     } catch (err: unknown) {
-      setError(formatError(err));
+      const msg = formatError(err);
+      if (msg.includes("WORKTREE_CONFLICT:")) {
+        setError(msg.replace("WORKTREE_CONFLICT: ", ""));
+        setWorktreeConflict(true);
+      } else {
+        setError(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -237,20 +238,6 @@ export function NewSessionModal({
             </div>
           )}
 
-          {/* Session name */}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-              Session Name
-            </label>
-            <input
-              type="text"
-              value={sessionName}
-              onChange={(e) => setSessionName(e.target.value)}
-              placeholder="e.g. Fix login bug"
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
-            />
-          </div>
-
           {/* Prompt */}
           <div>
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -265,36 +252,18 @@ export function NewSessionModal({
             />
           </div>
 
-          {/* Base branch */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Base Branch
-              </label>
-              <input
-                type="text"
-                value={baseBranch}
-                onChange={(e) => setBaseBranch(e.target.value)}
-                placeholder="main"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Branch Name
-              </label>
-              <input
-                type="text"
-                value={branchName}
-                onChange={(e) => setBranchName(e.target.value)}
-                placeholder="feature/my-branch"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
-              />
-            </div>
-          </div>
         </div>
 
-        {error && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {error && (
+          <div className="mt-3">
+            <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+            {worktreeConflict && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                The existing worktree will be removed and a new one created.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="mt-5 flex justify-end gap-3">
           <button
@@ -303,15 +272,27 @@ export function NewSessionModal({
           >
             Cancel
           </button>
-          <button
-            onClick={() => {
-              void handleSubmit();
-            }}
-            disabled={submitting || repos.length === 0}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
-          >
-            {submitting ? "Creating…" : "Create Session"}
-          </button>
+          {worktreeConflict ? (
+            <button
+              onClick={() => {
+                void handleSubmit(true);
+              }}
+              disabled={submitting}
+              className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-40"
+            >
+              {submitting ? "Replacing…" : "Replace & Create"}
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                void handleSubmit();
+              }}
+              disabled={submitting || repos.length === 0}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+            >
+              {submitting ? "Creating…" : "Create Session"}
+            </button>
+          )}
         </div>
       </div>
     </div>

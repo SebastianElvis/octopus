@@ -13,6 +13,7 @@ export function RepoSettings() {
   const [githubUrl, setGithubUrl] = useState("");
   const [localPath, setLocalPath] = useState("");
   const [adding, setAdding] = useState(false);
+  const [addingStatus, setAddingStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
@@ -23,15 +24,40 @@ export function RepoSettings() {
     });
   }, [loadRepos]);
 
+  /** Extract `owner/repo` from a URL or shorthand. */
+  function ownerRepoFromInput(input: string): string {
+    return input.trim().replace(/\.git$/, "").replace(/^https?:\/\/github\.com\//, "").split("/").slice(-2).join("/") || input;
+  }
+
+  /** Normalise user input: accept `owner/repo` shorthand → full URL. */
+  function normaliseGithubUrl(input: string): string {
+    const trimmed = input.trim();
+    // Already a URL
+    if (/^https?:\/\//.test(trimmed)) return trimmed;
+    // owner/repo shorthand
+    if (/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(trimmed)) {
+      return `https://github.com/${trimmed}`;
+    }
+    return trimmed;
+  }
+
   async function handleAdd() {
-    if (!githubUrl.trim() || !localPath.trim()) {
-      setError("Both GitHub URL and local path are required.");
+    if (!githubUrl.trim()) {
+      setError("GitHub URL is required.");
       return;
     }
     setAdding(true);
     setError(null);
+
+    const name = ownerRepoFromInput(githubUrl);
+    if (localPath.trim()) {
+      setAddingStatus(`Connecting ${name}...`);
+    } else {
+      setAddingStatus(`Cloning ${name}... This may take a moment.`);
+    }
+
     try {
-      await addRepo(githubUrl.trim(), localPath.trim());
+      await addRepo(normaliseGithubUrl(githubUrl), localPath.trim() || undefined);
       setGithubUrl("");
       setLocalPath("");
       setShowForm(false);
@@ -39,6 +65,7 @@ export function RepoSettings() {
       setError(formatError(err));
     } finally {
       setAdding(false);
+      setAddingStatus("");
     }
   }
 
@@ -63,49 +90,81 @@ export function RepoSettings() {
           <div className="space-y-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                GitHub URL
+                GitHub URL or owner/repo
               </label>
               <input
-                type="url"
+                type="text"
                 value={githubUrl}
                 onChange={(e) => setGithubUrl(e.target.value)}
-                placeholder="https://github.com/owner/repo"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+                disabled={adding}
+                placeholder="owner/repo"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
               />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-                Local Path
+                Local Path{" "}
+                <span className="font-normal text-gray-400 dark:text-gray-600">(optional)</span>
               </label>
               <input
                 type="text"
                 value={localPath}
                 onChange={(e) => setLocalPath(e.target.value)}
-                placeholder="/Users/you/Projects/repo"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+                disabled={adding}
+                placeholder="Default: ~/.toomanytabs/repos/owner/repo"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
               />
             </div>
           </div>
           {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
-          <div className="mt-3 flex justify-end gap-2">
-            <button
-              onClick={() => {
-                setShowForm(false);
-                setError(null);
-              }}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => {
-                void handleAdd();
-              }}
-              disabled={adding}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
-            >
-              {adding ? "Adding…" : "Add"}
-            </button>
+          <div className="mt-3 flex items-center justify-between">
+            {adding ? (
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <svg
+                  className="h-3.5 w-3.5 animate-spin text-blue-600"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
+                </svg>
+                {addingStatus}
+              </div>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setShowForm(false);
+                  setError(null);
+                }}
+                disabled={adding}
+                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  void handleAdd();
+                }}
+                disabled={adding}
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+              >
+                {adding ? "Adding…" : "Add"}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -145,7 +204,7 @@ export function RepoSettings() {
                 </p>
               </div>
               <button
-                onClick={() => removeRepo(repo.id)}
+                onClick={() => void removeRepo(repo.id)}
                 className="ml-3 shrink-0 rounded-md border border-gray-300 px-2.5 py-1 text-xs text-red-500 hover:border-red-300 hover:text-red-600 dark:border-gray-700 dark:text-red-400 dark:hover:border-red-800 dark:hover:text-red-300"
               >
                 Remove

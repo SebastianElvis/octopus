@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import type { GitHubIssue, GitHubPR, Repo } from "../lib/types";
+import type { GitHubIssue, GitHubPR, Repo, LabelInfo } from "../lib/types";
 import { fetchIssues, fetchPRs } from "../lib/tauri";
 import { formatError } from "../lib/errors";
 import { timeAgo } from "../lib/utils";
@@ -13,9 +13,12 @@ interface BacklogItem {
   pr?: GitHubPR;
   number: number;
   title: string;
-  labels: string[];
+  state: string;
+  labels: LabelInfo[];
   author: string;
-  createdAt: number;
+  comments: number;
+  createdAt: string;
+  updatedAt: string;
   url: string;
 }
 
@@ -24,6 +27,20 @@ interface IssueBacklogProps {
   onSelectIssue: (repo: Repo, issue: GitHubIssue) => void;
   onSelectPR: (repo: Repo, pr: GitHubPR) => void;
   onNavigateSettings: () => void;
+}
+
+function repoName(repo: Repo): string {
+  return (repo.githubUrl ?? "").split("/").slice(-2).join("/") || "unknown";
+}
+
+/** Compute readable text color (black or white) for a hex background. */
+function textColorForBg(hex: string): string {
+  const r = parseInt(hex.slice(0, 2), 16);
+  const g = parseInt(hex.slice(2, 4), 16);
+  const b = parseInt(hex.slice(4, 6), 16);
+  // Perceived brightness
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? "#000000" : "#ffffff";
 }
 
 export function IssueBacklog({
@@ -37,6 +54,8 @@ export function IssueBacklog({
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
+  const [selectedRepo, setSelectedRepo] = useState<string>("all");
+  const [selectedLabel, setSelectedLabel] = useState<string>("all");
 
   const hasRepos = repos.length > 0;
 
@@ -59,10 +78,13 @@ export function IssueBacklog({
                     issue,
                     number: issue.number,
                     title: issue.title,
-                    labels: issue.labels,
-                    author: "",
-                    createdAt: Date.now(),
-                    url: issue.url,
+                    state: issue.state,
+                    labels: issue.labels ?? [],
+                    author: issue.user,
+                    comments: issue.comments,
+                    createdAt: issue.createdAt,
+                    updatedAt: issue.updatedAt,
+                    url: issue.htmlUrl,
                   }),
                 ),
             )
@@ -81,10 +103,13 @@ export function IssueBacklog({
                     pr,
                     number: pr.number,
                     title: pr.title,
+                    state: pr.state,
                     labels: [],
-                    author: "",
-                    createdAt: Date.now(),
-                    url: pr.url,
+                    author: pr.user,
+                    comments: pr.comments,
+                    createdAt: pr.createdAt,
+                    updatedAt: pr.updatedAt,
+                    url: pr.htmlUrl,
                   }),
                 ),
             )
@@ -115,21 +140,33 @@ export function IssueBacklog({
     };
   }, [hasRepos, repos]);
 
+  // Collect all unique labels for the label filter
+  const allLabels = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of items) {
+      for (const l of item.labels) set.add(l.name);
+    }
+    return Array.from(set).sort();
+  }, [items]);
+
   const filtered = useMemo(() => {
     let list = items;
     if (filter === "issues") list = list.filter((i) => i.kind === "issue");
     if (filter === "prs") list = list.filter((i) => i.kind === "pr");
+    if (selectedRepo !== "all") list = list.filter((i) => i.repo.id === selectedRepo);
+    if (selectedLabel !== "all") list = list.filter((i) => i.labels.some((l) => l.name === selectedLabel));
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
         (i) =>
           i.title.toLowerCase().includes(q) ||
           String(i.number).includes(q) ||
-          i.labels.some((l) => l.toLowerCase().includes(q)),
+          i.labels.some((l) => l.name.toLowerCase().includes(q)) ||
+          i.author.toLowerCase().includes(q),
       );
     }
     return list;
-  }, [items, filter, search]);
+  }, [items, filter, search, selectedRepo, selectedLabel]);
 
   const issueCount = items.filter((i) => i.kind === "issue").length;
   const prCount = items.filter((i) => i.kind === "pr").length;
@@ -145,7 +182,7 @@ export function IssueBacklog({
           onClick={onNavigateSettings}
           className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
         >
-          Go to Settings
+          Add a Repo
         </button>
       </div>
     );
@@ -162,31 +199,66 @@ export function IssueBacklog({
         type="text"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search issues and PRs..."
+        placeholder="Search by title, #number, label, or author..."
         className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
       />
 
-      {/* Filter tabs */}
-      <div className="flex rounded-md border border-gray-300 text-sm dark:border-gray-700">
-        {(
-          [
-            ["all", `All (${String(items.length)})`],
-            ["issues", `Issues (${String(issueCount)})`],
-            ["prs", `Pull Requests (${String(prCount)})`],
-          ] as [FilterTab, string][]
-        ).map(([tab, label]) => (
-          <button
-            key={tab}
-            onClick={() => setFilter(tab)}
-            className={`flex-1 py-1.5 text-center ${
-              filter === tab
-                ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-                : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
-            }`}
+      {/* Filter row: type tabs + dropdowns */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Type tabs */}
+        <div className="flex rounded-md border border-gray-300 text-sm dark:border-gray-700">
+          {(
+            [
+              ["all", `All (${String(items.length)})`],
+              ["issues", `Issues (${String(issueCount)})`],
+              ["prs", `PRs (${String(prCount)})`],
+            ] as [FilterTab, string][]
+          ).map(([tab, label]) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`px-3 py-1.5 text-center ${
+                filter === tab
+                  ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                  : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {/* Repo filter */}
+        {repos.length > 1 && (
+          <select
+            value={selectedRepo}
+            onChange={(e) => setSelectedRepo(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
           >
-            {label}
-          </button>
-        ))}
+            <option value="all">All repos</option>
+            {repos.map((r) => (
+              <option key={r.id} value={r.id}>
+                {repoName(r)}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Label filter */}
+        {allLabels.length > 0 && (
+          <select
+            value={selectedLabel}
+            onChange={(e) => setSelectedLabel(e.target.value)}
+            className="rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-700 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+          >
+            <option value="all">All labels</option>
+            {allLabels.map((l) => (
+              <option key={l} value={l}>
+                {l}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Error */}
@@ -213,66 +285,129 @@ export function IssueBacklog({
       {/* Items list */}
       {!loading && filtered.length === 0 && (
         <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-600">
-          {search ? "No results match your search." : "No open issues or pull requests found."}
+          {search || selectedRepo !== "all" || selectedLabel !== "all"
+            ? "No results match your filters."
+            : "No open issues or pull requests found."}
         </p>
       )}
 
       {!loading && filtered.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {filtered.map((item) => {
-            const repoName = item.repo.githubUrl.split("/").slice(-2).join("/");
+            const rName = repoName(item.repo);
+            const ts = item.updatedAt || item.createdAt;
+            const ago = ts ? timeAgo(new Date(ts).getTime()) : "";
             return (
-              <button
+              <a
                 key={`${item.repo.id}-${item.kind}-${String(item.number)}`}
-                onClick={() => {
-                  if (item.kind === "issue" && item.issue) {
-                    onSelectIssue(item.repo, item.issue);
-                  } else if (item.kind === "pr" && item.pr) {
-                    onSelectPR(item.repo, item.pr);
+                href={item.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => {
+                  // If they want to open in new session, they can use the button
+                  // Default: open on GitHub
+                  if (!e.metaKey && !e.ctrlKey) {
+                    e.preventDefault();
+                    if (item.kind === "issue" && item.issue) {
+                      onSelectIssue(item.repo, item.issue);
+                    } else if (item.kind === "pr" && item.pr) {
+                      onSelectPR(item.repo, item.pr);
+                    }
                   }
                 }}
-                className="flex w-full items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+                className="flex w-full items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
               >
+                {/* State icon — GitHub-style colors */}
+                {item.kind === "issue" ? (
+                  <IssueIcon state={item.state} />
+                ) : (
+                  <PRIcon state={item.state} />
+                )}
+
+                {/* Main content */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
-                        item.kind === "issue"
-                          ? "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400"
-                          : "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400"
-                      }`}
-                    >
-                      {item.kind === "issue" ? "Issue" : "PR"}
-                    </span>
-                    <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+                    <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                       {item.title}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
-                    <span>{repoName}</span>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-500">
+                    <span className="font-medium text-gray-600 dark:text-gray-400">{rName}</span>
                     <span className="text-gray-400 dark:text-gray-600">#{String(item.number)}</span>
-                    {item.labels.length > 0 && (
-                      <div className="flex gap-1">
-                        {item.labels.slice(0, 3).map((label) => (
-                          <span
-                            key={label}
-                            className="rounded-full bg-blue-500/20 px-1.5 py-0.5 text-xs text-blue-600 dark:text-blue-400"
-                          >
-                            {label}
-                          </span>
-                        ))}
-                      </div>
+                    {item.author && <span>by {item.author}</span>}
+                    {item.comments > 0 && (
+                      <span className="flex items-center gap-0.5">
+                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        {String(item.comments)}
+                      </span>
                     )}
+                    {ago && <span>{ago}</span>}
+                    {/* Direct GitHub link */}
+                    <span
+                      className="text-blue-500 hover:underline dark:text-blue-400"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.open(item.url, "_blank");
+                      }}
+                    >
+                      GitHub &rarr;
+                    </span>
                   </div>
+                  {/* Labels with GitHub colors */}
+                  {item.labels.length > 0 && (
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      {item.labels.map((label) => (
+                        <span
+                          key={label.name}
+                          className="rounded-full px-2 py-0.5 text-xs font-medium"
+                          style={{
+                            backgroundColor: `#${label.color}`,
+                            color: textColorForBg(label.color),
+                            border: `1px solid #${label.color}40`,
+                          }}
+                        >
+                          {label.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <span className="shrink-0 text-xs text-gray-400 dark:text-gray-600">
-                  {timeAgo(item.createdAt)}
-                </span>
-              </button>
+              </a>
             );
           })}
         </div>
       )}
     </div>
+  );
+}
+
+/** GitHub-style issue icon: green circle-dot for open, purple circle-check for closed. */
+function IssueIcon({ state }: { state: string }) {
+  if (state === "closed") {
+    return (
+      <svg className="mt-0.5 h-4 w-4 shrink-0 text-[#8250df]" viewBox="0 0 16 16" fill="currentColor">
+        <path d="M11.28 6.78a.75.75 0 0 0-1.06-1.06L7.25 8.69 5.78 7.22a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0l3.5-3.5ZM16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 1 0-13 0 6.5 6.5 0 0 0 13 0Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className="mt-0.5 h-4 w-4 shrink-0 text-[#1a7f37]" viewBox="0 0 16 16" fill="currentColor">
+      <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+      <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
+    </svg>
+  );
+}
+
+/** GitHub-style PR icon: green for open, purple for merged, red for closed. */
+function PRIcon({ state }: { state: string }) {
+  const color =
+    state === "merged" ? "text-[#8250df]" : state === "closed" ? "text-[#cf222e]" : "text-[#1a7f37]";
+  return (
+    <svg className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} viewBox="0 0 16 16" fill="currentColor">
+      <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
+    </svg>
   );
 }
