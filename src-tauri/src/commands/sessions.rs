@@ -32,6 +32,7 @@ pub struct Session {
     pub dangerously_skip_permissions: Option<bool>,
     pub created_at: Option<String>,
     pub state_changed_at: Option<String>,
+    pub last_message: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -89,12 +90,29 @@ fn update_session_status(app: &AppHandle, session_id: &str, status: &str) -> App
     Ok(())
 }
 
+fn update_session_block_and_message(
+    app: &AppHandle,
+    session_id: &str,
+    block_type: &str,
+    last_message: &str,
+    status: &str,
+) -> AppResult<()> {
+    let now = now_iso();
+    let state = app.state::<AppState>();
+    let db = state.db.lock();
+    db.execute(
+        "UPDATE sessions SET block_type = ?1, last_message = ?2, status = ?3, state_changed_at = ?4 WHERE id = ?5",
+        rusqlite::params![block_type, last_message, status, now, session_id],
+    )?;
+    Ok(())
+}
+
 fn query_session_by_id(db: &rusqlite::Connection, session_id: &str) -> AppResult<Session> {
     let mut sessions = query_sessions(
         db,
         "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
          linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
-         dangerously_skip_permissions \
+         dangerously_skip_permissions, last_message \
          FROM sessions WHERE id = ?1",
         &[&session_id],
     )?;
@@ -137,6 +155,7 @@ fn query_sessions(
             dangerously_skip_permissions: Some(dsp_int.unwrap_or(0) != 0),
             created_at: row.get(11)?,
             state_changed_at: row.get(12)?,
+            last_message: row.get(14)?,
         })
     })?;
 
@@ -155,6 +174,37 @@ fn lookup_repo_local_path(state: &AppState, repo_id: &str) -> AppResult<String> 
         |row| row.get(0),
     )
     .map_err(|_| AppError::Custom(format!("repo not found: {}", repo_id)))
+}
+
+/// Detect if a line of PTY output looks like a Claude permission prompt or question.
+fn detect_prompt_pattern(line: &str) -> Option<(&'static str, String)> {
+    let trimmed = line.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    // Detect permission prompts (Allow/Deny patterns from Claude)
+    if trimmed.contains("Allow") && trimmed.contains("Deny") {
+        return Some(("permission", trimmed.to_string()));
+    }
+    if trimmed.contains("Yes") && trimmed.contains("No") && trimmed.contains("?") {
+        return Some(("confirmation", trimmed.to_string()));
+    }
+
+    // Detect lines ending with "?" — typically questions
+    if trimmed.ends_with('?') && trimmed.len() > 5 {
+        return Some(("question", trimmed.to_string()));
+    }
+
+    // Detect lines ending with ":" — typically input prompts
+    if trimmed.ends_with(':') && trimmed.len() > 3 {
+        // Filter out common non-prompt patterns (timestamps, labels, etc.)
+        if !trimmed.contains("http") && !trimmed.contains("://") {
+            return Some(("input", trimmed.to_string()));
+        }
+    }
+
+    None
 }
 
 /// Start the PTY reader background threads with throttled output emission.
@@ -263,6 +313,23 @@ fn start_pty_reader(
                     {
                         let mut lo = app_state.last_output_at.lock();
                         lo.insert(sid.clone(), std::time::Instant::now());
+                    }
+
+                    // Detect prompt patterns in output
+                    let text = String::from_utf8_lossy(chunk);
+                    for line in text.lines() {
+                        if let Some((block_type, message)) = detect_prompt_pattern(line) {
+                            if let Err(e) = update_session_block_and_message(
+                                &app2, &sid, block_type, &message, "waiting",
+                            ) {
+                                log::warn!(
+                                    "Failed to update block_type for session {}: {}",
+                                    sid,
+                                    e
+                                );
+                            }
+                            emit_session_changed(&app2, &sid);
+                        }
                     }
                 }
                 Err(e) => {
@@ -631,7 +698,7 @@ pub async fn list_sessions(state: State<'_, AppState>) -> AppResult<Vec<Session>
         &db,
         "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
          linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
-         dangerously_skip_permissions \
+         dangerously_skip_permissions, last_message \
          FROM sessions ORDER BY created_at DESC",
         &[],
     )
@@ -808,7 +875,8 @@ pub async fn check_stuck_sessions(
         query_sessions(
             &db,
             "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
-             linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at \
+             linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
+             dangerously_skip_permissions, last_message \
              FROM sessions WHERE status = 'running'",
             &[],
         )?
@@ -870,5 +938,82 @@ pub async fn read_session_log(state: State<'_, AppState>, id: String) -> AppResu
     match std::fs::read_to_string(&log_file) {
         Ok(contents) => Ok(contents),
         Err(_) => Ok(String::new()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detect_permission_prompt() {
+        let result = detect_prompt_pattern("  Allow  |  Deny  ");
+        assert!(result.is_some());
+        let (bt, _) = result.unwrap();
+        assert_eq!(bt, "permission");
+    }
+
+    #[test]
+    fn detect_confirmation_prompt() {
+        let result = detect_prompt_pattern("Do you want to continue? Yes / No");
+        assert!(result.is_some());
+        let (bt, _) = result.unwrap();
+        assert_eq!(bt, "confirmation");
+    }
+
+    #[test]
+    fn detect_question_prompt() {
+        let result = detect_prompt_pattern("What file should I edit?");
+        assert!(result.is_some());
+        let (bt, _) = result.unwrap();
+        assert_eq!(bt, "question");
+    }
+
+    #[test]
+    fn detect_input_prompt() {
+        let result = detect_prompt_pattern("Enter your name:");
+        assert!(result.is_some());
+        let (bt, _) = result.unwrap();
+        assert_eq!(bt, "input");
+    }
+
+    #[test]
+    fn detect_no_prompt_on_empty() {
+        assert!(detect_prompt_pattern("").is_none());
+        assert!(detect_prompt_pattern("   ").is_none());
+    }
+
+    #[test]
+    fn detect_no_prompt_on_url() {
+        assert!(detect_prompt_pattern("https://example.com:8080").is_none());
+    }
+
+    #[test]
+    fn detect_no_prompt_on_short_question() {
+        // Too short (<=5 chars)
+        assert!(detect_prompt_pattern("ok?").is_none());
+    }
+
+    #[test]
+    fn session_struct_has_last_message() {
+        let session = Session {
+            id: "test".to_string(),
+            repo_id: None,
+            name: None,
+            branch: None,
+            status: None,
+            block_type: Some("question".to_string()),
+            worktree_path: None,
+            log_path: None,
+            linked_issue_number: None,
+            linked_pr_number: None,
+            prompt: None,
+            dangerously_skip_permissions: None,
+            created_at: None,
+            state_changed_at: None,
+            last_message: Some("What file?".to_string()),
+        };
+        assert_eq!(session.last_message, Some("What file?".to_string()));
+        assert_eq!(session.block_type, Some("question".to_string()));
     }
 }
