@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { DispatchBoard } from "./components/DispatchBoard";
 import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
@@ -8,10 +8,12 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { SidebarTree } from "./components/SidebarTree";
 import { ResizeHandle } from "./components/ResizeHandle";
+import { ToastContainer, type ToastItem } from "./components/Toast";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { useUIStore } from "./stores/uiStore";
 import { onSessionStateChanged, onSessionOutput, fetchIssues, fetchPRs } from "./lib/tauri";
+import { requestNotificationPermission, sendSystemNotification } from "./lib/notifications";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
@@ -38,7 +40,15 @@ function App() {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const setPanelSize = useUIStore((s) => s.setPanelSize);
 
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const prevStatusRef = useRef<Record<string, string>>({});
+
   useTheme();
+
+  // Request notification permission on startup
+  useEffect(() => {
+    void requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     void loadSessions();
@@ -72,7 +82,59 @@ function App() {
     () =>
       onSessionStateChanged((payload) => {
         const { session } = payload;
+        const prevStatus = prevStatusRef.current[session.id];
+        prevStatusRef.current[session.id] = session.status;
+
         updateSession(session.id, session);
+
+        // Notify on important status transitions
+        const shouldNotify =
+          (session.status === "waiting" && prevStatus !== "waiting") ||
+          (session.status === "stuck" && prevStatus !== "stuck") ||
+          (session.status === "completed" && prevStatus !== "completed") ||
+          (session.status === "failed" && prevStatus !== "failed");
+
+        if (shouldNotify) {
+          const messages: Record<string, { toast: string; system: string; type: ToastItem["type"] }> = {
+            waiting: {
+              toast: `"${session.name}" needs your input`,
+              system: `Session "${session.name}" is waiting for your response.`,
+              type: "warning",
+            },
+            stuck: {
+              toast: `"${session.name}" appears stuck`,
+              system: `Session "${session.name}" has been inactive for 20+ minutes.`,
+              type: "warning",
+            },
+            completed: {
+              toast: `"${session.name}" completed`,
+              system: `Session "${session.name}" finished successfully.`,
+              type: "success",
+            },
+            failed: {
+              toast: `"${session.name}" failed`,
+              system: `Session "${session.name}" exited with an error.`,
+              type: "warning",
+            },
+          };
+
+          const msg = messages[session.status];
+          if (msg) {
+            // In-app toast
+            setToasts((prev) => [
+              ...prev,
+              {
+                id: `${session.id}-${session.status}-${Date.now()}`,
+                message: msg.toast,
+                type: msg.type,
+                sessionId: session.id,
+              },
+            ]);
+
+            // System notification
+            void sendSystemNotification("TooManyTabs", msg.system);
+          }
+        }
       }),
     [updateSession],
   );
@@ -122,6 +184,17 @@ function App() {
     setPrefillRepo(null);
     setPrefillIssue(null);
     setPrefillPR(null);
+  }
+
+  function dismissToast(id: string) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function handleToastClick(toast: ToastItem) {
+    if (toast.sessionId) {
+      handleViewSession(toast.sessionId);
+    }
+    dismissToast(toast.id);
   }
 
   const waitingCount = sessions.filter((s) => s.status === "waiting").length;
@@ -224,6 +297,13 @@ function App() {
           prefillPR={prefillPR ?? undefined}
         />
       )}
+
+      {/* Toast notifications */}
+      <ToastContainer
+        toasts={toasts}
+        onDismiss={dismissToast}
+        onClickToast={handleToastClick}
+      />
     </div>
   );
 }
