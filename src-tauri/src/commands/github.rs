@@ -594,6 +594,7 @@ pub async fn create_session_from_review(
         issue_number: None,
         pr_number: Some(pr_number as i64),
         force: None,
+        dangerously_skip_permissions: None,
     };
     crate::commands::sessions::spawn_session(app, state, params).await
 }

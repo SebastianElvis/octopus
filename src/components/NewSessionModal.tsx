@@ -41,6 +41,7 @@ export function NewSessionModal({
   const [createdName, setCreatedName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [worktreeConflict, setWorktreeConflict] = useState(false);
+  const [dangerouslySkipPermissions, setDangerouslySkipPermissions] = useState(false);
 
   const [issues, setIssues] = useState<GitHubIssue[]>([]);
   const [prs, setPrs] = useState<GitHubPR[]>([]);
@@ -202,6 +203,7 @@ export function NewSessionModal({
         issueNumber: linked?.kind === "issue" ? linked.issue.number : undefined,
         prNumber: linked?.kind === "pr" ? linked.pr.number : undefined,
         force,
+        dangerouslySkipPermissions: dangerouslySkipPermissions || undefined,
       });
       addSession(session);
       setCreatedName(session.name);
@@ -417,6 +419,19 @@ export function NewSessionModal({
               className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
             />
           </div>
+
+          {/* Skip permissions */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={dangerouslySkipPermissions}
+              onChange={(e) => setDangerouslySkipPermissions(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              Dangerously skip permissions
+            </span>
+          </label>
         </div>
 
         {error && (
