@@ -7,6 +7,7 @@ import { formatError } from "../lib/errors";
 interface NewSessionModalProps {
   repos: Repo[];
   onClose: () => void;
+  onCreated?: (sessionId: string) => void;
   prefillRepo?: Repo;
   prefillIssue?: GitHubIssue;
   prefillPR?: GitHubPR;
@@ -26,6 +27,7 @@ function generatePrompt(kind: "issue" | "pr", url: string): string {
 export function NewSessionModal({
   repos,
   onClose,
+  onCreated,
   prefillRepo,
   prefillIssue,
   prefillPR,
@@ -36,6 +38,7 @@ export function NewSessionModal({
   const [query, setQuery] = useState("");
   const [prompt, setPrompt] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [createdName, setCreatedName] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [worktreeConflict, setWorktreeConflict] = useState(false);
 
@@ -201,7 +204,11 @@ export function NewSessionModal({
         force,
       });
       addSession(session);
-      onClose();
+      setCreatedName(session.name);
+      setTimeout(() => {
+        onClose();
+        onCreated?.(session.id);
+      }, 1200);
     } catch (err: unknown) {
       const msg = formatError(err);
       if (msg.includes("WORKTREE_CONFLICT:")) {
@@ -213,6 +220,29 @@ export function NewSessionModal({
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (createdName) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+        <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900">
+          <div className="flex flex-col items-center py-8">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+              <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Session Created</h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {createdName}
+            </p>
+            <p className="mt-3 text-xs text-gray-400 dark:text-gray-600">
+              Switching to dispatch board...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
