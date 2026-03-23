@@ -824,7 +824,7 @@ pub async fn check_stuck_sessions(
                 .join("stdout.log");
             match std::fs::metadata(&log_path) {
                 Ok(meta) => match meta.modified() {
-                    Ok(modified) => modified.elapsed().map_or(false, |e| e > STUCK_THRESHOLD),
+                    Ok(modified) => modified.elapsed().is_ok_and(|e| e > STUCK_THRESHOLD),
                     Err(_) => false,
                 },
                 Err(_) => false,

@@ -1,6 +1,11 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { timeAgo } from "../lib/utils";
-import { killSession as tauriKillSession, resumeSession as tauriResumeSession, fetchIssues, fetchPRs } from "../lib/tauri";
+import {
+  killSession as tauriKillSession,
+  resumeSession as tauriResumeSession,
+  fetchIssues,
+  fetchPRs,
+} from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
 import { useEditorStore } from "../stores/editorStore";
 import { useUIStore } from "../stores/uiStore";
@@ -19,9 +24,12 @@ const STATUS_PILL: Record<string, string> = {
   running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
   idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
   done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
-  completed: "bg-green-200/60 text-green-600 ring-1 ring-green-300/30 dark:bg-green-900/30 dark:text-green-400 dark:ring-green-700/30",
-  failed: "bg-red-200/60 text-red-600 ring-1 ring-red-300/30 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-700/30",
-  killed: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
+  completed:
+    "bg-green-200/60 text-green-600 ring-1 ring-green-300/30 dark:bg-green-900/30 dark:text-green-400 dark:ring-green-700/30",
+  failed:
+    "bg-red-200/60 text-red-600 ring-1 ring-red-300/30 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-700/30",
+  killed:
+    "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
   paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
   stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
   interrupted: "bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/30 dark:text-amber-400",
@@ -53,40 +61,46 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
   const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
 
-  const hasGitHubLink = !!(session?.linkedIssue || session?.linkedPR);
+  const hasGitHubLink = !!(session?.linkedIssue ?? session?.linkedPR);
 
   // Fetch linked issue/PR data
   useEffect(() => {
     if (!session?.repoId) return;
-    if (session.linkedIssue) {
+    const linkedIssueNumber = session.linkedIssue?.number;
+    if (linkedIssueNumber != null) {
       fetchIssues(session.repoId)
         .then((issues) => {
-          const found = issues.find((i) => i.number === session.linkedIssue!.number);
+          const found = issues.find((i) => i.number === linkedIssueNumber);
           if (found) setGhIssue(found);
         })
-        .catch(() => {});
+        .catch((_err: unknown) => {
+          /* fetch error ignored */
+        });
     }
-    if (session.linkedPR) {
+    const linkedPRNumber = session.linkedPR?.number;
+    if (linkedPRNumber != null) {
       fetchPRs(session.repoId)
         .then((prs) => {
-          const found = prs.find((p) => p.number === session.linkedPR!.number);
+          const found = prs.find((p) => p.number === linkedPRNumber);
           if (found) setGhPR(found);
         })
-        .catch(() => {});
+        .catch((_err: unknown) => {
+          /* fetch error ignored */
+        });
     }
   }, [session?.repoId, session?.linkedIssue, session?.linkedPR]);
 
   // When a file tab is clicked, switch to editor mode
-  const prevTabId = useRef(activeTabId);
-  useEffect(() => {
-    if (activeTabId && activeTabId !== prevTabId.current) {
+  const [prevTabId, setPrevTabId] = useState(activeTabId);
+  if (activeTabId !== prevTabId) {
+    setPrevTabId(activeTabId);
+    if (activeTabId) {
       setCenterTab("editor");
     }
     if (!activeTabId && tabs.length === 0 && centerTab === "editor") {
       setCenterTab("terminal");
     }
-    prevTabId.current = activeTabId;
-  }, [activeTabId, tabs.length, centerTab]);
+  }
 
   const handleRightResize = useCallback(
     (delta: number) => {
@@ -170,7 +184,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         <div className="flex items-center gap-2">
           {session.status === "interrupted" && (
             <button
-              onClick={() => void handleResume()}
+              onClick={() => {
+                void handleResume();
+              }}
               className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
             >
               Resume
@@ -219,7 +235,8 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       {session.status === "interrupted" && (
         <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800/60 dark:bg-amber-950/30">
           <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-            ⚠ Session interrupted — the app was restarted while this session was active. Click Resume to continue.
+            ⚠ Session interrupted — the app was restarted while this session was active. Click
+            Resume to continue.
           </span>
         </div>
       )}
@@ -256,7 +273,11 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   : "invisible absolute inset-0 z-0"
               }
             >
-              <TerminalPanel sessionId={session.id} sessionStatus={session.status} visible={centerTab === "terminal"} />
+              <TerminalPanel
+                sessionId={session.id}
+                sessionStatus={session.status}
+                visible={centerTab === "terminal"}
+              />
             </div>
 
             {/* GitHub detail view — absolute positioned like terminal */}
@@ -272,11 +293,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
             {/* Code editor — absolute positioned like terminal */}
             <div
-              className={
-                showEditor
-                  ? "absolute inset-0 z-10"
-                  : "invisible absolute inset-0 z-0"
-              }
+              className={showEditor ? "absolute inset-0 z-10" : "invisible absolute inset-0 z-0"}
             >
               {activeTab != null && activeContent != null && (
                 <div className="h-full">
@@ -303,21 +320,21 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         {!rightPanelCollapsed && (
           <>
             <ResizeHandle direction="horizontal" onResize={handleRightResize} />
-            <div style={{ width: `${rightPanelWidth}px` }} className="flex shrink-0 flex-col overflow-hidden">
+            <div
+              style={{ width: `${rightPanelWidth}px` }}
+              className="flex shrink-0 flex-col overflow-hidden"
+            >
               {/* Files / Changes */}
               <div className="flex-1 overflow-hidden">
-                <RightPanel
-                  session={session}
-                  onCommitted={handleCommitted}
-                />
+                <RightPanel session={session} onCommitted={handleCommitted} />
               </div>
               {/* Shell terminal */}
               <ResizeHandle direction="vertical" onResize={handleOutputResize} />
-              <div style={{ height: `${rightOutputHeight}px` }} className="shrink-0 overflow-hidden border-t border-gray-200 dark:border-gray-800">
-                <ShellPanel
-                  cwd={session.worktreePath ?? ""}
-                  shellKey={session.id}
-                />
+              <div
+                style={{ height: `${rightOutputHeight}px` }}
+                className="shrink-0 overflow-hidden border-t border-gray-200 dark:border-gray-800"
+              >
+                <ShellPanel cwd={session.worktreePath ?? ""} shellKey={session.id} />
               </div>
             </div>
           </>

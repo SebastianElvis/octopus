@@ -15,7 +15,7 @@ export function GitHubDetailView({ issue, pr }: GitHubDetailViewProps) {
     );
   }
 
-  const url = issue ? issue.htmlUrl : pr!.htmlUrl;
+  const url = item.htmlUrl;
 
   return (
     <div className="h-full bg-white dark:bg-gray-950">

@@ -138,7 +138,7 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
             }
         } else if line.starts_with("? ") {
             // Untracked
-            let path = line[2..].to_string();
+            let path = line.strip_prefix("? ").unwrap().to_string();
             files.push(ChangedFile {
                 path,
                 status: "untracked".to_string(),

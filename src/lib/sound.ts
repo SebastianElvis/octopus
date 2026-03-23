@@ -3,9 +3,7 @@
 let audioCtx: AudioContext | null = null;
 
 function getAudioContext(): AudioContext {
-  if (!audioCtx) {
-    audioCtx = new AudioContext();
-  }
+  audioCtx ??= new AudioContext();
   return audioCtx;
 }
 
@@ -37,7 +35,13 @@ export async function playNotificationSound(type: "alert" | "success"): Promise<
   }
 }
 
-function playTone(ctx: AudioContext, freq: number, startTime: number, duration: number, volume: number) {
+function playTone(
+  ctx: AudioContext,
+  freq: number,
+  startTime: number,
+  duration: number,
+  volume: number,
+) {
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.type = "sine";

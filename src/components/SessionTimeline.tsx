@@ -44,16 +44,11 @@ function labelColor(status: string): string {
   return LABEL_COLOR[status] ?? "text-gray-500 dark:text-gray-400";
 }
 
-export default function SessionTimeline({
-  events,
-  className = "",
-}: SessionTimelineProps) {
+export default function SessionTimeline({ events, className = "" }: SessionTimelineProps) {
   if (events.length === 0) return null;
 
   return (
-    <div
-      className={`rounded-lg bg-white p-3 dark:bg-gray-950 dark:text-gray-100 ${className}`}
-    >
+    <div className={`rounded-lg bg-white p-3 dark:bg-gray-950 dark:text-gray-100 ${className}`}>
       <ol className="relative ml-2">
         {events.map((event, i) => {
           const isLast = i === events.length - 1;
@@ -75,9 +70,7 @@ export default function SessionTimeline({
 
               {/* Content */}
               <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
-                <span
-                  className={`text-xs font-semibold capitalize ${labelColor(event.status)}`}
-                >
+                <span className={`text-xs font-semibold capitalize ${labelColor(event.status)}`}>
                   {event.status}
                 </span>
                 <span className="text-[11px] text-gray-400 dark:text-gray-500">

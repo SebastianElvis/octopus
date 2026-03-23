@@ -13,9 +13,7 @@ interface NewSessionModalProps {
   prefillPR?: GitHubPR;
 }
 
-type LinkedItem =
-  | { kind: "issue"; issue: GitHubIssue }
-  | { kind: "pr"; pr: GitHubPR };
+type LinkedItem = { kind: "issue"; issue: GitHubIssue } | { kind: "pr"; pr: GitHubPR };
 
 function generatePrompt(kind: "issue" | "pr", url: string): string {
   if (kind === "issue") {
@@ -53,7 +51,7 @@ export function NewSessionModal({
   useEffect(() => {
     if (!repoId) return;
     setLoadingItems(true);
-    Promise.all([
+    void Promise.all([
       fetchIssues(repoId).catch(() => [] as GitHubIssue[]),
       fetchPRs(repoId).catch(() => [] as GitHubPR[]),
     ]).then(([fetchedIssues, fetchedPrs]) => {
@@ -139,11 +137,23 @@ export function NewSessionModal({
   // Filter dropdown items by query
   const filteredItems = useMemo(() => {
     const q = query.toLowerCase().replace(/^#/, "");
-    const items: { kind: "issue" | "pr"; number: number; title: string; state: string; item: GitHubIssue | GitHubPR }[] = [];
+    const items: {
+      kind: "issue" | "pr";
+      number: number;
+      title: string;
+      state: string;
+      item: GitHubIssue | GitHubPR;
+    }[] = [];
 
     for (const issue of issues) {
       if (issue.state !== "open") continue;
-      items.push({ kind: "issue", number: issue.number, title: issue.title, state: issue.state, item: issue });
+      items.push({
+        kind: "issue",
+        number: issue.number,
+        title: issue.title,
+        state: issue.state,
+        item: issue,
+      });
     }
     for (const pr of prs) {
       if (pr.state !== "open") continue;
@@ -152,18 +162,16 @@ export function NewSessionModal({
 
     if (!q) return items;
 
-    return items.filter(
-      (i) =>
-        String(i.number).includes(q) ||
-        i.title.toLowerCase().includes(q),
-    );
+    return items.filter((i) => String(i.number).includes(q) || i.title.toLowerCase().includes(q));
   }, [query, issues, prs]);
 
   function parseNumber(val: string): number | undefined {
     // Match #123 or .../issues/123 or .../pull/123 or just 123
     const match = val.match(/(?:issues|pull)\/(\d+)|#(\d+)|^(\d+)$/);
     if (!match) return undefined;
-    return parseInt(match[1] ?? match[2] ?? match[3], 10);
+    // The matched digit string is in one of the capture groups
+    const numStr = match[1] || match[2] || match[3];
+    return parseInt(numStr, 10);
   }
 
   function deriveBranchName(): string {
@@ -230,14 +238,20 @@ export function NewSessionModal({
         <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900">
           <div className="flex flex-col items-center py-8">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-              <svg className="h-6 w-6 text-green-600 dark:text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg
+                className="h-6 w-6 text-green-600 dark:text-green-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Session Created</h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {createdName}
-            </p>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Session Created
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{createdName}</p>
             <p className="mt-3 text-xs text-gray-400 dark:text-gray-600">
               Switching to dispatch board...
             </p>
@@ -257,7 +271,12 @@ export function NewSessionModal({
             className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -301,11 +320,13 @@ export function NewSessionModal({
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
-                        linked.kind === "issue"
-                          ? "bg-green-500/20 text-green-700 dark:text-green-400"
-                          : "bg-purple-500/20 text-purple-700 dark:text-purple-400"
-                      }`}>
+                      <span
+                        className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-medium ${
+                          linked.kind === "issue"
+                            ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                            : "bg-purple-500/20 text-purple-700 dark:text-purple-400"
+                        }`}
+                      >
                         {linked.kind === "issue" ? "Issue" : "PR"}
                       </span>
                       <span className="text-xs text-gray-400 dark:text-gray-600">
@@ -343,7 +364,13 @@ export function NewSessionModal({
                     className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-400"
                     title="Remove"
                   >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -365,10 +392,12 @@ export function NewSessionModal({
                 />
 
                 {/* Dropdown */}
-                {showDropdown && !linked && (
+                {showDropdown && (
                   <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                     {loadingItems && (
-                      <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-600">Loading…</div>
+                      <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-600">
+                        Loading…
+                      </div>
                     )}
                     {!loadingItems && filteredItems.length === 0 && (
                       <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-600">
@@ -389,15 +418,21 @@ export function NewSessionModal({
                         }}
                         className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
-                        <span className={`shrink-0 rounded px-1 py-0.5 text-xs font-medium ${
-                          item.kind === "issue"
-                            ? "bg-green-500/20 text-green-700 dark:text-green-400"
-                            : "bg-purple-500/20 text-purple-700 dark:text-purple-400"
-                        }`}>
+                        <span
+                          className={`shrink-0 rounded px-1 py-0.5 text-xs font-medium ${
+                            item.kind === "issue"
+                              ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                              : "bg-purple-500/20 text-purple-700 dark:text-purple-400"
+                          }`}
+                        >
                           {item.kind === "issue" ? "I" : "PR"}
                         </span>
-                        <span className="text-xs text-gray-400 dark:text-gray-600">#{item.number}</span>
-                        <span className="truncate text-gray-700 dark:text-gray-300">{item.title}</span>
+                        <span className="text-xs text-gray-400 dark:text-gray-600">
+                          #{item.number}
+                        </span>
+                        <span className="truncate text-gray-700 dark:text-gray-300">
+                          {item.title}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -454,7 +489,9 @@ export function NewSessionModal({
           </button>
           {worktreeConflict ? (
             <button
-              onClick={() => { void handleSubmit(true); }}
+              onClick={() => {
+                void handleSubmit(true);
+              }}
               disabled={submitting}
               className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-40"
             >
@@ -462,7 +499,9 @@ export function NewSessionModal({
             </button>
           ) : (
             <button
-              onClick={() => { void handleSubmit(); }}
+              onClick={() => {
+                void handleSubmit();
+              }}
               disabled={submitting || repos.length === 0}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
             >

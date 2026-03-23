@@ -8,7 +8,16 @@
  */
 
 import { isTauri } from "./env";
-import type { Session, BackendSession, Repo, GitHubIssue, GitHubPR, ReviewComment, FileEntry, ChangedFile } from "./types";
+import type {
+  Session,
+  BackendSession,
+  Repo,
+  GitHubIssue,
+  GitHubPR,
+  ReviewComment,
+  FileEntry,
+  ChangedFile,
+} from "./types";
 import { mapBackendSession } from "./types";
 
 /** No-op unlisten stub for when Tauri is not available. */
@@ -260,7 +269,11 @@ export async function gitDiscardFiles(worktreePath: string, paths: string[]): Pr
   return tauriInvoke<void>("git_discard_files", { worktreePath, paths });
 }
 
-export async function getFileDiff(worktreePath: string, filePath: string, staged: boolean): Promise<string> {
+export async function getFileDiff(
+  worktreePath: string,
+  filePath: string,
+  staged: boolean,
+): Promise<string> {
   if (!isTauri()) return "";
   return tauriInvoke<string>("get_file_diff", { worktreePath, filePath, staged });
 }

@@ -26,7 +26,15 @@ export function RepoSettings() {
 
   /** Extract `owner/repo` from a URL or shorthand. */
   function ownerRepoFromInput(input: string): string {
-    return input.trim().replace(/\.git$/, "").replace(/^https?:\/\/github\.com\//, "").split("/").slice(-2).join("/") || input;
+    return (
+      input
+        .trim()
+        .replace(/\.git$/, "")
+        .replace(/^https?:\/\/github\.com\//, "")
+        .split("/")
+        .slice(-2)
+        .join("/") || input
+    );
   }
 
   /** Normalise user input: accept `owner/repo` shorthand → full URL. */
@@ -204,7 +212,9 @@ export function RepoSettings() {
                 </p>
               </div>
               <button
-                onClick={() => void removeRepo(repo.id)}
+                onClick={() => {
+                  void removeRepo(repo.id);
+                }}
                 className="ml-3 shrink-0 rounded-md border border-gray-300 px-2.5 py-1 text-xs text-red-500 hover:border-red-300 hover:text-red-600 dark:border-gray-700 dark:text-red-400 dark:hover:border-red-800 dark:hover:text-red-300"
               >
                 Remove

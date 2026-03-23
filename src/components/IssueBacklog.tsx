@@ -40,7 +40,7 @@ interface IssueBacklogProps {
 }
 
 function repoName(repo: Repo): string {
-  return (repo.githubUrl ?? "").split("/").slice(-2).join("/") || "unknown";
+  return repo.githubUrl.split("/").slice(-2).join("/") || "unknown";
 }
 
 /** Compute readable text color (black or white) for a hex background. */
@@ -102,7 +102,7 @@ export function IssueBacklog({
                     number: issue.number,
                     title: issue.title,
                     state: issue.state,
-                    labels: issue.labels ?? [],
+                    labels: issue.labels,
                     author: issue.user,
                     comments: issue.comments,
                     createdAt: issue.createdAt,
@@ -179,7 +179,8 @@ export function IssueBacklog({
     if (filter === "issues") list = list.filter((i) => i.kind === "issue");
     if (filter === "prs") list = list.filter((i) => i.kind === "pr");
     if (selectedRepo !== "all") list = list.filter((i) => i.repo.id === selectedRepo);
-    if (selectedLabel !== "all") list = list.filter((i) => i.labels.some((l) => l.name === selectedLabel));
+    if (selectedLabel !== "all")
+      list = list.filter((i) => i.labels.some((l) => l.name === selectedLabel));
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
@@ -268,7 +269,11 @@ export function IssueBacklog({
             value={selectedRepo}
             onChange={(e) => setSelectedRepo(e.target.value)}
             className="appearance-none rounded-lg border border-gray-200 bg-white py-1.5 pl-3 pr-8 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600 dark:focus:border-blue-500"
-            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 0.5rem center" }}
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 0.5rem center",
+            }}
           >
             <option value="all">All repos</option>
             {repos.map((r) => (
@@ -285,7 +290,11 @@ export function IssueBacklog({
             <button
               onClick={() => setLabelDropdownOpen((o) => !o)}
               className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white py-1.5 pl-3 pr-8 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600 dark:focus:border-blue-500"
-              style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 0.5rem center" }}
+              style={{
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
+                backgroundRepeat: "no-repeat",
+                backgroundPosition: "right 0.5rem center",
+              }}
             >
               {selectedLabel === "all" ? (
                 "All labels"
@@ -293,7 +302,9 @@ export function IssueBacklog({
                 <>
                   <span
                     className="inline-block h-3 w-3 rounded-full"
-                    style={{ backgroundColor: `#${allLabels.find((l) => l.name === selectedLabel)?.color ?? "ccc"}` }}
+                    style={{
+                      backgroundColor: `#${allLabels.find((l) => l.name === selectedLabel)?.color ?? "ccc"}`,
+                    }}
                   />
                   {selectedLabel}
                 </>
@@ -302,7 +313,10 @@ export function IssueBacklog({
             {labelDropdownOpen && (
               <div className="absolute left-0 z-50 mt-1 max-h-64 min-w-[10rem] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                 <button
-                  onClick={() => { setSelectedLabel("all"); setLabelDropdownOpen(false); }}
+                  onClick={() => {
+                    setSelectedLabel("all");
+                    setLabelDropdownOpen(false);
+                  }}
                   className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedLabel === "all" ? "font-medium text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300"}`}
                 >
                   All labels
@@ -310,7 +324,10 @@ export function IssueBacklog({
                 {allLabels.map((l) => (
                   <button
                     key={l.name}
-                    onClick={() => { setSelectedLabel(l.name); setLabelDropdownOpen(false); }}
+                    onClick={() => {
+                      setSelectedLabel(l.name);
+                      setLabelDropdownOpen(false);
+                    }}
                     className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedLabel === l.name ? "font-medium text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300"}`}
                   >
                     <span
@@ -394,8 +411,18 @@ export function IssueBacklog({
                     {item.author && <span>by {item.author}</span>}
                     {item.comments > 0 && (
                       <span className="flex items-center gap-0.5">
-                        <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                          />
                         </svg>
                         {String(item.comments)}
                       </span>
@@ -445,7 +472,11 @@ export function IssueBacklog({
 function IssueIcon({ state }: { state: string }) {
   if (state === "closed") {
     return (
-      <svg className="mt-0.5 h-4 w-4 shrink-0 text-[#8250df]" viewBox="0 0 16 16" fill="currentColor">
+      <svg
+        className="mt-0.5 h-4 w-4 shrink-0 text-[#8250df]"
+        viewBox="0 0 16 16"
+        fill="currentColor"
+      >
         <path d="M11.28 6.78a.75.75 0 0 0-1.06-1.06L7.25 8.69 5.78 7.22a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0l3.5-3.5ZM16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0Zm-1.5 0a6.5 6.5 0 1 0-13 0 6.5 6.5 0 0 0 13 0Z" />
       </svg>
     );
@@ -461,7 +492,11 @@ function IssueIcon({ state }: { state: string }) {
 /** GitHub-style PR icon: green for open, purple for merged, red for closed. */
 function PRIcon({ state }: { state: string }) {
   const color =
-    state === "merged" ? "text-[#8250df]" : state === "closed" ? "text-[#cf222e]" : "text-[#1a7f37]";
+    state === "merged"
+      ? "text-[#8250df]"
+      : state === "closed"
+        ? "text-[#cf222e]"
+        : "text-[#1a7f37]";
   return (
     <svg className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} viewBox="0 0 16 16" fill="currentColor">
       <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />

@@ -65,7 +65,7 @@ export function GitChangesPanel({
   }
 
   // If the session is done and the worktree may have been cleaned up, show a clear message
-  if (isSessionDone && error && error.includes("No such file or directory")) {
+  if (isSessionDone && error?.includes("No such file or directory")) {
     return (
       <div className="flex h-full items-center justify-center px-4">
         <p className="text-center text-xs text-gray-400 dark:text-gray-600">
@@ -99,12 +99,24 @@ export function GitChangesPanel({
       <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-3 py-2 dark:border-gray-800">
         <h3 className="text-xs font-medium text-gray-700 dark:text-gray-300">Changes</h3>
         <button
-          onClick={() => void refreshChanges()}
+          onClick={() => {
+            void refreshChanges();
+          }}
           className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
           title="Refresh"
         >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+            />
           </svg>
         </button>
       </div>
@@ -123,10 +135,14 @@ export function GitChangesPanel({
             title="Staged"
             files={staged}
             selectedFile={selectedFile}
-            onSelect={(f) => void selectFile(f.path, true)}
+            onSelect={(f) => {
+              void selectFile(f.path, true);
+            }}
             actionLabel="−"
             actionTitle="Unstage"
-            onAction={(f) => void unstageFiles([f.path])}
+            onAction={(f) => {
+              void unstageFiles([f.path]);
+            }}
             onBulkAction={handleUnstageAll}
             bulkLabel="Unstage all"
           />
@@ -138,13 +154,19 @@ export function GitChangesPanel({
             title="Changes"
             files={unstaged}
             selectedFile={selectedFile}
-            onSelect={(f) => void selectFile(f.path, false)}
+            onSelect={(f) => {
+              void selectFile(f.path, false);
+            }}
             actionLabel="+"
             actionTitle="Stage"
-            onAction={(f) => void stageFiles([f.path])}
+            onAction={(f) => {
+              void stageFiles([f.path]);
+            }}
             secondActionLabel="⟲"
             secondActionTitle="Discard"
-            onSecondAction={(f) => void discardFiles([f.path])}
+            onSecondAction={(f) => {
+              void discardFiles([f.path]);
+            }}
             onBulkAction={handleStageAll}
             bulkLabel="Stage all"
           />
@@ -159,9 +181,7 @@ export function GitChangesPanel({
 
       {/* Commit area */}
       <div className="shrink-0 border-t border-gray-200 p-2 dark:border-gray-800">
-        {error && (
-          <p className="mb-1 text-xs text-red-600 dark:text-red-400">{error}</p>
-        )}
+        {error && <p className="mb-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
         <textarea
           value={commitMessage}
           onChange={(e) => setCommitMessage(e.target.value)}
@@ -170,7 +190,9 @@ export function GitChangesPanel({
           className="mb-2 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
         />
         <button
-          onClick={() => void handleCommitAndPush()}
+          onClick={() => {
+            void handleCommitAndPush();
+          }}
           disabled={pushing || !commitMessage.trim() || staged.length === 0}
           className="w-full rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-40"
         >
@@ -240,7 +262,9 @@ function FileSection({
               onClick={() => onSelect(f)}
               className="flex flex-1 items-center gap-1.5 truncate text-left"
             >
-              <span className={`shrink-0 rounded px-1 py-0.5 text-xs font-mono leading-none ${badge.cls}`}>
+              <span
+                className={`shrink-0 rounded px-1 py-0.5 text-xs font-mono leading-none ${badge.cls}`}
+              >
                 {badge.label}
               </span>
               <span className="truncate text-gray-700 dark:text-gray-300">{fileName}</span>
@@ -250,7 +274,10 @@ function FileSection({
             </button>
             <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100">
               <button
-                onClick={(e) => { e.stopPropagation(); onAction(f); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAction(f);
+                }}
                 className="rounded px-1 py-0.5 text-xs font-bold text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                 title={actionTitle}
               >
@@ -258,7 +285,10 @@ function FileSection({
               </button>
               {secondActionLabel && onSecondAction && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onSecondAction(f); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSecondAction(f);
+                  }}
                   className="rounded px-1 py-0.5 text-xs text-gray-400 hover:bg-red-100 hover:text-red-600 dark:text-gray-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                   title={secondActionTitle}
                 >

@@ -1,4 +1,14 @@
-export type SessionStatus = "waiting" | "running" | "idle" | "done" | "completed" | "failed" | "killed" | "paused" | "stuck" | "interrupted";
+export type SessionStatus =
+  | "waiting"
+  | "running"
+  | "idle"
+  | "done"
+  | "completed"
+  | "failed"
+  | "killed"
+  | "paused"
+  | "stuck"
+  | "interrupted";
 export type BlockType = "decision" | "review" | "confirm";
 
 /** Raw session shape returned by the Tauri backend (camelCase of Rust fields). */
@@ -44,18 +54,14 @@ export function mapBackendSession(raw: BackendSession): Session {
     repo: raw.repoId ?? "",
     repoId: raw.repoId ?? "",
     branch: raw.branch ?? "",
-    status: (raw.status as SessionStatus) ?? "idle",
+    status: (raw.status ?? "idle") as SessionStatus,
     blockType: raw.blockType as BlockType | undefined,
     worktreePath: raw.worktreePath,
     logPath: raw.logPath,
     prompt: raw.prompt,
     stateChangedAt: raw.stateChangedAt ? new Date(raw.stateChangedAt).getTime() : Date.now(),
-    linkedIssue: raw.linkedIssueNumber
-      ? { number: raw.linkedIssueNumber, title: "" }
-      : undefined,
-    linkedPR: raw.linkedPrNumber
-      ? { number: raw.linkedPrNumber, title: "" }
-      : undefined,
+    linkedIssue: raw.linkedIssueNumber ? { number: raw.linkedIssueNumber, title: "" } : undefined,
+    linkedPR: raw.linkedPrNumber ? { number: raw.linkedPrNumber, title: "" } : undefined,
   };
 }
 

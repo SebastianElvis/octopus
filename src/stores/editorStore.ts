@@ -5,15 +5,37 @@ import type { EditorTab } from "../lib/types";
 function detectLanguage(filePath: string): string {
   const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
   const map: Record<string, string> = {
-    ts: "typescript", tsx: "typescript", js: "javascript", jsx: "javascript",
-    rs: "rust", py: "python", go: "go", rb: "ruby",
-    json: "json", yaml: "yaml", yml: "yaml", toml: "toml",
-    md: "markdown", mdx: "markdown",
-    html: "html", htm: "html", css: "css", scss: "css",
-    sh: "shell", bash: "shell", zsh: "shell",
-    sql: "sql", java: "java", kt: "kotlin", swift: "swift",
-    c: "c", cpp: "cpp", h: "c", hpp: "cpp",
-    xml: "xml", svg: "xml",
+    ts: "typescript",
+    tsx: "typescript",
+    js: "javascript",
+    jsx: "javascript",
+    rs: "rust",
+    py: "python",
+    go: "go",
+    rb: "ruby",
+    json: "json",
+    yaml: "yaml",
+    yml: "yaml",
+    toml: "toml",
+    md: "markdown",
+    mdx: "markdown",
+    html: "html",
+    htm: "html",
+    css: "css",
+    scss: "css",
+    sh: "shell",
+    bash: "shell",
+    zsh: "shell",
+    sql: "sql",
+    java: "java",
+    kt: "kotlin",
+    swift: "swift",
+    c: "c",
+    cpp: "cpp",
+    h: "c",
+    hpp: "cpp",
+    xml: "xml",
+    svg: "xml",
   };
   return map[ext] ?? "text";
 }
@@ -70,8 +92,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   closeTab: (id: string) => {
     set((s) => {
       const newTabs = s.tabs.filter((t) => t.id !== id);
-      const newContents = { ...s.contents };
-      delete newContents[id];
+      const { [id]: _, ...newContents } = s.contents;
       const newActiveId =
         s.activeTabId === id
           ? newTabs.length > 0

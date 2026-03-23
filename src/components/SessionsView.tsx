@@ -11,7 +11,7 @@ interface SessionsViewProps {
 }
 
 function repoDisplayName(repo: Repo): string {
-  const ghUrl = repo.githubUrl ?? "";
+  const ghUrl = repo.githubUrl;
   return ghUrl.split("/").slice(-2).join("/") || ghUrl || "unknown";
 }
 
@@ -25,8 +25,12 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
   const sessionsByRepo = new Map<string, typeof sessions>();
   for (const session of sessions) {
     const key = session.repoId || "__unlinked__";
-    if (!sessionsByRepo.has(key)) sessionsByRepo.set(key, []);
-    sessionsByRepo.get(key)!.push(session);
+    const existing = sessionsByRepo.get(key);
+    if (existing) {
+      existing.push(session);
+    } else {
+      sessionsByRepo.set(key, [session]);
+    }
   }
 
   // Build ordered list: repos with sessions first, then repos without sessions
@@ -195,9 +199,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                   onView={onViewSession}
                   onReply={s.status === "waiting" ? handleReply : undefined}
                   onInterrupt={s.status === "running" ? handleInterrupt : undefined}
-                  onResume={
-                    s.status === "idle" || s.status === "paused" ? handleResume : undefined
-                  }
+                  onResume={s.status === "idle" || s.status === "paused" ? handleResume : undefined}
                 />
               ))}
             </div>

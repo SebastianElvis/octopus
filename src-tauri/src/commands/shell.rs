@@ -113,12 +113,11 @@ pub async fn spawn_shell(
 
         log::info!("Shell {} exited", sid);
 
-        // Clean up — use a block to ensure State borrow is dropped before thread exit
+        // Clean up
         let state_ref: tauri::State<'_, AppState> = app.state();
         if let Ok(mut map) = state_ref.shell_processes.lock() {
-            drop(map.remove(&sid));
-        }
-        drop(state_ref);
+            map.remove(&sid);
+        };
     });
 
     Ok(shell_id)

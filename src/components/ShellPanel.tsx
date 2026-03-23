@@ -73,20 +73,24 @@ export function ShellPanel({ cwd, shellKey, visible = true }: ShellPanelProps) {
       terminal.writeln("\x1b[33mShell requires Tauri backend.\x1b[0m");
     } else {
       // Spawn the shell
-      void spawnShell(cwd).then((id) => {
-        shellIdRef.current = id;
-        // Send initial size
-        const { cols, rows } = terminal;
-        void resizeShell(id, rows, cols).catch(() => {});
-      }).catch((err) => {
-        terminal.writeln(`\x1b[31mFailed to spawn shell: ${String(err)}\x1b[0m`);
-      });
+      void spawnShell(cwd)
+        .then((id) => {
+          shellIdRef.current = id;
+          // Send initial size
+          const { cols, rows } = terminal;
+          void resizeShell(id, rows, cols).catch((_err: unknown) => {
+            /* resize error ignored */
+          });
+        })
+        .catch((err: unknown) => {
+          terminal.writeln(`\x1b[31mFailed to spawn shell: ${String(err)}\x1b[0m`);
+        });
     }
 
     // Handle terminal input
     const onDataDispose = terminal.onData((data) => {
       if (shellIdRef.current) {
-        void writeToShell(shellIdRef.current, data).catch((err) =>
+        void writeToShell(shellIdRef.current, data).catch((err: unknown) =>
           console.error("[ShellPanel] write error:", err),
         );
       }
@@ -95,7 +99,7 @@ export function ShellPanel({ cwd, shellKey, visible = true }: ShellPanelProps) {
     // Handle resize
     const onResizeDispose = terminal.onResize(({ cols, rows }) => {
       if (shellIdRef.current) {
-        void resizeShell(shellIdRef.current, rows, cols).catch((err) =>
+        void resizeShell(shellIdRef.current, rows, cols).catch((err: unknown) =>
           console.error("[ShellPanel] resize error:", err),
         );
       }
@@ -113,7 +117,9 @@ export function ShellPanel({ cwd, shellKey, visible = true }: ShellPanelProps) {
       observer.disconnect();
       // Kill the shell on unmount
       if (shellIdRef.current) {
-        void killShell(shellIdRef.current).catch(() => {});
+        void killShell(shellIdRef.current).catch((_err: unknown) => {
+          /* kill error ignored on unmount */
+        });
         shellIdRef.current = null;
       }
       terminal.dispose();
@@ -133,7 +139,9 @@ export function ShellPanel({ cwd, shellKey, visible = true }: ShellPanelProps) {
           terminalRef.current?.refresh(0, terminalRef.current.rows - 1);
         });
       });
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }
   }, [visible]);
 
