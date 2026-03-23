@@ -24,6 +24,7 @@ export interface BackendSession {
   linkedIssueNumber?: number;
   linkedPrNumber?: number;
   prompt?: string;
+  lastMessage?: string;
   dangerouslySkipPermissions?: boolean;
   createdAt?: string;
   stateChangedAt?: string;
@@ -56,6 +57,7 @@ export function mapBackendSession(raw: BackendSession): Session {
     branch: raw.branch ?? "",
     status: (raw.status ?? "idle") as SessionStatus,
     blockType: raw.blockType as BlockType | undefined,
+    lastMessage: raw.lastMessage,
     worktreePath: raw.worktreePath,
     logPath: raw.logPath,
     prompt: raw.prompt,
