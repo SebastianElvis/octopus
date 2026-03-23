@@ -160,12 +160,22 @@ pub async fn resize_shell(
     Ok(())
 }
 
-/// Kill a shell PTY.
+/// Kill a shell PTY using process group signal.
 #[tauri::command]
 pub async fn kill_shell(state: State<'_, AppState>, shell_id: String) -> AppResult<()> {
     let mut map = state.shell_processes.lock();
-    if let Some(_session) = map.remove(&shell_id) {
+    if let Some(session) = map.remove(&shell_id) {
+        #[cfg(unix)]
+        {
+            use nix::sys::signal::{kill, Signal};
+            use nix::unistd::Pid;
+            // Send SIGKILL to process group for reliable cleanup
+            let pgid = -(session.pid as i32);
+            let _ = kill(Pid::from_raw(pgid), Signal::SIGKILL)
+                .or_else(|_| kill(Pid::from_raw(session.pid as i32), Signal::SIGKILL));
+        }
         // Dropping the PtySession closes the master, which sends EOF to the child
+        drop(session);
         log::info!("Killed shell {}", shell_id);
     }
     Ok(())
