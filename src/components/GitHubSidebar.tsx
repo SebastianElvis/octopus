@@ -104,7 +104,9 @@ export function GitHubSidebar({
                 </span>
                 <StateBadge state={issue.state} />
               </div>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">{issue.title}</p>
+              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                {issue.title}
+              </p>
               {issue.body && (
                 <p className="mt-1 line-clamp-3 text-xs text-gray-500 dark:text-gray-500">
                   {issue.body}
@@ -124,7 +126,9 @@ export function GitHubSidebar({
               <span
                 role="link"
                 className="mt-1.5 inline-block cursor-pointer text-xs text-blue-600 hover:underline dark:text-blue-500"
-                onClick={() => void openExternal(issue.htmlUrl)}
+                onClick={() => {
+                  void openExternal(issue.htmlUrl);
+                }}
               >
                 View on GitHub →
               </span>
@@ -149,7 +153,9 @@ export function GitHubSidebar({
                 </span>
                 <StateBadge state={pr.state} />
               </div>
-              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">{pr.title}</p>
+              <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                {pr.title}
+              </p>
               {pr.body && (
                 <p className="mt-1 line-clamp-3 text-xs text-gray-500 dark:text-gray-500">
                   {pr.body}
@@ -171,7 +177,9 @@ export function GitHubSidebar({
               <span
                 role="link"
                 className="mt-1.5 inline-block cursor-pointer text-xs text-blue-600 hover:underline dark:text-blue-500"
-                onClick={() => void openExternal(pr.htmlUrl)}
+                onClick={() => {
+                  void openExternal(pr.htmlUrl);
+                }}
               >
                 View on GitHub →
               </span>
@@ -181,7 +189,7 @@ export function GitHubSidebar({
       )}
 
       {/* Separator */}
-      {(linkedIssueNumber || linkedPRNumber) && (hasCommittedChanges && !pr) && (
+      {(linkedIssueNumber ?? linkedPRNumber) && hasCommittedChanges && !pr && (
         <div className="border-t border-gray-200 dark:border-gray-800" />
       )}
 
@@ -192,7 +200,9 @@ export function GitHubSidebar({
             <p className="mb-1 text-xs text-red-600 dark:text-red-400">{createError}</p>
           )}
           <button
-            onClick={() => void handleOpenPR()}
+            onClick={() => {
+              void handleOpenPR();
+            }}
             disabled={creating}
             className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
           >
@@ -235,7 +245,11 @@ function DetailSection({
 
 function IssueIcon({ state }: { state: string }) {
   return (
-    <svg className={`h-4 w-4 shrink-0 ${state === "open" ? "text-green-600" : "text-purple-600"}`} viewBox="0 0 16 16" fill="currentColor">
+    <svg
+      className={`h-4 w-4 shrink-0 ${state === "open" ? "text-green-600" : "text-purple-600"}`}
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
       <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
       <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
     </svg>
@@ -243,7 +257,8 @@ function IssueIcon({ state }: { state: string }) {
 }
 
 function PRIcon({ state }: { state: string }) {
-  const color = state === "merged" ? "text-purple-600" : state === "open" ? "text-green-600" : "text-red-600";
+  const color =
+    state === "merged" ? "text-purple-600" : state === "open" ? "text-green-600" : "text-red-600";
   return (
     <svg className={`h-4 w-4 shrink-0 ${color}`} viewBox="0 0 16 16" fill="currentColor">
       <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />
@@ -258,11 +273,7 @@ function StateBadge({ state }: { state: string }) {
       : state === "merged"
         ? "bg-purple-500/15 text-purple-700 dark:text-purple-400"
         : "bg-gray-500/15 text-gray-600 dark:text-gray-400";
-  return (
-    <span className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${cls}`}>
-      {state}
-    </span>
-  );
+  return <span className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${cls}`}>{state}</span>;
 }
 
 function LabelBadge({ name, color }: { name: string; color: string }) {

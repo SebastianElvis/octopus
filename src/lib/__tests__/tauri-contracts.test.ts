@@ -27,7 +27,11 @@ beforeEach(() => {
       invokedCmd = cmd;
       invokedArgs = args;
       // Return a minimal valid response for each command
-      if (cmd === "spawn_session" || cmd === "get_session" || cmd === "create_session_from_review") {
+      if (
+        cmd === "spawn_session" ||
+        cmd === "get_session" ||
+        cmd === "create_session_from_review"
+      ) {
         return Promise.resolve({
           id: "test-id",
           name: "test",
@@ -72,7 +76,8 @@ describe("tauri.ts ↔ Rust command parameter contracts", () => {
     });
     expect(invokedCmd).toBe("spawn_session");
     expect(invokedArgs).toHaveProperty("params");
-    const params = invokedArgs!.params as Record<string, unknown>;
+    expect(invokedArgs).toBeDefined();
+    const params = invokedArgs?.params as Record<string, unknown>;
     expect(params).toHaveProperty("repoId");
     expect(params).toHaveProperty("branch");
     expect(params).toHaveProperty("prompt");

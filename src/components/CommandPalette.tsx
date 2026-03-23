@@ -35,6 +35,19 @@ interface CommandPaletteProps {
 }
 
 export function CommandPalette({ open, onClose, onSelectSession }: CommandPaletteProps) {
+  if (!open) return null;
+
+  // Inner component remounts each time the palette opens, naturally resetting state
+  return <CommandPaletteInner onClose={onClose} onSelectSession={onSelectSession} />;
+}
+
+function CommandPaletteInner({
+  onClose,
+  onSelectSession,
+}: {
+  onClose: () => void;
+  onSelectSession: (id: string) => void;
+}) {
   const sessions = useSessionStore((s) => s.sessions);
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -53,20 +66,10 @@ export function CommandPalette({ open, onClose, onSelectSession }: CommandPalett
     );
   }, [sessions, query]);
 
-  // Reset selection when query or filtered results change
+  // Focus input on mount
   useEffect(() => {
-    setSelectedIndex(0);
-  }, [query, filtered.length]);
-
-  // Focus input when opened, reset state
-  useEffect(() => {
-    if (open) {
-      setQuery("");
-      setSelectedIndex(0);
-      // Delay focus to ensure the element is rendered
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
-  }, [open]);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }, []);
 
   // Scroll selected item into view
   useEffect(() => {
@@ -82,6 +85,11 @@ export function CommandPalette({ open, onClose, onSelectSession }: CommandPalett
     },
     [onSelectSession, onClose],
   );
+
+  const handleQueryChange = useCallback((value: string) => {
+    setQuery(value);
+    setSelectedIndex(0);
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -108,8 +116,6 @@ export function CommandPalette({ open, onClose, onSelectSession }: CommandPalett
     },
     [filtered, selectedIndex, handleSelect, onClose],
   );
-
-  if (!open) return null;
 
   return (
     <div
@@ -140,7 +146,7 @@ export function CommandPalette({ open, onClose, onSelectSession }: CommandPalett
             ref={inputRef}
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => handleQueryChange(e.target.value)}
             placeholder="Search sessions..."
             className="h-12 flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-600"
           />

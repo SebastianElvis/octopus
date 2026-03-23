@@ -47,7 +47,9 @@ function loadSoundPref(): boolean {
   try {
     const val = localStorage.getItem("tmt-sound-enabled");
     return val === null ? true : val === "true";
-  } catch { return true; }
+  } catch {
+    return true;
+  }
 }
 
 export const useUIStore = create<UIState>((set, get) => ({
@@ -68,7 +70,11 @@ export const useUIStore = create<UIState>((set, get) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   toggleSound: () => {
     const next = !get().soundEnabled;
-    try { localStorage.setItem("tmt-sound-enabled", String(next)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem("tmt-sound-enabled", String(next));
+    } catch {
+      /* ignore */
+    }
     set({ soundEnabled: next });
   },
 }));

@@ -368,9 +368,9 @@ pub async fn write_to_session(
         .processes
         .lock()
         .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
-    let pty_session = map.get_mut(&id).ok_or_else(|| {
-        AppError::Custom(format!("no running process for session {}", id))
-    })?;
+    let pty_session = map
+        .get_mut(&id)
+        .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
     pty_session.writer.write_all(data.as_bytes())?;
     pty_session.writer.flush()?;
     Ok(())
@@ -388,9 +388,9 @@ pub async fn resize_session(
         .processes
         .lock()
         .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
-    let pty_session = map.get(&id).ok_or_else(|| {
-        AppError::Custom(format!("no running process for session {}", id))
-    })?;
+    let pty_session = map
+        .get(&id)
+        .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
     pty_session
         .master
         .0
@@ -415,9 +415,9 @@ pub async fn reply_to_session(
         .processes
         .lock()
         .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
-    let pty_session = map.get_mut(&id).ok_or_else(|| {
-        AppError::Custom(format!("no running process for session {}", id))
-    })?;
+    let pty_session = map
+        .get_mut(&id)
+        .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
     pty_session
         .writer
         .write_all(format!("{}\n", message).as_bytes())?;
@@ -437,9 +437,9 @@ pub async fn interrupt_session(
         .processes
         .lock()
         .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
-    let pty_session = map.get_mut(&id).ok_or_else(|| {
-        AppError::Custom(format!("no running process for session {}", id))
-    })?;
+    let pty_session = map
+        .get_mut(&id)
+        .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
 
     #[cfg(unix)]
     {
@@ -509,12 +509,8 @@ pub async fn kill_session(
     // Remove worktree and delete branch
     if let (Some(wt_path), Some(br), Some(rid)) = (worktree_path, branch, repo_id) {
         if let Ok(repo_local_path) = lookup_repo_local_path(&state, &rid) {
-            if let Err(e) = crate::commands::worktree::remove_worktree(
-                repo_local_path,
-                wt_path,
-                br,
-            )
-            .await
+            if let Err(e) =
+                crate::commands::worktree::remove_worktree(repo_local_path, wt_path, br).await
             {
                 log::warn!("Failed to clean up worktree for session {}: {}", id, e);
             }
@@ -573,9 +569,9 @@ pub async fn pause_session(
             .processes
             .lock()
             .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
-        let pty_session = map.get(&id).ok_or_else(|| {
-            AppError::Custom(format!("no running process for session {}", id))
-        })?;
+        let pty_session = map
+            .get(&id)
+            .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
 
         #[cfg(unix)]
         {
@@ -615,9 +611,9 @@ pub async fn resume_session(
             .processes
             .lock()
             .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
-        let pty_session = map.get(&id).ok_or_else(|| {
-            AppError::Custom(format!("no running process for session {}", id))
-        })?;
+        let pty_session = map
+            .get(&id)
+            .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
 
         #[cfg(unix)]
         {
@@ -648,10 +644,7 @@ pub async fn resume_session(
             ));
         }
 
-        let log_path = session
-            .log_path
-            .as_deref()
-            .unwrap_or("");
+        let log_path = session.log_path.as_deref().unwrap_or("");
 
         // Create PTY
         let pty_system = native_pty_system();
@@ -831,7 +824,7 @@ pub async fn check_stuck_sessions(
                 .join("stdout.log");
             match std::fs::metadata(&log_path) {
                 Ok(meta) => match meta.modified() {
-                    Ok(modified) => modified.elapsed().map_or(false, |e| e > STUCK_THRESHOLD),
+                    Ok(modified) => modified.elapsed().is_ok_and(|e| e > STUCK_THRESHOLD),
                     Err(_) => false,
                 },
                 Err(_) => false,

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { TerminalPanel } from "../TerminalPanel";
 
 const writeFn = vi.fn();
@@ -9,6 +9,7 @@ const onDataFn = vi.fn(() => ({ dispose: vi.fn() }));
 const onResizeFn = vi.fn(() => ({ dispose: vi.fn() }));
 const loadAddonFn = vi.fn();
 const disposeFn = vi.fn();
+const refreshFn = vi.fn();
 
 // Mock xterm with a real class so `new Terminal(...)` works
 vi.mock("@xterm/xterm", () => {
@@ -23,6 +24,7 @@ vi.mock("@xterm/xterm", () => {
     onResize = onResizeFn;
     loadAddon = loadAddonFn;
     dispose = disposeFn;
+    refresh = refreshFn;
     constructor(opts: unknown) {
       this.options = opts;
     }
@@ -37,7 +39,41 @@ vi.mock("@xterm/addon-fit", () => {
   return { FitAddon: MockFitAddon };
 });
 
+vi.mock("@xterm/addon-webgl", () => {
+  class MockWebglAddon {
+    onContextLoss = vi.fn();
+    dispose = vi.fn();
+  }
+  return { WebglAddon: MockWebglAddon };
+});
+
 vi.mock("@xterm/xterm/css/xterm.css", () => ({}));
+
+vi.mock("../../lib/env", () => ({
+  isTauri: vi.fn(() => false),
+}));
+
+vi.mock("../../lib/tauri", () => ({
+  onSessionOutput: vi.fn(),
+  writeToSession: vi.fn(),
+  resizeSession: vi.fn(),
+  readSessionLog: vi.fn(),
+}));
+
+vi.mock("../../stores/sessionStore", () => ({
+  useSessionStore: Object.assign(
+    vi.fn((selector: (s: { outputBuffers: Record<string, string[]> }) => unknown) =>
+      selector({ outputBuffers: {} }),
+    ),
+    {
+      getState: vi.fn(() => ({ outputBuffers: {} })),
+    },
+  ),
+}));
+
+vi.mock("../../hooks/useTauriEvent", () => ({
+  useTauriEvent: vi.fn(),
+}));
 
 // Mock ResizeObserver
 class MockResizeObserver {
@@ -56,21 +92,17 @@ describe("TerminalPanel", () => {
     onResizeFn.mockClear();
     loadAddonFn.mockClear();
     disposeFn.mockClear();
+    refreshFn.mockClear();
   });
 
-  it("renders terminal container and header", () => {
+  it("renders terminal container", () => {
+    const { container } = render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
+    expect(container.querySelector(".bg-\\[\\#0d1117\\]")).toBeTruthy();
+  });
+
+  it("opens terminal in the container div", () => {
     render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
-    expect(screen.getByText("Terminal")).toBeInTheDocument();
-  });
-
-  it("shows running status indicator", () => {
-    render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
-    expect(screen.getByText("running")).toBeInTheDocument();
-  });
-
-  it("shows stopped status", () => {
-    render(<TerminalPanel sessionId="s1" sessionStatus="stopped" />);
-    expect(screen.getByText("stopped")).toBeInTheDocument();
+    expect(openFn).toHaveBeenCalledTimes(1);
   });
 
   it("renders a Tauri-not-available message outside Tauri", () => {
@@ -80,31 +112,38 @@ describe("TerminalPanel", () => {
     );
   });
 
-  it("opens terminal in the container div", () => {
-    render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
-    expect(openFn).toHaveBeenCalledTimes(1);
-  });
-
   it("registers onData and onResize handlers", () => {
     render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
     expect(onDataFn).toHaveBeenCalledTimes(1);
     expect(onResizeFn).toHaveBeenCalledTimes(1);
   });
 
-  it("loads the FitAddon", () => {
+  it("loads the FitAddon and WebglAddon", () => {
     render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
-    expect(loadAddonFn).toHaveBeenCalledTimes(1);
+    // FitAddon + WebglAddon = 2 calls
+    expect(loadAddonFn).toHaveBeenCalledTimes(2);
   });
 
-  it("shows green pulse for active sessions", () => {
+  it("renders with overflow-hidden wrapper", () => {
     const { container } = render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
-    const dot = container.querySelector(".animate-pulse");
-    expect(dot).toBeTruthy();
+    expect(container.querySelector(".overflow-hidden")).toBeTruthy();
   });
 
-  it("shows gray dot for inactive sessions", () => {
-    const { container } = render(<TerminalPanel sessionId="s1" sessionStatus="stopped" />);
-    const dot = container.querySelector(".bg-gray-400");
-    expect(dot).toBeTruthy();
+  it("renders with h-full class", () => {
+    const { container } = render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
+    expect(container.querySelector(".h-full")).toBeTruthy();
+  });
+
+  it("disposes terminal on unmount", () => {
+    const { unmount } = render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
+    unmount();
+    expect(disposeFn).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a new terminal when sessionId changes", () => {
+    const { rerender } = render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
+    openFn.mockClear();
+    rerender(<TerminalPanel sessionId="s2" sessionStatus="running" />);
+    expect(openFn).toHaveBeenCalledTimes(1);
   });
 });

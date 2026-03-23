@@ -40,7 +40,9 @@ export function RightPanel({ session, onCommitted }: RightPanelProps) {
           >
             {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
-              <span className="rounded-full bg-gray-200 px-1.5 text-xs dark:bg-gray-700">{tab.count}</span>
+              <span className="rounded-full bg-gray-200 px-1.5 text-xs dark:bg-gray-700">
+                {tab.count}
+              </span>
             )}
           </button>
         ))}
@@ -51,7 +53,9 @@ export function RightPanel({ session, onCommitted }: RightPanelProps) {
         {effectiveTab === "files" && session?.worktreePath && (
           <FileTree
             rootPath={session.worktreePath}
-            onFileSelect={(path) => void openFile(path)}
+            onFileSelect={(path) => {
+              void openFile(path);
+            }}
           />
         )}
         {effectiveTab === "files" && !session?.worktreePath && (

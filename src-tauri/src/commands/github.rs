@@ -265,7 +265,14 @@ pub async fn fetch_issues(
             body: i.body,
             state: i.state,
             html_url: i.html_url,
-            labels: i.labels.into_iter().map(|l| LabelInfo { name: l.name, color: l.color }).collect(),
+            labels: i
+                .labels
+                .into_iter()
+                .map(|l| LabelInfo {
+                    name: l.name,
+                    color: l.color,
+                })
+                .collect(),
             user: i.user.login,
             comments: i.comments,
             created_at: i.created_at,
@@ -276,10 +283,7 @@ pub async fn fetch_issues(
 
 /// Fetch open pull requests for a repository via the GitHub REST API.
 #[tauri::command]
-pub async fn fetch_prs(
-    state: State<'_, AppState>,
-    repo_id: String,
-) -> AppResult<Vec<GitHubPR>> {
+pub async fn fetch_prs(state: State<'_, AppState>, repo_id: String) -> AppResult<Vec<GitHubPR>> {
     let github_url = lookup_github_url(&state, &repo_id)?;
     let token = get_github_token().await?;
     let (owner, repo) = parse_owner_repo(&github_url)?;
@@ -568,10 +572,7 @@ pub async fn create_session_from_review(
     let comment_text = selected
         .iter()
         .map(|c| {
-            let line_info = c
-                .line
-                .map(|l| format!(" (line {})", l))
-                .unwrap_or_default();
+            let line_info = c.line.map(|l| format!(" (line {})", l)).unwrap_or_default();
             format!("- `{}`{}:\n  {}", c.path, line_info, c.body)
         })
         .collect::<Vec<_>>()

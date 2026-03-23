@@ -1,8 +1,19 @@
 import { useEffect, useRef } from "react";
-import { EditorView, lineNumbers, highlightActiveLine, drawSelection, keymap } from "@codemirror/view";
+import {
+  EditorView,
+  lineNumbers,
+  highlightActiveLine,
+  drawSelection,
+  keymap,
+} from "@codemirror/view";
 import { EditorState, Compartment } from "@codemirror/state";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
-import { bracketMatching, indentOnInput, syntaxHighlighting, defaultHighlightStyle } from "@codemirror/language";
+import {
+  bracketMatching,
+  indentOnInput,
+  syntaxHighlighting,
+  defaultHighlightStyle,
+} from "@codemirror/language";
 import { highlightSelectionMatches, searchKeymap } from "@codemirror/search";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { languages } from "@codemirror/language-data";
@@ -14,7 +25,12 @@ interface CodeEditorProps {
   darkMode?: boolean;
 }
 
-export function CodeEditor({ content, language, readOnly = true, darkMode = true }: CodeEditorProps) {
+export function CodeEditor({
+  content,
+  language,
+  readOnly = true,
+  darkMode = true,
+}: CodeEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
 
@@ -22,9 +38,10 @@ export function CodeEditor({ content, language, readOnly = true, darkMode = true
     if (!containerRef.current) return;
 
     // Find language support
-    const langDesc = languages.find((l) =>
-      l.name.toLowerCase() === language.toLowerCase() ||
-      l.alias.some((a) => a.toLowerCase() === language.toLowerCase()),
+    const langDesc = languages.find(
+      (l) =>
+        l.name.toLowerCase() === language.toLowerCase() ||
+        l.alias.some((a) => a.toLowerCase() === language.toLowerCase()),
     );
 
     const langCompartment = new Compartment();

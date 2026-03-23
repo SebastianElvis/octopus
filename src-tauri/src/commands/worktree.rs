@@ -139,7 +139,11 @@ pub fn create_worktree_internal(
         )));
     }
 
-    log::info!("Created worktree for branch '{}' at {}", branch, worktree_str);
+    log::info!(
+        "Created worktree for branch '{}' at {}",
+        branch,
+        worktree_str
+    );
     Ok(worktree_str)
 }
 
@@ -151,7 +155,12 @@ pub async fn create_worktree(
     session_id: String,
     force: Option<bool>,
 ) -> AppResult<String> {
-    create_worktree_internal(&repo_local_path, &branch, &session_id, force.unwrap_or(false))
+    create_worktree_internal(
+        &repo_local_path,
+        &branch,
+        &session_id,
+        force.unwrap_or(false),
+    )
 }
 
 /// Remove a git worktree and delete the associated local branch.

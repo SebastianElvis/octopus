@@ -61,7 +61,7 @@ export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: 
   const [showQuickReply, setShowQuickReply] = useState(false);
   const [sending, setSending] = useState(false);
 
-  async function handleQuickReply(e: React.FormEvent) {
+  async function handleQuickReply(e: React.SyntheticEvent) {
     e.preventDefault();
     e.stopPropagation();
     if (!quickReply.trim() || sending) return;
@@ -168,7 +168,9 @@ export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: 
             Interrupt
           </button>
         )}
-        {(session.status === "idle" || session.status === "paused" || session.status === "interrupted") && (
+        {(session.status === "idle" ||
+          session.status === "paused" ||
+          session.status === "interrupted") && (
           <button
             onClick={() => onResume?.(session.id)}
             className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-blue-500"
@@ -187,7 +189,9 @@ export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: 
       {/* Inline quick reply */}
       {showQuickReply && session.status === "waiting" && (
         <form
-          onSubmit={(e) => void handleQuickReply(e)}
+          onSubmit={(e) => {
+            void handleQuickReply(e);
+          }}
           className="mt-2 flex gap-1"
           onClick={(e) => e.stopPropagation()}
         >

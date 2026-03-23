@@ -43,8 +43,12 @@ export function SidebarTree({
   const sessionsByRepo = new Map<string, Session[]>();
   for (const s of sessions) {
     const key = s.repoId || "__unlinked__";
-    if (!sessionsByRepo.has(key)) sessionsByRepo.set(key, []);
-    sessionsByRepo.get(key)!.push(s);
+    const existing = sessionsByRepo.get(key);
+    if (existing) {
+      existing.push(s);
+    } else {
+      sessionsByRepo.set(key, [s]);
+    }
   }
 
   // Unlinked sessions (no repo)
@@ -55,7 +59,7 @@ export function SidebarTree({
       {repos.map((repo) => {
         const repoSessions = sessionsByRepo.get(repo.id) ?? [];
         const isExpanded = expandedRepos.has(repo.id);
-        const ghUrl = repo.githubUrl ?? "";
+        const ghUrl = repo.githubUrl;
         const repoName = ghUrl.split("/").slice(-2).join("/") || ghUrl || "unknown";
         const waitingCount = repoSessions.filter((s) => s.status === "waiting").length;
 
@@ -149,10 +153,15 @@ function SessionNode({
           : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
       }`}
     >
-      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-400"}`} />
+      <span
+        className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-400"}`}
+      />
       <span className="truncate">{session.name}</span>
       {session.branch && (
-        <span className="ml-auto truncate font-mono text-gray-400 dark:text-gray-600" style={{ maxWidth: "80px", fontSize: "10px" }}>
+        <span
+          className="ml-auto truncate font-mono text-gray-400 dark:text-gray-600"
+          style={{ maxWidth: "80px", fontSize: "10px" }}
+        >
           {session.branch}
         </span>
       )}

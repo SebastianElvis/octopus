@@ -82,27 +82,37 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
       for (const chunk of currentBuffer) {
         terminal.write(chunk);
       }
-    } else if (["done", "completed", "failed", "killed", "idle", "interrupted"].includes(sessionStatus)) {
+    } else if (
+      ["done", "completed", "failed", "killed", "idle", "interrupted"].includes(sessionStatus)
+    ) {
       // Try to replay saved log output
       if (isTauri()) {
-        void readSessionLog(sessionId).then((log) => {
-          if (log) {
-            terminal.write(log);
-          } else {
-            terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
-          }
-        }).catch(() => {
-          terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
-        });
+        void readSessionLog(sessionId)
+          .then((log) => {
+            if (log) {
+              terminal.write(log);
+            } else {
+              terminal.writeln(
+                "\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m",
+              );
+            }
+          })
+          .catch(() => {
+            terminal.writeln(
+              "\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m",
+            );
+          });
       } else {
-        terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
+        terminal.writeln(
+          "\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m",
+        );
       }
     }
 
     // Handle terminal input → send to backend PTY
     const onDataDispose = terminal.onData((data) => {
       if (isTauri()) {
-        void writeToSession(sessionId, data).catch((err) =>
+        void writeToSession(sessionId, data).catch((err: unknown) =>
           console.error("[TerminalPanel] write error:", err),
         );
       }
@@ -111,7 +121,7 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
     // Handle resize → tell backend to resize PTY
     const onResizeDispose = terminal.onResize(({ cols, rows }) => {
       if (isTauri()) {
-        void resizeSession(sessionId, rows, cols).catch((err) =>
+        void resizeSession(sessionId, rows, cols).catch((err: unknown) =>
           console.error("[TerminalPanel] resize error:", err),
         );
       }
@@ -120,7 +130,9 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
     // Send initial size to backend
     if (isTauri()) {
       const { cols, rows } = terminal;
-      void resizeSession(sessionId, rows, cols).catch(() => {});
+      void resizeSession(sessionId, rows, cols).catch((_err: unknown) => {
+        /* initial resize error ignored */
+      });
     }
 
     // Resize terminal when container size changes
@@ -137,6 +149,7 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
       terminalRef.current = null;
       fitAddonRef.current = null;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sessionStatus is intentionally read only on mount; adding it would re-create the terminal on every status change
   }, [sessionId]);
 
   // Refit terminal when tab becomes visible (xterm can't measure when hidden)
@@ -151,7 +164,9 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
           terminalRef.current?.refresh(0, terminalRef.current.rows - 1);
         });
       });
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }
   }, [visible]);
 
@@ -168,10 +183,7 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
 
   return (
     <div className="h-full overflow-hidden">
-      <div
-        ref={containerRef}
-        className="h-full bg-[#0d1117]"
-      />
+      <div ref={containerRef} className="h-full bg-[#0d1117]" />
     </div>
   );
 }

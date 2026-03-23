@@ -103,8 +103,22 @@ describe("sessionStore", () => {
       const { invoke } = await import("@tauri-apps/api/core");
       // Backend returns BackendSession shapes (camelCase of Rust fields)
       const backendSessions = [
-        { id: "s1", name: "Session s1", repoId: "repo-1", branch: "branch-s1", status: "idle", stateChangedAt: "2025-01-01T00:00:00Z" },
-        { id: "s2", name: "Session s2", repoId: "repo-1", branch: "branch-s2", status: "idle", stateChangedAt: "2025-01-01T00:00:00Z" },
+        {
+          id: "s1",
+          name: "Session s1",
+          repoId: "repo-1",
+          branch: "branch-s1",
+          status: "idle",
+          stateChangedAt: "2025-01-01T00:00:00Z",
+        },
+        {
+          id: "s2",
+          name: "Session s2",
+          repoId: "repo-1",
+          branch: "branch-s2",
+          status: "idle",
+          stateChangedAt: "2025-01-01T00:00:00Z",
+        },
       ];
       vi.mocked(invoke).mockResolvedValueOnce(backendSessions);
 

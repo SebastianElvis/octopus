@@ -6,7 +6,15 @@ import type { Repo } from "../../lib/types";
 // Mock tauri module
 vi.mock("../../lib/tauri", () => ({
   fetchIssues: vi.fn(() => Promise.resolve([])),
+  fetchPRs: vi.fn(() => Promise.resolve([])),
   spawnSession: vi.fn(),
+}));
+
+// Mock sessionStore
+vi.mock("../../stores/sessionStore", () => ({
+  useSessionStore: vi.fn((selector: (s: { addSession: () => void }) => unknown) =>
+    selector({ addSession: vi.fn() }),
+  ),
 }));
 
 const mockRepo: Repo = {
@@ -34,7 +42,7 @@ describe("NewSessionModal", () => {
     expect(screen.getByText("No repositories added yet.")).toBeInTheDocument();
   });
 
-  it("shows error when submitting without prompt", async () => {
+  it("shows error when submitting without prompt", () => {
     render(<NewSessionModal repos={[mockRepo]} onClose={vi.fn()} />);
     fireEvent.click(screen.getByText("Create Session"));
     expect(screen.getByText(/Please select a repository and provide a prompt/)).toBeInTheDocument();
@@ -64,9 +72,7 @@ describe("NewSessionModal", () => {
 
     // Wait for the error to appear
     await waitFor(() => {
-      expect(
-        screen.getByText(/Branch 'test' is already used by worktree/),
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Branch 'test' is already used by worktree/)).toBeInTheDocument();
     });
 
     // "Replace & Create" button should appear
@@ -114,17 +120,15 @@ describe("NewSessionModal", () => {
     });
   });
 
-  it("shows source type tabs: Issue URL, PR URL, Ad-hoc", () => {
+  it("shows link issue/PR input", () => {
     render(<NewSessionModal repos={[mockRepo]} onClose={vi.fn()} />);
-    expect(screen.getByText("Issue URL")).toBeInTheDocument();
-    expect(screen.getByText("PR URL")).toBeInTheDocument();
-    expect(screen.getByText("Ad-hoc")).toBeInTheDocument();
+    expect(screen.getByText(/Link Issue or PR/)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Paste URL, type #number, or search/)).toBeInTheDocument();
   });
 
-  it("shows URL input when Issue URL source is selected", () => {
+  it("shows skip permissions checkbox", () => {
     render(<NewSessionModal repos={[mockRepo]} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByText("Issue URL"));
-    expect(screen.getByPlaceholderText(/github\.com.*issues/)).toBeInTheDocument();
+    expect(screen.getByText("Dangerously skip permissions")).toBeInTheDocument();
   });
 
   it("Create Session button is disabled when no repos exist", () => {

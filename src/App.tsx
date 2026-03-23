@@ -147,7 +147,10 @@ function App() {
           (session.status === "failed" && prevStatus !== "failed");
 
         if (shouldNotify) {
-          const messages: Record<string, { toast: string; system: string; type: ToastItem["type"] }> = {
+          const messages: Record<
+            string,
+            { toast: string; system: string; type: ToastItem["type"] }
+          > = {
             waiting: {
               toast: `"${session.name}" needs your input`,
               system: `Session "${session.name}" is waiting for your response.`,
@@ -170,26 +173,29 @@ function App() {
             },
           };
 
-          const msg = messages[session.status];
-          if (msg) {
-            // In-app toast
-            setToasts((prev) => [
-              ...prev,
-              {
-                id: `${session.id}-${session.status}-${Date.now()}`,
-                message: msg.toast,
-                type: msg.type,
-                sessionId: session.id,
-              },
-            ]);
+          // session.status is guaranteed to be one of the keys above due to shouldNotify check
+          const msg = messages[session.status] as {
+            toast: string;
+            system: string;
+            type: ToastItem["type"];
+          };
+          // In-app toast
+          setToasts((prev) => [
+            ...prev,
+            {
+              id: `${session.id}-${session.status}-${Date.now()}`,
+              message: msg.toast,
+              type: msg.type,
+              sessionId: session.id,
+            },
+          ]);
 
-            // System notification
-            void sendSystemNotification("TooManyTabs", msg.system);
+          // System notification
+          void sendSystemNotification("TooManyTabs", msg.system);
 
-            // Sound notification
-            if (soundEnabled) {
-              void playNotificationSound(session.status === "completed" ? "success" : "alert");
-            }
+          // Sound notification
+          if (soundEnabled) {
+            void playNotificationSound(session.status === "completed" ? "success" : "alert");
           }
         }
       }),
@@ -381,11 +387,7 @@ function App() {
       />
 
       {/* Toast notifications */}
-      <ToastContainer
-        toasts={toasts}
-        onDismiss={dismissToast}
-        onClickToast={handleToastClick}
-      />
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} onClickToast={handleToastClick} />
     </div>
   );
 }
@@ -431,13 +433,37 @@ function SoundToggle() {
       className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
     >
       {soundEnabled ? (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M6.5 8.5H4a1 1 0 00-1 1v5a1 1 0 001 1h2.5l4.5 4V4.5l-4.5 4z" />
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M6.5 8.5H4a1 1 0 00-1 1v5a1 1 0 001 1h2.5l4.5 4V4.5l-4.5 4z"
+          />
         </svg>
       ) : (
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+        <svg
+          className="h-4 w-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15z"
+          />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"
+          />
         </svg>
       )}
     </button>

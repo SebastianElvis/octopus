@@ -8,13 +8,31 @@ interface FileTreeProps {
 }
 
 const FILE_ICONS: Record<string, string> = {
-  ts: "🟦", tsx: "🟦", js: "🟨", jsx: "🟨",
-  rs: "🦀", py: "🐍", go: "🔵", rb: "🔴",
-  json: "📋", yaml: "📋", yml: "📋", toml: "📋",
-  md: "📝", mdx: "📝", txt: "📄",
-  html: "🌐", css: "🎨", scss: "🎨",
-  sh: "⚙️", bash: "⚙️", zsh: "⚙️",
-  lock: "🔒", svg: "🖼️", png: "🖼️", jpg: "🖼️",
+  ts: "🟦",
+  tsx: "🟦",
+  js: "🟨",
+  jsx: "🟨",
+  rs: "🦀",
+  py: "🐍",
+  go: "🔵",
+  rb: "🔴",
+  json: "📋",
+  yaml: "📋",
+  yml: "📋",
+  toml: "📋",
+  md: "📝",
+  mdx: "📝",
+  txt: "📄",
+  html: "🌐",
+  css: "🎨",
+  scss: "🎨",
+  sh: "⚙️",
+  bash: "⚙️",
+  zsh: "⚙️",
+  lock: "🔒",
+  svg: "🖼️",
+  png: "🖼️",
+  jpg: "🖼️",
 };
 
 function fileIcon(entry: FileEntry): string {
@@ -89,7 +107,9 @@ function FileTreeNode({
     return (
       <div>
         <button
-          onClick={() => void toggleDir(entry.path)}
+          onClick={() => {
+            void toggleDir(entry.path);
+          }}
           className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
           style={{ paddingLeft: `${depth * 12 + 4}px` }}
         >
@@ -107,7 +127,10 @@ function FileTreeNode({
         {isExpanded && (
           <div>
             {isLoading && children.length === 0 && (
-              <div style={{ paddingLeft: `${(depth + 1) * 12 + 4}px` }} className="py-0.5 text-gray-400 dark:text-gray-600">
+              <div
+                style={{ paddingLeft: `${(depth + 1) * 12 + 4}px` }}
+                className="py-0.5 text-gray-400 dark:text-gray-600"
+              >
                 Loading…
               </div>
             )}
@@ -134,7 +157,9 @@ function FileTreeNode({
       className="flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
       style={{ paddingLeft: `${depth * 12 + 18}px` }}
     >
-      <span className="shrink-0" style={{ fontSize: "10px" }}>{fileIcon(entry)}</span>
+      <span className="shrink-0" style={{ fontSize: "10px" }}>
+        {fileIcon(entry)}
+      </span>
       <span className="truncate">{entry.name}</span>
     </button>
   );

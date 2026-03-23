@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 interface ResizeHandleProps {
   direction: "horizontal" | "vertical";
@@ -11,8 +11,10 @@ export function ResizeHandle({ direction, onResize, onResizeEnd }: ResizeHandleP
   const lastPos = useRef(0);
   const onResizeRef = useRef(onResize);
   const onResizeEndRef = useRef(onResizeEnd);
-  onResizeRef.current = onResize;
-  onResizeEndRef.current = onResizeEnd;
+  useEffect(() => {
+    onResizeRef.current = onResize;
+    onResizeEndRef.current = onResizeEnd;
+  }, [onResize, onResizeEnd]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {

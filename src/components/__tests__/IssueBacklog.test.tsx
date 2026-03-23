@@ -47,8 +47,10 @@ describe("IssueBacklog", () => {
       />,
     );
 
-    expect(getByText("Issue Backlog")).toBeInTheDocument();
-    expect(getByPlaceholderText("Search by title, #number, label, or author...")).toBeInTheDocument();
+    expect(getByText("Task Backlog")).toBeInTheDocument();
+    expect(
+      getByPlaceholderText("Search by title, #number, label, or author..."),
+    ).toBeInTheDocument();
   });
 
   it("renders issues when loaded", async () => {

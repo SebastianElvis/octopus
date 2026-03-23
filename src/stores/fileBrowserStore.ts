@@ -48,7 +48,7 @@ export const useFileBrowserStore = create<FileBrowserState>((set, get) => ({
     } else {
       newExpanded.add(path);
       set({ expandedDirs: newExpanded });
-      if (!state.entries[path]) {
+      if (!(path in state.entries)) {
         await state.loadDir(path);
       }
     }

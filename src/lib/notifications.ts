@@ -5,9 +5,8 @@ let permissionGranted = false;
 export async function requestNotificationPermission(): Promise<boolean> {
   if (!isTauri()) return false;
   try {
-    const { isPermissionGranted, requestPermission } = await import(
-      "@tauri-apps/plugin-notification"
-    );
+    const { isPermissionGranted, requestPermission } =
+      await import("@tauri-apps/plugin-notification");
     permissionGranted = await isPermissionGranted();
     if (!permissionGranted) {
       const result = await requestPermission();
