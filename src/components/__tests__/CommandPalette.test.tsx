@@ -89,12 +89,10 @@ describe("CommandPalette", () => {
     const onClose = vi.fn();
     render(<CommandPalette open={true} onClose={onClose} onSelectSession={() => {}} />);
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    fireEvent.keyDown(
-      screen.getByPlaceholderText("Search sessions...").closest("div[class*='max-w']")!,
-      {
-        key: "Escape",
-      },
-    );
+    const container = screen
+      .getByPlaceholderText("Search sessions...")
+      .closest("div[class*='max-w']")!;
+    fireEvent.keyDown(container, { key: "Escape" });
     expect(onClose).toHaveBeenCalled();
   });
 
