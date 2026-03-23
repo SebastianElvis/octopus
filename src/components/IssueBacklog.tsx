@@ -191,7 +191,7 @@ export function IssueBacklog({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Issue Backlog</h2>
+        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Task Backlog</h2>
       </div>
 
       {/* Search bar */}

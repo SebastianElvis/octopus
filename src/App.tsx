@@ -4,6 +4,7 @@ import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
 import { RepoSettings } from "./components/RepoSettings";
 import { IssueBacklog } from "./components/IssueBacklog";
+import { SessionsView } from "./components/SessionsView";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { useSessionStore } from "./stores/sessionStore";
@@ -13,17 +14,16 @@ import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
 
-type View = "board" | "session" | "repos" | "issues";
+type View = "home" | "session" | "repos" | "tasks" | "sessions";
 
 function App() {
-  const [view, setView] = useState<View>("board");
+  const [view, setView] = useState<View>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
   const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
   const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
   const [prefillPR, setPrefillPR] = useState<GitHubPR | null>(null);
   const [openIssueCount, setOpenIssueCount] = useState(0);
-  const [reposCollapsed, setReposCollapsed] = useState(false);
 
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const updateSession = useSessionStore((s) => s.updateSession);
@@ -86,7 +86,7 @@ function App() {
   }
 
   function handleBack() {
-    setView("board");
+    setView("home");
     setActiveSessionId(null);
   }
 
@@ -122,89 +122,34 @@ function App() {
             <h1 className="text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100">
               TooManyTabs
             </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-600">Claude Code dispatch board</p>
+            <p className="text-xs text-gray-500 dark:text-gray-600">dispatch board</p>
           </div>
           <ThemeToggle />
         </div>
 
         <nav className="flex flex-col gap-1 px-2">
           <NavItem
-            label="Board"
-            active={view === "board" || view === "session"}
+            label="Home"
+            active={view === "home" || view === "session"}
             badge={waitingCount > 0 ? waitingCount : undefined}
             onClick={() => {
-              setView("board");
+              setView("home");
               setActiveSessionId(null);
             }}
           />
           <NavItem
-            label="Issues"
-            active={view === "issues"}
+            label="Tasks"
+            active={view === "tasks"}
             badge={openIssueCount > 0 ? openIssueCount : undefined}
-            onClick={() => setView("issues")}
+            onClick={() => setView("tasks")}
+          />
+          <NavItem
+            label="Sessions"
+            active={view === "sessions"}
+            badge={sessions.length > 0 ? sessions.length : undefined}
+            onClick={() => setView("sessions")}
           />
         </nav>
-
-        {/* Repo list */}
-        <div className="mt-4 px-4">
-          <div className="mb-2 flex items-center justify-between">
-            <button
-              type="button"
-              onClick={() => setReposCollapsed((v) => !v)}
-              className="flex cursor-pointer items-center gap-1 text-xs font-medium uppercase tracking-wide text-gray-500 hover:text-gray-700 dark:text-gray-600 dark:hover:text-gray-400"
-            >
-              <svg
-                className={`h-3 w-3 transition-transform ${reposCollapsed ? "" : "rotate-90"}`}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-              Repos ({String(repos.length)})
-            </button>
-            <button
-              type="button"
-              onClick={() => setView("repos")}
-              className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-100 active:bg-blue-200 dark:text-blue-400 dark:hover:bg-blue-950/40 dark:active:bg-blue-950/60"
-              title="Manage repositories"
-            >
-              +
-            </button>
-          </div>
-          {!reposCollapsed && (
-            <>
-              {repos.length === 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setView("repos")}
-                  className="w-full cursor-pointer rounded-md border border-dashed border-gray-300 px-3 py-2.5 text-center text-xs font-medium text-gray-600 transition-colors hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 active:bg-blue-100 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:bg-blue-950/30 dark:hover:text-blue-400"
-                >
-                  Connect a repo
-                </button>
-              ) : (
-                <div className="space-y-0.5">
-                  {repos.map((repo) => {
-                    const ghUrl = repo.githubUrl ?? "";
-                    const name = ghUrl.split("/").slice(-2).join("/") || ghUrl || "unknown";
-                    return (
-                      <button
-                        key={repo.id}
-                        type="button"
-                        onClick={() => setView("repos")}
-                        className="block w-full cursor-pointer truncate rounded px-2 py-1 text-left text-xs text-gray-600 hover:bg-gray-100 hover:text-gray-900 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
-                        title={ghUrl}
-                      >
-                        {name}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </>
-          )}
-        </div>
 
         <div className="mt-auto flex flex-col gap-2 p-4">
           <button
@@ -217,9 +162,9 @@ function App() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className={`flex-1 overflow-hidden ${view === "home" ? "flex flex-col" : "overflow-y-auto p-6"}`}>
         <ErrorBoundary>
-          {view === "board" && (
+          {view === "home" && (
             <DispatchBoard
               onViewSession={handleViewSession}
               onNewSession={() => setShowNewSession(true)}
@@ -229,12 +174,19 @@ function App() {
             <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
           )}
           {view === "repos" && <RepoSettings />}
-          {view === "issues" && (
+          {view === "tasks" && (
             <IssueBacklog
               repos={repos}
               onSelectIssue={handleSelectIssue}
               onSelectPR={handleSelectPR}
               onNavigateSettings={() => setView("repos")}
+            />
+          )}
+          {view === "sessions" && (
+            <SessionsView
+              onViewSession={handleViewSession}
+              onNewSession={() => setShowNewSession(true)}
+              onManageRepos={() => setView("repos")}
             />
           )}
         </ErrorBoundary>
