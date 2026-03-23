@@ -4,7 +4,12 @@ import type { Session } from "../sessionStore";
 
 // Reset store between tests
 beforeEach(() => {
-  useSessionStore.setState({ sessions: [], outputBuffers: {}, sessionsLoading: false });
+  useSessionStore.setState({
+    sessions: [],
+    outputBuffers: {},
+    sessionsLoading: false,
+    sessionsError: null,
+  });
   vi.restoreAllMocks();
 });
 
@@ -94,6 +99,7 @@ describe("sessionStore", () => {
       await useSessionStore.getState().loadSessions();
       expect(useSessionStore.getState().sessions).toEqual([]);
       expect(useSessionStore.getState().sessionsLoading).toBe(false);
+      expect(useSessionStore.getState().sessionsError).toBeNull();
     });
 
     it("populates sessions from tauri backend when in Tauri", async () => {
@@ -131,15 +137,29 @@ describe("sessionStore", () => {
       expect(sessions[1].id).toBe("s2");
     });
 
-    it("silently handles backend errors", async () => {
+    it("sets error state when backend fails", async () => {
       const { isTauri } = await import("../../lib/env");
       vi.mocked(isTauri).mockReturnValue(true);
 
       const { invoke } = await import("@tauri-apps/api/core");
       vi.mocked(invoke).mockRejectedValueOnce(new Error("Backend unavailable"));
 
-      await expect(useSessionStore.getState().loadSessions()).resolves.toBeUndefined();
+      await useSessionStore.getState().loadSessions();
       expect(useSessionStore.getState().sessions).toEqual([]);
+      expect(useSessionStore.getState().sessionsLoading).toBe(false);
+      expect(useSessionStore.getState().sessionsError).toBe("Backend unavailable");
+    });
+
+    it("clears previous error on successful load", async () => {
+      // Set initial error state
+      useSessionStore.setState({ sessionsError: "Previous error" });
+
+      // Ensure isTauri returns false so listSessions returns [] successfully
+      const { isTauri } = await import("../../lib/env");
+      vi.mocked(isTauri).mockReturnValue(false);
+
+      await useSessionStore.getState().loadSessions();
+      expect(useSessionStore.getState().sessionsError).toBeNull();
     });
   });
 });
