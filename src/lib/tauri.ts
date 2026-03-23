@@ -270,6 +270,40 @@ export async function getFileAtHead(worktreePath: string, filePath: string): Pro
   return tauriInvoke<string>("get_file_at_head", { worktreePath, filePath });
 }
 
+// ── Shell commands (plain shell PTY, not Claude sessions) ────────────────────
+
+export async function spawnShell(cwd: string): Promise<string> {
+  requireTauri("spawn_shell");
+  return tauriInvoke<string>("spawn_shell", { cwd });
+}
+
+export async function writeToShell(shellId: string, data: string): Promise<void> {
+  requireTauri("write_to_shell");
+  return tauriInvoke<void>("write_to_shell", { shellId, data });
+}
+
+export async function resizeShell(shellId: string, rows: number, cols: number): Promise<void> {
+  requireTauri("resize_shell");
+  return tauriInvoke<void>("resize_shell", { shellId, rows, cols });
+}
+
+export async function killShell(shellId: string): Promise<void> {
+  requireTauri("kill_shell");
+  return tauriInvoke<void>("kill_shell", { shellId });
+}
+
+export type ShellOutputPayload = {
+  shellId: string;
+  data: string;
+};
+
+export async function onShellOutput(
+  callback: (payload: ShellOutputPayload) => void,
+): Promise<() => void> {
+  if (!isTauri()) return noop;
+  return tauriListen("shell-output", (event) => callback(event.payload as ShellOutputPayload));
+}
+
 // ── Event listeners ──────────────────────────────────────────────────────────
 
 export type SessionStateChangedPayload = {

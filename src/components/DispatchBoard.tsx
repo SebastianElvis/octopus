@@ -1,25 +1,62 @@
-import { useEffect, useCallback, type ReactNode } from "react";
+import { useEffect, useCallback, useState, useMemo, type ReactNode } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { KanbanCard } from "./KanbanCard";
-import { checkStuckSessions } from "../lib/tauri";
+import { checkStuckSessions, killSession, resumeSession } from "../lib/tauri";
+import type { Session } from "../lib/types";
 
 interface DispatchBoardProps {
   onViewSession: (id: string) => void;
   onNewSession: () => void;
 }
 
+type StatusFilter = "all" | "waiting" | "running" | "completed" | "failed" | "stuck" | "paused" | "interrupted";
+
 export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const sessionsLoading = useSessionStore((s) => s.sessionsLoading);
   const updateSession = useSessionStore((s) => s.updateSession);
 
-  const needsAttention = [...sessions.filter(
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Filter sessions
+  const filteredSessions = useMemo(() => {
+    let result = sessions;
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (s) =>
+          s.name.toLowerCase().includes(q) ||
+          s.repo.toLowerCase().includes(q) ||
+          s.branch.toLowerCase().includes(q),
+      );
+    }
+    if (statusFilter !== "all") {
+      result = result.filter((s) => s.status === statusFilter);
+    }
+    return result;
+  }, [sessions, searchQuery, statusFilter]);
+
+  const needsAttention = [...filteredSessions.filter(
     (s) => s.status === "waiting" || s.status === "paused" || s.status === "stuck" || s.status === "interrupted",
   )].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
-  const running = sessions.filter((s) => s.status === "running");
-  const closed = sessions.filter(
+  const running = filteredSessions.filter((s) => s.status === "running");
+  const closed = filteredSessions.filter(
     (s) => s.status === "idle" || s.status === "done" || s.status === "completed" || s.status === "failed" || s.status === "killed",
   );
+
+  // Fleet summary counts (always from unfiltered sessions)
+  const summary = useMemo(() => {
+    const counts = { attention: 0, running: 0, completed: 0, failed: 0, total: sessions.length };
+    for (const s of sessions) {
+      if (s.status === "waiting" || s.status === "stuck" || s.status === "paused" || s.status === "interrupted") counts.attention++;
+      else if (s.status === "running") counts.running++;
+      else if (s.status === "completed" || s.status === "done") counts.completed++;
+      else if (s.status === "failed") counts.failed++;
+    }
+    return counts;
+  }, [sessions]);
 
   const markStuck = useCallback(async () => {
     try {
@@ -43,6 +80,15 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     return () => clearInterval(interval);
   }, [markStuck]);
 
+  // Clear selection when sessions change
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const validIds = new Set(sessions.map((s) => s.id));
+      const next = new Set([...prev].filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [sessions]);
+
   function handleReply(id: string) {
     onViewSession(id);
   }
@@ -53,6 +99,35 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
 
   function handleResume(id: string) {
     onViewSession(id);
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkKill() {
+    for (const id of selectedIds) {
+      try {
+        await killSession(id);
+        updateSession(id, { status: "killed", stateChangedAt: Date.now() });
+      } catch { /* ignore */ }
+    }
+    setSelectedIds(new Set());
+  }
+
+  async function handleBulkResume() {
+    for (const id of selectedIds) {
+      try {
+        await resumeSession(id);
+        updateSession(id, { status: "running", stateChangedAt: Date.now() });
+      } catch { /* ignore */ }
+    }
+    setSelectedIds(new Set());
   }
 
   if (sessionsLoading) {
@@ -98,39 +173,212 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     );
   }
 
+  const hasSelection = selectedIds.size > 0;
+  const selectedSessions = sessions.filter((s) => selectedIds.has(s.id));
+  const canResumeSelected = selectedSessions.some(
+    (s) => s.status === "paused" || s.status === "interrupted" || s.status === "idle",
+  );
+  const canKillSelected = selectedSessions.some(
+    (s) => s.status === "running" || s.status === "waiting" || s.status === "stuck",
+  );
+
   return (
-    <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-      <Column
-        title="Needs Attention"
-        count={needsAttention.length}
-        accentColor="red"
-        empty="No sessions need attention."
-      >
-        {needsAttention.map((s) => (
-          <KanbanCard
-            key={s.id}
-            session={s}
-            onView={onViewSession}
-            onReply={s.status === "waiting" ? handleReply : undefined}
-            onResume={s.status === "paused" || s.status === "interrupted" ? handleResume : undefined}
+    <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Fleet summary bar */}
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-3 dark:border-gray-800 dark:bg-gray-900/50">
+        <div className="flex items-center gap-4">
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Fleet</span>
+          <div className="flex items-center gap-3">
+            <SummaryPill color="red" count={summary.attention} label="attention" />
+            <SummaryPill color="green" count={summary.running} label="running" />
+            <SummaryPill color="blue" count={summary.completed} label="completed" />
+            <SummaryPill color="gray" count={summary.failed} label="failed" />
+          </div>
+          <span className="text-xs text-gray-400 dark:text-gray-600">
+            {summary.total} total
+          </span>
+        </div>
+        <button
+          onClick={onNewSession}
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+        >
+          + New Session
+        </button>
+      </div>
+
+      {/* Search & filter bar */}
+      <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-2 dark:border-gray-800">
+        <div className="flex flex-1 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+          <svg className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter sessions..."
+            className="flex-1 bg-transparent text-xs text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-600"
           />
-        ))}
-      </Column>
+          {searchQuery && (
+            <button onClick={() => setSearchQuery("")} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          {(["all", "waiting", "running", "completed", "failed", "stuck"] as StatusFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setStatusFilter(f)}
+              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+                statusFilter === f
+                  ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
+                  : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+              }`}
+            >
+              {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <Column title="Running" count={running.length} accentColor="green" empty="No sessions running.">
-        {running.map((s) => (
-          <KanbanCard key={s.id} session={s} onView={onViewSession} onInterrupt={handleInterrupt} />
-        ))}
-      </Column>
+      {/* Bulk actions bar */}
+      {hasSelection && (
+        <div className="flex shrink-0 items-center gap-3 border-b border-blue-200 bg-blue-50 px-6 py-2 dark:border-blue-900/50 dark:bg-blue-950/30">
+          <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
+            {selectedIds.size} selected
+          </span>
+          {canKillSelected && (
+            <button
+              onClick={() => void handleBulkKill()}
+              className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500"
+            >
+              Kill Selected
+            </button>
+          )}
+          {canResumeSelected && (
+            <button
+              onClick={() => void handleBulkResume()}
+              className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
+            >
+              Resume Selected
+            </button>
+          )}
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="ml-auto text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            Clear selection
+          </button>
+        </div>
+      )}
 
-      <Column title="Closed" count={closed.length} accentColor="gray" empty="No closed sessions.">
-        {closed.map((s) => (
-          <KanbanCard key={s.id} session={s} onView={onViewSession} />
-        ))}
-      </Column>
+      {/* Kanban columns */}
+      <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+        <Column
+          title="Needs Attention"
+          count={needsAttention.length}
+          accentColor="red"
+          empty="No sessions need attention."
+        >
+          {needsAttention.map((s) => (
+            <SelectableCard
+              key={s.id}
+              session={s}
+              selected={selectedIds.has(s.id)}
+              onToggleSelect={toggleSelect}
+              onView={onViewSession}
+              onReply={s.status === "waiting" ? handleReply : undefined}
+              onResume={s.status === "paused" || s.status === "interrupted" ? handleResume : undefined}
+            />
+          ))}
+        </Column>
+
+        <Column title="Running" count={running.length} accentColor="green" empty="No sessions running.">
+          {running.map((s) => (
+            <SelectableCard
+              key={s.id}
+              session={s}
+              selected={selectedIds.has(s.id)}
+              onToggleSelect={toggleSelect}
+              onView={onViewSession}
+              onInterrupt={handleInterrupt}
+            />
+          ))}
+        </Column>
+
+        <Column title="Closed" count={closed.length} accentColor="gray" empty="No closed sessions.">
+          {closed.map((s) => (
+            <SelectableCard
+              key={s.id}
+              session={s}
+              selected={selectedIds.has(s.id)}
+              onToggleSelect={toggleSelect}
+              onView={onViewSession}
+            />
+          ))}
+        </Column>
+      </div>
     </div>
   );
 }
+
+/* ── Selectable card wrapper ─────────────────────────────────────────────── */
+
+function SelectableCard({
+  session,
+  selected,
+  onToggleSelect,
+  ...cardProps
+}: {
+  session: Session;
+  selected: boolean;
+  onToggleSelect: (id: string) => void;
+  onView: (id: string) => void;
+  onReply?: (id: string) => void;
+  onInterrupt?: (id: string) => void;
+  onResume?: (id: string) => void;
+}) {
+  return (
+    <div className={`relative ${selected ? "ring-2 ring-blue-500 rounded-md" : ""}`}>
+      <div
+        className="absolute left-1.5 top-1.5 z-10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={() => onToggleSelect(session.id)}
+          className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-blue-600 accent-blue-600"
+        />
+      </div>
+      <KanbanCard session={session} {...cardProps} />
+    </div>
+  );
+}
+
+/* ── Summary pill ────────────────────────────────────────────────────────── */
+
+function SummaryPill({ color, count, label }: { color: string; count: number; label: string }) {
+  const dotColors: Record<string, string> = {
+    red: "bg-red-500",
+    green: "bg-green-500",
+    blue: "bg-blue-500",
+    gray: "bg-gray-500",
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`h-1.5 w-1.5 rounded-full ${dotColors[color] ?? "bg-gray-500"}`} />
+      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">{count}</span>
+      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+    </div>
+  );
+}
+
+/* ── Column ──────────────────────────────────────────────────────────────── */
 
 function Column({
   title,

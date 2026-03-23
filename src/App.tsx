@@ -8,12 +8,14 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { SidebarTree } from "./components/SidebarTree";
 import { ResizeHandle } from "./components/ResizeHandle";
+import { CommandPalette } from "./components/CommandPalette";
 import { ToastContainer, type ToastItem } from "./components/Toast";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { useUIStore } from "./stores/uiStore";
 import { onSessionStateChanged, onSessionOutput, fetchIssues, fetchPRs } from "./lib/tauri";
 import { requestNotificationPermission, sendSystemNotification } from "./lib/notifications";
+import { playNotificationSound } from "./lib/sound";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
@@ -24,6 +26,7 @@ function App() {
   const [view, setView] = useState<View>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
   const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
   const [prefillPR, setPrefillPR] = useState<GitHubPR | null>(null);
@@ -44,6 +47,55 @@ function App() {
   const prevStatusRef = useRef<Record<string, string>>({});
 
   useTheme();
+
+  const soundEnabled = useUIStore((s) => s.soundEnabled);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Ignore if typing in an input
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      const isMeta = e.metaKey || e.ctrlKey;
+
+      if (isMeta && e.key === "k") {
+        e.preventDefault();
+        setShowCommandPalette((v) => !v);
+        return;
+      }
+      if (isMeta && e.key === "1") {
+        e.preventDefault();
+        setView("home");
+        setActiveSessionId(null);
+        return;
+      }
+      if (isMeta && e.key === "2") {
+        e.preventDefault();
+        setView("tasks");
+        return;
+      }
+      if (isMeta && e.key === "3") {
+        e.preventDefault();
+        setView("repos");
+        return;
+      }
+      if (e.key === "Escape") {
+        if (showCommandPalette) {
+          setShowCommandPalette(false);
+          return;
+        }
+        if (view === "session") {
+          setView("home");
+          setActiveSessionId(null);
+          return;
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [view, showCommandPalette]);
 
   // Request notification permission on startup
   useEffect(() => {
@@ -133,10 +185,15 @@ function App() {
 
             // System notification
             void sendSystemNotification("TooManyTabs", msg.system);
+
+            // Sound notification
+            if (soundEnabled) {
+              void playNotificationSound(session.status === "completed" ? "success" : "alert");
+            }
           }
         }
       }),
-    [updateSession],
+    [updateSession, soundEnabled],
   );
 
   useTauriEvent(
@@ -149,8 +206,7 @@ function App() {
 
   const handleSidebarResize = useCallback(
     (delta: number) => {
-      const clamped = Math.max(180, Math.min(400, sidebarWidth + delta));
-      setPanelSize("sidebarWidth", clamped);
+      setPanelSize("sidebarWidth", Math.max(0, sidebarWidth + delta));
     },
     [sidebarWidth, setPanelSize],
   );
@@ -222,7 +278,10 @@ function App() {
                 </h1>
                 <p className="text-xs text-gray-500 dark:text-gray-600">dispatch board</p>
               </div>
-              <ThemeToggle />
+              <div className="flex items-center gap-1">
+                <SoundToggle />
+                <ThemeToggle />
+              </div>
             </div>
 
             {/* Nav */}
@@ -314,6 +373,13 @@ function App() {
         />
       )}
 
+      {/* Command palette */}
+      <CommandPalette
+        open={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        onSelectSession={handleViewSession}
+      />
+
       {/* Toast notifications */}
       <ToastContainer
         toasts={toasts}
@@ -349,6 +415,30 @@ function NavItem({
         <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-bold text-white">
           {badge}
         </span>
+      )}
+    </button>
+  );
+}
+
+function SoundToggle() {
+  const soundEnabled = useUIStore((s) => s.soundEnabled);
+  const toggleSound = useUIStore((s) => s.toggleSound);
+
+  return (
+    <button
+      onClick={toggleSound}
+      title={soundEnabled ? "Mute notifications" : "Unmute notifications"}
+      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+    >
+      {soundEnabled ? (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M6.5 8.5H4a1 1 0 00-1 1v5a1 1 0 001 1h2.5l4.5 4V4.5l-4.5 4z" />
+        </svg>
+      ) : (
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+        </svg>
       )}
     </button>
   );

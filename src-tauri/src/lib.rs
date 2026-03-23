@@ -13,6 +13,7 @@ use commands::github::{
     get_github_token, git_commit_and_push,
 };
 use commands::repos::{add_repo, list_repos, remove_repo};
+use commands::shell::{kill_shell, resize_shell, spawn_shell, write_to_shell};
 use commands::sessions::{
     check_stuck_sessions, get_session, interrupt_session, kill_session, list_sessions,
     pause_session, read_session_log, reply_to_session, resize_session, resume_session,
@@ -81,6 +82,11 @@ pub fn run() {
             create_worktree,
             remove_worktree,
             get_diff,
+            // shell
+            spawn_shell,
+            write_to_shell,
+            resize_shell,
+            kill_shell,
             // filesystem
             list_dir,
             read_file,

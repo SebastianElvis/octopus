@@ -20,9 +20,9 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
   }, [lines, mode]);
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-800">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Output</h3>
+    <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-[#0d1117]">
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-3 py-1.5 dark:border-gray-800/60">
+        <h3 className="text-xs font-medium text-gray-700 dark:text-green-400/80">Output</h3>
         <div className="flex rounded-md border border-gray-300 text-xs dark:border-gray-700">
           <button
             onClick={() => setMode("live")}
@@ -47,11 +47,11 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
         </div>
       </div>
 
-      <div className="h-64 overflow-y-auto p-3">
+      <div className="flex-1 overflow-y-auto p-2">
         {displayedLines.length === 0 ? (
-          <p className="text-xs text-gray-400 dark:text-gray-700">No output yet.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-600">No output yet.</p>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-0">
             {mode === "live" && lines.length > 20 && (
               <p className="mb-2 text-xs text-gray-400 dark:text-gray-600">
                 Showing last 20 lines. Switch to Full Log for complete output.
@@ -62,7 +62,7 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
               // <pre> preserves whitespace without bypassing React's escaping.
               <pre
                 key={i}
-                className="whitespace-pre-wrap break-all font-mono text-xs leading-5 text-gray-700 dark:text-gray-300"
+                className="whitespace-pre-wrap break-all font-mono text-xs leading-4 text-gray-700 dark:text-green-400/90"
               >
                 {line}
               </pre>

@@ -11,6 +11,7 @@ import { RightPanel } from "./RightPanel";
 import { ResizeHandle } from "./ResizeHandle";
 import { ReviewComments } from "./ReviewComments";
 import { GitHubDetailView } from "./GitHubDetailView";
+import { ShellPanel } from "./ShellPanel";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
 
 const STATUS_PILL: Record<string, string> = {
@@ -41,6 +42,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const contents = useEditorStore((s) => s.contents);
   const tabs = useEditorStore((s) => s.tabs);
   const rightPanelWidth = useUIStore((s) => s.panelSizes.rightPanelWidth);
+  const rightOutputHeight = useUIStore((s) => s.panelSizes.rightOutputHeight);
   const rightPanelCollapsed = useUIStore((s) => s.rightPanelCollapsed);
   const setPanelSize = useUIStore((s) => s.setPanelSize);
 
@@ -88,10 +90,16 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
   const handleRightResize = useCallback(
     (delta: number) => {
-      const clamped = Math.max(200, Math.min(600, rightPanelWidth - delta));
-      setPanelSize("rightPanelWidth", clamped);
+      setPanelSize("rightPanelWidth", Math.max(0, rightPanelWidth - delta));
     },
     [rightPanelWidth, setPanelSize],
+  );
+
+  const handleOutputResize = useCallback(
+    (delta: number) => {
+      setPanelSize("rightOutputHeight", Math.max(0, rightOutputHeight - delta));
+    },
+    [rightOutputHeight, setPanelSize],
   );
 
   if (!session) {
@@ -295,11 +303,22 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         {!rightPanelCollapsed && (
           <>
             <ResizeHandle direction="horizontal" onResize={handleRightResize} />
-            <div style={{ width: `${rightPanelWidth}px` }} className="shrink-0 overflow-hidden">
-              <RightPanel
-                session={session}
-                onCommitted={handleCommitted}
-              />
+            <div style={{ width: `${rightPanelWidth}px` }} className="flex shrink-0 flex-col overflow-hidden">
+              {/* Files / Changes */}
+              <div className="flex-1 overflow-hidden">
+                <RightPanel
+                  session={session}
+                  onCommitted={handleCommitted}
+                />
+              </div>
+              {/* Shell terminal */}
+              <ResizeHandle direction="vertical" onResize={handleOutputResize} />
+              <div style={{ height: `${rightOutputHeight}px` }} className="shrink-0 overflow-hidden border-t border-gray-200 dark:border-gray-800">
+                <ShellPanel
+                  cwd={session.worktreePath ?? ""}
+                  shellKey={session.id}
+                />
+              </div>
             </div>
           </>
         )}
