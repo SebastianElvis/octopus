@@ -211,40 +211,54 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             }
           />
 
-          {/* Content area — relative container for visibility-based hiding */}
+          {/* Content area — all panels use absolute positioning + visibility toggle
+              to avoid layout overlap and keep xterm dimensions valid */}
           <div className="relative flex-1 overflow-hidden">
-            {/* Terminal — always mounted; uses visibility:hidden instead of display:none
-                so xterm keeps valid dimensions. IntersectionObserver auto-pauses rendering. */}
+            {/* Terminal — always mounted, visibility toggled */}
             <div
               className={
                 centerTab === "terminal"
-                  ? "absolute inset-0"
-                  : "invisible absolute inset-0"
+                  ? "absolute inset-0 z-10"
+                  : "invisible absolute inset-0 z-0"
               }
             >
               <TerminalPanel sessionId={session.id} sessionStatus={session.status} visible={centerTab === "terminal"} />
             </div>
 
-            {/* GitHub detail view */}
-            {centerTab === "github" && (
-              <GitHubDetailView issue={ghIssue} pr={ghPR} />
-            )}
+            {/* GitHub detail view — absolute positioned like terminal */}
+            <div
+              className={
+                centerTab === "github"
+                  ? "absolute inset-0 z-10 overflow-auto"
+                  : "invisible absolute inset-0 z-0"
+              }
+            >
+              {hasGitHubLink && <GitHubDetailView issue={ghIssue} pr={ghPR} />}
+            </div>
 
-            {/* Code editor */}
-            {showEditor && (
-              <div className="h-full">
-                <CodeEditor
-                  content={activeContent}
-                  language={activeTab.language}
-                  readOnly
-                  darkMode
-                />
-              </div>
-            )}
+            {/* Code editor — absolute positioned like terminal */}
+            <div
+              className={
+                showEditor
+                  ? "absolute inset-0 z-10"
+                  : "invisible absolute inset-0 z-0"
+              }
+            >
+              {activeTab != null && activeContent != null && (
+                <div className="h-full">
+                  <CodeEditor
+                    content={activeContent}
+                    language={activeTab.language}
+                    readOnly
+                    darkMode
+                  />
+                </div>
+              )}
+            </div>
 
             {/* No file selected fallback */}
             {centerTab === "editor" && !showEditor && (
-              <div className="flex h-full items-center justify-center bg-[#0d1117]">
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0d1117]">
                 <p className="text-sm text-gray-500">No file open</p>
               </div>
             )}
