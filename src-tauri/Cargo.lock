@@ -5743,6 +5743,7 @@ dependencies = [
  "ignore",
  "log",
  "nix 0.29.0",
+ "parking_lot",
  "portable-pty",
  "reqwest 0.12.28",
  "rusqlite",

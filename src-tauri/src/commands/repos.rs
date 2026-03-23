@@ -134,10 +134,7 @@ pub async fn add_repo(
         detect_default_branch(&resolved_path).unwrap_or_else(|_| "main".to_string());
 
     {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         db.execute(
             "INSERT OR REPLACE INTO repos (id, github_url, local_path, default_branch, added_at) \
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -160,10 +157,7 @@ pub async fn add_repo(
 #[tauri::command]
 pub async fn remove_repo(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let local_path: Option<String> = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         db.query_row(
             "SELECT local_path FROM repos WHERE id = ?1",
             rusqlite::params![id],
@@ -174,10 +168,7 @@ pub async fn remove_repo(state: State<'_, AppState>, id: String) -> AppResult<()
 
     // Delete from database
     {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         db.execute("DELETE FROM repos WHERE id = ?1", rusqlite::params![id])?;
     }
 
@@ -203,9 +194,6 @@ pub async fn remove_repo(state: State<'_, AppState>, id: String) -> AppResult<()
 /// Return all repos from the database.
 #[tauri::command]
 pub async fn list_repos(state: State<'_, AppState>) -> AppResult<Vec<Repo>> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+    let db = state.db.lock();
     query_repos(&db)
 }

@@ -26,48 +26,100 @@ pub fn open_connection() -> AppResult<Connection> {
     let path = db_path()?;
     let conn = Connection::open(&path)?;
 
-    // Enable WAL mode and foreign keys
-    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+    // Enable WAL mode, foreign keys, and busy timeout
+    conn.execute_batch(
+        "PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;",
+    )?;
 
     Ok(conn)
 }
 
-/// Run the database migrations — create all required tables if they do not
-/// already exist.
+/// Get the current schema version from the database.
+fn get_schema_version(conn: &Connection) -> i64 {
+    // Create the schema_version table if it doesn't exist
+    let _ = conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL DEFAULT 0);",
+    );
+
+    let result: Result<i64, _> =
+        conn.query_row("SELECT version FROM schema_version LIMIT 1", [], |row| {
+            row.get(0)
+        });
+
+    match result {
+        Ok(v) => v,
+        Err(_) => {
+            // No row exists, insert initial version
+            let _ = conn.execute("INSERT INTO schema_version (version) VALUES (0)", []);
+            0
+        }
+    }
+}
+
+/// Set the schema version in the database.
+fn set_schema_version(conn: &Connection, version: i64) -> AppResult<()> {
+    conn.execute("UPDATE schema_version SET version = ?1", [version])?;
+    Ok(())
+}
+
+/// Run the database migrations using a versioned migration system.
 pub fn run_migrations(conn: &Connection) -> AppResult<()> {
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS repos (
-            id TEXT PRIMARY KEY,
-            github_url TEXT,
-            local_path TEXT,
-            default_branch TEXT,
-            added_at TEXT
-        );
+    let current_version = get_schema_version(conn);
 
-        CREATE TABLE IF NOT EXISTS sessions (
-            id TEXT PRIMARY KEY,
-            repo_id TEXT REFERENCES repos(id),
-            name TEXT,
-            branch TEXT,
-            status TEXT,
-            block_type TEXT,
-            worktree_path TEXT,
-            log_path TEXT,
-            linked_issue_number INTEGER,
-            linked_pr_number INTEGER,
-            prompt TEXT,
-            dangerously_skip_permissions INTEGER DEFAULT 0,
-            created_at TEXT,
-            state_changed_at TEXT
-        );
+    if current_version < 1 {
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS repos (
+                id TEXT PRIMARY KEY,
+                github_url TEXT,
+                local_path TEXT,
+                default_branch TEXT,
+                added_at TEXT
+            );
 
-        CREATE TABLE IF NOT EXISTS settings (
-            key TEXT PRIMARY KEY,
-            value TEXT
-        );",
-    )?;
+            CREATE TABLE IF NOT EXISTS sessions (
+                id TEXT PRIMARY KEY,
+                repo_id TEXT REFERENCES repos(id),
+                name TEXT,
+                branch TEXT,
+                status TEXT,
+                block_type TEXT,
+                worktree_path TEXT,
+                log_path TEXT,
+                linked_issue_number INTEGER,
+                linked_pr_number INTEGER,
+                prompt TEXT,
+                dangerously_skip_permissions INTEGER DEFAULT 0,
+                created_at TEXT,
+                state_changed_at TEXT
+            );
 
-    log::info!("Database migrations completed successfully");
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT
+            );",
+        )?;
+        set_schema_version(conn, 1)?;
+        log::info!("Applied migration v1: initial schema");
+    }
+
+    if current_version < 2 {
+        // Add last_message column to sessions table
+        // ALTER TABLE ADD COLUMN is safe even if the column already exists in some edge cases,
+        // but we guard with the version check.
+        let has_column: bool = conn
+            .prepare("SELECT last_message FROM sessions LIMIT 0")
+            .is_ok();
+        if !has_column {
+            conn.execute_batch("ALTER TABLE sessions ADD COLUMN last_message TEXT;")?;
+        }
+        set_schema_version(conn, 2)?;
+        log::info!("Applied migration v2: add last_message to sessions");
+    }
+
+    log::info!(
+        "Database migrations completed successfully (version {})",
+        get_schema_version(conn)
+    );
     Ok(())
 }
 
@@ -90,6 +142,14 @@ pub fn reap_orphaned_sessions(conn: &Connection) -> usize {
             log::error!("Failed to reap orphaned sessions: {}", e);
             0
         }
+    }
+}
+
+/// Run a WAL checkpoint to flush the WAL file into the main database.
+pub fn run_wal_checkpoint(conn: &Connection) {
+    match conn.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);") {
+        Ok(_) => log::info!("WAL checkpoint completed"),
+        Err(e) => log::warn!("WAL checkpoint failed: {}", e),
     }
 }
 
@@ -140,6 +200,67 @@ mod tests {
         let conn = in_memory_connection();
         // Running migrations a second time should not fail
         run_migrations(&conn).expect("second migration run");
+    }
+
+    #[test]
+    fn schema_version_tracking() {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        conn.execute_batch("PRAGMA foreign_keys=ON;")
+            .expect("enable FK");
+
+        // Before migrations, version should be 0
+        let v = get_schema_version(&conn);
+        assert_eq!(v, 0);
+
+        // After migrations, version should be 2
+        run_migrations(&conn).expect("migrations");
+        let v = get_schema_version(&conn);
+        assert_eq!(v, 2);
+    }
+
+    #[test]
+    fn last_message_column_exists_after_migration() {
+        let conn = in_memory_connection();
+
+        // Insert a repo first (FK constraint)
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/a/b",
+                "/tmp/b",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert repo");
+
+        // Insert a session with last_message
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, last_message, created_at, state_changed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                "s1",
+                "r1",
+                "test session",
+                "running",
+                "What file should I edit?",
+                "2024-01-01",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert session with last_message");
+
+        let last_message: Option<String> = conn
+            .query_row(
+                "SELECT last_message FROM sessions WHERE id = ?1",
+                ["s1"],
+                |row| row.get(0),
+            )
+            .expect("query last_message");
+
+        assert_eq!(last_message, Some("What file should I edit?".to_string()));
     }
 
     #[test]
@@ -219,5 +340,12 @@ mod tests {
         if let Ok(p) = db_path() {
             assert!(p.ends_with(".toomanytabs/toomanytabs.db"));
         }
+    }
+
+    #[test]
+    fn wal_checkpoint_does_not_panic() {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        // WAL checkpoint on in-memory DB is a no-op but should not panic
+        run_wal_checkpoint(&conn);
     }
 }

@@ -70,10 +70,7 @@ pub async fn spawn_shell(
     drop(pty_pair.slave);
 
     {
-        let mut map = state
-            .shell_processes
-            .lock()
-            .map_err(|e| AppError::Custom(format!("shell map lock poisoned: {}", e)))?;
+        let mut map = state.shell_processes.lock();
         map.insert(
             shell_id.clone(),
             PtySession {
@@ -115,9 +112,8 @@ pub async fn spawn_shell(
 
         // Clean up
         let state_ref: tauri::State<'_, AppState> = app.state();
-        if let Ok(mut map) = state_ref.shell_processes.lock() {
-            map.remove(&sid);
-        };
+        let mut map = state_ref.shell_processes.lock();
+        map.remove(&sid);
     });
 
     Ok(shell_id)
@@ -130,10 +126,7 @@ pub async fn write_to_shell(
     shell_id: String,
     data: String,
 ) -> AppResult<()> {
-    let mut map = state
-        .shell_processes
-        .lock()
-        .map_err(|e| AppError::Custom(format!("shell map lock poisoned: {}", e)))?;
+    let mut map = state.shell_processes.lock();
     let pty_session = map
         .get_mut(&shell_id)
         .ok_or_else(|| AppError::Custom(format!("no running shell {}", shell_id)))?;
@@ -150,10 +143,7 @@ pub async fn resize_shell(
     rows: u16,
     cols: u16,
 ) -> AppResult<()> {
-    let map = state
-        .shell_processes
-        .lock()
-        .map_err(|e| AppError::Custom(format!("shell map lock poisoned: {}", e)))?;
+    let map = state.shell_processes.lock();
     let pty_session = map
         .get(&shell_id)
         .ok_or_else(|| AppError::Custom(format!("no running shell {}", shell_id)))?;
@@ -173,10 +163,7 @@ pub async fn resize_shell(
 /// Kill a shell PTY.
 #[tauri::command]
 pub async fn kill_shell(state: State<'_, AppState>, shell_id: String) -> AppResult<()> {
-    let mut map = state
-        .shell_processes
-        .lock()
-        .map_err(|e| AppError::Custom(format!("shell map lock poisoned: {}", e)))?;
+    let mut map = state.shell_processes.lock();
     if let Some(_session) = map.remove(&shell_id) {
         // Dropping the PtySession closes the master, which sends EOF to the child
         log::info!("Killed shell {}", shell_id);
