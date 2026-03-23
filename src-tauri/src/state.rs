@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use std::sync::Mutex;
 use std::time::Instant;
 
+use parking_lot::Mutex;
 use rusqlite::Connection;
 
 /// Wrapper to make `Box<dyn MasterPty>` Send.
@@ -58,16 +58,16 @@ mod tests {
         let conn = Connection::open_in_memory().expect("open in-memory db");
         let state = AppState::new(conn);
 
-        // Verify we can lock both mutexes
-        let db = state.db.lock().expect("lock db");
+        // Verify we can lock both mutexes (parking_lot doesn't poison)
+        let db = state.db.lock();
         assert!(db.is_autocommit());
         drop(db);
 
-        let procs = state.processes.lock().expect("lock processes");
+        let procs = state.processes.lock();
         assert!(procs.is_empty());
         drop(procs);
 
-        let last_output = state.last_output_at.lock().expect("lock last_output_at");
+        let last_output = state.last_output_at.lock();
         assert!(last_output.is_empty());
     }
 }

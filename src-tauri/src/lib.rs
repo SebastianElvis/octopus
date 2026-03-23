@@ -21,6 +21,7 @@ use commands::sessions::{
 use commands::shell::{kill_shell, resize_shell, spawn_shell, write_to_shell};
 use commands::worktree::{create_worktree, get_diff, remove_worktree};
 use state::AppState;
+use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -50,6 +51,19 @@ pub fn run() {
                     .level(log::LevelFilter::Info)
                     .build(),
             )?;
+
+            // Start background WAL checkpoint task (every 5 minutes)
+            let app_handle = app.handle().clone();
+            tokio::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(5 * 60));
+                loop {
+                    interval.tick().await;
+                    let state: tauri::State<'_, AppState> = app_handle.state();
+                    let db = state.db.lock();
+                    db::run_wal_checkpoint(&db);
+                }
+            });
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

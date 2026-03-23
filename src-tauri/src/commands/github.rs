@@ -128,10 +128,7 @@ pub struct ReviewComment {
 // ---------------------------------------------------------------------------
 
 fn lookup_github_url(state: &AppState, repo_id: &str) -> AppResult<String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+    let db = state.db.lock();
     let url: String = db
         .query_row(
             "SELECT github_url FROM repos WHERE id = ?1",
@@ -173,13 +170,7 @@ fn parse_owner_repo(github_url: &str) -> AppResult<(String, String)> {
 /// Look up the default_branch for a repo stored in the DB, given its github_url.
 /// Falls back to "main" if not found.
 fn lookup_default_branch(state: &AppState, github_url: &str) -> String {
-    let db = match state.db.lock() {
-        Ok(db) => db,
-        Err(e) => {
-            log::warn!("db lock poisoned in lookup_default_branch: {}", e);
-            return "main".to_string();
-        }
-    };
+    let db = state.db.lock();
     let result: Result<String, _> = db.query_row(
         "SELECT default_branch FROM repos WHERE github_url = ?1",
         [github_url],
@@ -465,10 +456,7 @@ pub async fn fetch_pr_review_comments(
 ) -> AppResult<Vec<ReviewComment>> {
     // Look up the github_url for the repo
     let github_url = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         let result: Result<String, _> = db.query_row(
             "SELECT github_url FROM repos WHERE id = ?1",
             [&repo_id],
@@ -541,10 +529,7 @@ pub async fn create_session_from_review(
 ) -> AppResult<crate::commands::sessions::Session> {
     // Look up repo info
     let (_github_url, _worktree_path, default_branch) = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         let result: Result<(String, String, String), _> = db.query_row(
             "SELECT github_url, local_path, default_branch FROM repos WHERE id = ?1",
             [&repo_id],

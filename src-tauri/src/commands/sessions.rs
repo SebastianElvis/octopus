@@ -68,10 +68,7 @@ fn now_iso() -> String {
 fn update_session_status(app: &AppHandle, session_id: &str, status: &str) -> AppResult<()> {
     let now = now_iso();
     let state = app.state::<AppState>();
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+    let db = state.db.lock();
     db.execute(
         "UPDATE sessions SET status = ?1, state_changed_at = ?2 WHERE id = ?3",
         rusqlite::params![status, now, session_id],
@@ -95,14 +92,13 @@ fn query_session_by_id(db: &rusqlite::Connection, session_id: &str) -> AppResult
 
 fn emit_session_changed(app: &AppHandle, session_id: &str) {
     let state = app.state::<AppState>();
-    if let Ok(db) = state.db.lock() {
-        if let Ok(session) = query_session_by_id(&db, session_id) {
-            let _ = app.emit(
-                "session-state-changed",
-                SessionStateChangedPayload { session },
-            );
-        }
-    };
+    let db = state.db.lock();
+    if let Ok(session) = query_session_by_id(&db, session_id) {
+        let _ = app.emit(
+            "session-state-changed",
+            SessionStateChangedPayload { session },
+        );
+    }
 }
 
 fn query_sessions(
@@ -139,10 +135,7 @@ fn query_sessions(
 }
 
 fn lookup_repo_local_path(state: &AppState, repo_id: &str) -> AppResult<String> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+    let db = state.db.lock();
     db.query_row(
         "SELECT local_path FROM repos WHERE id = ?1",
         rusqlite::params![repo_id],
@@ -186,10 +179,7 @@ pub async fn spawn_session(
 
     // Insert session into DB
     {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         db.execute(
             "INSERT INTO sessions \
              (id, repo_id, name, branch, status, worktree_path, log_path, \
@@ -258,10 +248,7 @@ pub async fn spawn_session(
 
     // Store PTY session in state
     {
-        let mut map = state
-            .processes
-            .lock()
-            .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+        let mut map = state.processes.lock();
         map.insert(
             session_id.clone(),
             PtySession {
@@ -276,10 +263,7 @@ pub async fn spawn_session(
 
     // Record initial last_output_at
     {
-        let mut last_output_map = state
-            .last_output_at
-            .lock()
-            .map_err(|e| AppError::Custom(format!("last_output_at lock poisoned: {}", e)))?;
+        let mut last_output_map = state.last_output_at.lock();
         last_output_map.insert(session_id.clone(), std::time::Instant::now());
     }
 
@@ -317,9 +301,10 @@ pub async fn spawn_session(
                     }
                     // Update activity timestamp
                     let app_state = app2.state::<AppState>();
-                    if let Ok(mut lo) = app_state.last_output_at.lock() {
+                    {
+                        let mut lo = app_state.last_output_at.lock();
                         lo.insert(sid.clone(), std::time::Instant::now());
-                    };
+                    }
                 }
                 Err(e) => {
                     log::error!("PTY read error for {}: {}", sid, e);
@@ -337,10 +322,12 @@ pub async fn spawn_session(
 
         // Clean up state
         let app_state = app2.state::<AppState>();
-        if let Ok(mut map) = app_state.processes.lock() {
+        {
+            let mut map = app_state.processes.lock();
             map.remove(&sid);
         }
-        if let Ok(mut lo) = app_state.last_output_at.lock() {
+        {
+            let mut lo = app_state.last_output_at.lock();
             lo.remove(&sid);
         }
 
@@ -350,10 +337,7 @@ pub async fn spawn_session(
         emit_session_changed(&app2, &sid);
     });
 
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+    let db = state.db.lock();
     query_session_by_id(&db, &session_id)
 }
 
@@ -364,10 +348,7 @@ pub async fn write_to_session(
     id: String,
     data: String,
 ) -> AppResult<()> {
-    let mut map = state
-        .processes
-        .lock()
-        .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+    let mut map = state.processes.lock();
     let pty_session = map
         .get_mut(&id)
         .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
@@ -384,10 +365,7 @@ pub async fn resize_session(
     rows: u16,
     cols: u16,
 ) -> AppResult<()> {
-    let map = state
-        .processes
-        .lock()
-        .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+    let map = state.processes.lock();
     let pty_session = map
         .get(&id)
         .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
@@ -411,10 +389,7 @@ pub async fn reply_to_session(
     id: String,
     message: String,
 ) -> AppResult<()> {
-    let mut map = state
-        .processes
-        .lock()
-        .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+    let mut map = state.processes.lock();
     let pty_session = map
         .get_mut(&id)
         .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
@@ -433,10 +408,7 @@ pub async fn interrupt_session(
     id: String,
     message: Option<String>,
 ) -> AppResult<()> {
-    let mut map = state
-        .processes
-        .lock()
-        .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+    let mut map = state.processes.lock();
     let pty_session = map
         .get_mut(&id)
         .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
@@ -471,10 +443,7 @@ pub async fn kill_session(
 ) -> AppResult<()> {
     // Kill the process
     {
-        let mut map = state
-            .processes
-            .lock()
-            .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+        let mut map = state.processes.lock();
         if let Some(pty_session) = map.remove(&id) {
             log::info!("Killing session {} (pid {})", id, pty_session.pid);
             #[cfg(unix)]
@@ -488,16 +457,14 @@ pub async fn kill_session(
     }
 
     // Clean up last_output_at
-    if let Ok(mut lo) = state.last_output_at.lock() {
+    {
+        let mut lo = state.last_output_at.lock();
         lo.remove(&id);
     }
 
     // Look up session info for worktree cleanup
     let (worktree_path, branch, repo_id) = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         let result: Result<(Option<String>, Option<String>, Option<String>), _> = db.query_row(
             "SELECT worktree_path, branch, repo_id FROM sessions WHERE id = ?1",
             rusqlite::params![id],
@@ -519,10 +486,7 @@ pub async fn kill_session(
 
     // Delete session from DB
     {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         db.execute("DELETE FROM sessions WHERE id = ?1", rusqlite::params![id])?;
     }
 
@@ -533,10 +497,7 @@ pub async fn kill_session(
 /// Return all sessions from the database.
 #[tauri::command]
 pub async fn list_sessions(state: State<'_, AppState>) -> AppResult<Vec<Session>> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+    let db = state.db.lock();
     query_sessions(
         &db,
         "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
@@ -550,10 +511,7 @@ pub async fn list_sessions(state: State<'_, AppState>) -> AppResult<Vec<Session>
 /// Return a single session by id.
 #[tauri::command]
 pub async fn get_session(state: State<'_, AppState>, id: String) -> AppResult<Session> {
-    let db = state
-        .db
-        .lock()
-        .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+    let db = state.db.lock();
     query_session_by_id(&db, &id)
 }
 
@@ -565,10 +523,7 @@ pub async fn pause_session(
     id: String,
 ) -> AppResult<()> {
     {
-        let map = state
-            .processes
-            .lock()
-            .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+        let map = state.processes.lock();
         let pty_session = map
             .get(&id)
             .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
@@ -598,19 +553,13 @@ pub async fn resume_session(
 ) -> AppResult<()> {
     // Check if process is still alive in memory
     let has_process = {
-        let map = state
-            .processes
-            .lock()
-            .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+        let map = state.processes.lock();
         map.contains_key(&id)
     };
 
     if has_process {
         // Process alive — send SIGCONT (paused session)
-        let map = state
-            .processes
-            .lock()
-            .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+        let map = state.processes.lock();
         let pty_session = map
             .get(&id)
             .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
@@ -625,10 +574,7 @@ pub async fn resume_session(
     } else {
         // Process dead — re-spawn claude in existing worktree
         let session = {
-            let db = state
-                .db
-                .lock()
-                .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+            let db = state.db.lock();
             query_session_by_id(&db, &id)?
         };
 
@@ -687,10 +633,7 @@ pub async fn resume_session(
 
         // Store PTY session in state
         {
-            let mut map = state
-                .processes
-                .lock()
-                .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+            let mut map = state.processes.lock();
             map.insert(
                 id.clone(),
                 PtySession {
@@ -703,10 +646,7 @@ pub async fn resume_session(
 
         // Record initial last_output_at
         {
-            let mut last_output_map = state
-                .last_output_at
-                .lock()
-                .map_err(|e| AppError::Custom(format!("last_output_at lock poisoned: {}", e)))?;
+            let mut last_output_map = state.last_output_at.lock();
             last_output_map.insert(id.clone(), std::time::Instant::now());
         }
 
@@ -741,9 +681,10 @@ pub async fn resume_session(
                             let _ = f.write_all(&buf[..n]);
                         }
                         let app_state = app2.state::<AppState>();
-                        if let Ok(mut lo) = app_state.last_output_at.lock() {
+                        {
+                            let mut lo = app_state.last_output_at.lock();
                             lo.insert(sid.clone(), std::time::Instant::now());
-                        };
+                        }
                     }
                     Err(e) => {
                         log::error!("PTY read error for {}: {}", sid, e);
@@ -759,10 +700,12 @@ pub async fn resume_session(
             log::info!("Session {} exited ({})", sid, final_status);
 
             let app_state = app2.state::<AppState>();
-            if let Ok(mut map) = app_state.processes.lock() {
+            {
+                let mut map = app_state.processes.lock();
                 map.remove(&sid);
             }
-            if let Ok(mut lo) = app_state.last_output_at.lock() {
+            {
+                let mut lo = app_state.last_output_at.lock();
                 lo.remove(&sid);
             }
 
@@ -787,10 +730,7 @@ pub async fn check_stuck_sessions(
     const STUCK_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(20 * 60);
 
     let running_sessions = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         query_sessions(
             &db,
             "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
@@ -807,10 +747,7 @@ pub async fn check_stuck_sessions(
         let sid = &session.id;
 
         let last_output_instant = {
-            let lo = state
-                .last_output_at
-                .lock()
-                .map_err(|e| AppError::Custom(format!("lock poisoned: {}", e)))?;
+            let lo = state.last_output_at.lock();
             lo.get(sid).copied()
         };
 
@@ -846,10 +783,7 @@ pub async fn check_stuck_sessions(
 #[tauri::command]
 pub async fn read_session_log(state: State<'_, AppState>, id: String) -> AppResult<String> {
     let log_path = {
-        let db = state
-            .db
-            .lock()
-            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let db = state.db.lock();
         let session = query_session_by_id(&db, &id)?;
         session.log_path.unwrap_or_default()
     };
