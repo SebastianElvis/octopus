@@ -1,5 +1,8 @@
 use std::io::{Read as IoRead, Write as IoWrite};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::mpsc;
+use std::sync::Arc;
 
 use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::{Deserialize, Serialize};
@@ -56,6 +59,16 @@ pub struct SpawnSessionParams {
     pub force: Option<bool>,
     pub dangerously_skip_permissions: Option<bool>,
 }
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// Maximum bytes to emit as events per session (10 MB).
+const MAX_EMIT_BYTES: usize = 10 * 1024 * 1024;
+
+/// Batch interval for throttled PTY output emission (16ms ≈ 60fps).
+const BATCH_INTERVAL_MS: u64 = 16;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -144,6 +157,146 @@ fn lookup_repo_local_path(state: &AppState, repo_id: &str) -> AppResult<String> 
     .map_err(|_| AppError::Custom(format!("repo not found: {}", repo_id)))
 }
 
+/// Start the PTY reader background threads with throttled output emission.
+///
+/// Returns immediately. Two threads are spawned:
+/// 1. Reader thread: reads from PTY, batches data, sends to emitter channel
+/// 2. Emitter thread: flushes batched data as events every BATCH_INTERVAL_MS
+fn start_pty_reader(
+    app: AppHandle,
+    session_id: String,
+    reader: Box<dyn IoRead + Send>,
+    child: Box<dyn portable_pty::Child + Send + Sync>,
+    log_file_path: std::path::PathBuf,
+) {
+    let (tx, rx) = mpsc::channel::<Vec<u8>>();
+    let total_emitted = Arc::new(AtomicUsize::new(0));
+    let total_emitted2 = total_emitted.clone();
+    let sid = session_id.clone();
+    let app2 = app.clone();
+
+    // Emitter thread: batches data and emits events at throttled rate
+    let sid_emitter = session_id.clone();
+    let app_emitter = app.clone();
+    std::thread::spawn(move || {
+        let mut batch = Vec::new();
+        loop {
+            // Try to receive with timeout for batching
+            match rx.recv_timeout(std::time::Duration::from_millis(BATCH_INTERVAL_MS)) {
+                Ok(data) => {
+                    batch.extend_from_slice(&data);
+                    // Drain any additional pending data
+                    while let Ok(more) = rx.try_recv() {
+                        batch.extend_from_slice(&more);
+                    }
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    // Timeout — flush whatever we have
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    // Channel closed — flush remaining and exit
+                    if !batch.is_empty() {
+                        let current = total_emitted2.load(Ordering::Relaxed);
+                        if current < MAX_EMIT_BYTES {
+                            let data = String::from_utf8_lossy(&batch).to_string();
+                            let _ = app_emitter.emit(
+                                "session-output",
+                                SessionOutputPayload {
+                                    session_id: sid_emitter.clone(),
+                                    data,
+                                },
+                            );
+                            total_emitted2.fetch_add(batch.len(), Ordering::Relaxed);
+                        }
+                    }
+                    break;
+                }
+            }
+
+            if !batch.is_empty() {
+                let current = total_emitted2.load(Ordering::Relaxed);
+                if current < MAX_EMIT_BYTES {
+                    let data = String::from_utf8_lossy(&batch).to_string();
+                    let _ = app_emitter.emit(
+                        "session-output",
+                        SessionOutputPayload {
+                            session_id: sid_emitter.clone(),
+                            data,
+                        },
+                    );
+                    total_emitted2.fetch_add(batch.len(), Ordering::Relaxed);
+                }
+                batch.clear();
+            }
+        }
+    });
+
+    // Reader thread: reads from PTY, sends to channel, logs to file
+    std::thread::spawn(move || {
+        let mut reader = reader;
+        let mut child = child;
+        let mut buf = [0u8; 4096];
+
+        // Open log file for appending (best-effort)
+        let mut log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_file_path)
+            .ok();
+
+        loop {
+            match reader.read(&mut buf) {
+                Ok(0) => break,
+                Ok(n) => {
+                    let chunk = &buf[..n];
+
+                    // Send to emitter channel (drop if channel is full/closed)
+                    let _ = tx.send(chunk.to_vec());
+
+                    // Write raw bytes to log file
+                    if let Some(ref mut f) = log_file {
+                        let _ = f.write_all(chunk);
+                    }
+
+                    // Update activity timestamp
+                    let app_state = app2.state::<AppState>();
+                    {
+                        let mut lo = app_state.last_output_at.lock();
+                        lo.insert(sid.clone(), std::time::Instant::now());
+                    }
+                }
+                Err(e) => {
+                    log::error!("PTY read error for {}: {}", sid, e);
+                    break;
+                }
+            }
+        }
+
+        // Reader closed — process exited
+        let final_status = match child.wait() {
+            Ok(status) if status.success() => "completed",
+            _ => "failed",
+        };
+        log::info!("Session {} exited ({})", sid, final_status);
+
+        // Clean up state
+        let app_state = app2.state::<AppState>();
+        {
+            let mut map = app_state.processes.lock();
+            map.remove(&sid);
+        }
+        {
+            let mut lo = app_state.last_output_at.lock();
+            lo.remove(&sid);
+        }
+
+        if let Err(e) = update_session_status(&app2, &sid, final_status) {
+            log::error!("Failed to update session {} status: {}", sid, e);
+        }
+        emit_session_changed(&app2, &sid);
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
@@ -168,6 +321,14 @@ pub async fn spawn_session(
         &session_id,
         params.force.unwrap_or(false),
     )?;
+
+    // Validate worktree path exists and is a directory
+    if !Path::new(&worktree_path).is_dir() {
+        return Err(AppError::Custom(format!(
+            "Worktree path does not exist or is not a directory: {}",
+            worktree_path
+        )));
+    }
 
     // Create log directory
     let home = dirs::home_dir().ok_or_else(|| AppError::Custom("no home dir".to_string()))?;
@@ -267,75 +428,15 @@ pub async fn spawn_session(
         last_output_map.insert(session_id.clone(), std::time::Instant::now());
     }
 
-    // Background thread: read PTY output, emit events, log to file, detect exit
-    let sid = session_id.clone();
-    let app2 = app.clone();
+    // Start background PTY reader with throttled output
     let log_file_path = std::path::PathBuf::from(&log_path).join("stdout.log");
-    std::thread::spawn(move || {
-        let mut reader = reader;
-        let mut child = child;
-        let mut buf = [0u8; 4096];
-
-        // Open log file for appending (best-effort)
-        let mut log_file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_file_path)
-            .ok();
-
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = app2.emit(
-                        "session-output",
-                        SessionOutputPayload {
-                            session_id: sid.clone(),
-                            data,
-                        },
-                    );
-                    // Write raw bytes to log file
-                    if let Some(ref mut f) = log_file {
-                        let _ = f.write_all(&buf[..n]);
-                    }
-                    // Update activity timestamp
-                    let app_state = app2.state::<AppState>();
-                    {
-                        let mut lo = app_state.last_output_at.lock();
-                        lo.insert(sid.clone(), std::time::Instant::now());
-                    }
-                }
-                Err(e) => {
-                    log::error!("PTY read error for {}: {}", sid, e);
-                    break;
-                }
-            }
-        }
-
-        // Reader closed — process exited
-        let final_status = match child.wait() {
-            Ok(status) if status.success() => "completed",
-            _ => "failed",
-        };
-        log::info!("Session {} exited ({})", sid, final_status);
-
-        // Clean up state
-        let app_state = app2.state::<AppState>();
-        {
-            let mut map = app_state.processes.lock();
-            map.remove(&sid);
-        }
-        {
-            let mut lo = app_state.last_output_at.lock();
-            lo.remove(&sid);
-        }
-
-        if let Err(e) = update_session_status(&app2, &sid, final_status) {
-            log::error!("Failed to update session {} status: {}", sid, e);
-        }
-        emit_session_changed(&app2, &sid);
-    });
+    start_pty_reader(
+        app.clone(),
+        session_id.clone(),
+        reader,
+        child,
+        log_file_path,
+    );
 
     let db = state.db.lock();
     query_session_by_id(&db, &session_id)
@@ -401,7 +502,7 @@ pub async fn reply_to_session(
     Ok(())
 }
 
-/// Send SIGINT to the running session.
+/// Send SIGINT to the running session's process group.
 #[tauri::command]
 pub async fn interrupt_session(
     state: State<'_, AppState>,
@@ -417,8 +518,14 @@ pub async fn interrupt_session(
     {
         use nix::sys::signal::{kill, Signal};
         use nix::unistd::Pid;
-        kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGINT)
-            .map_err(|e| AppError::Custom(format!("failed to send SIGINT: {}", e)))?;
+        // Send to process group (negative pid) for reliable signal delivery
+        let pgid = -(pty_session.pid as i32);
+        let result = kill(Pid::from_raw(pgid), Signal::SIGINT);
+        if result.is_err() {
+            // Fallback: send to process directly
+            kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGINT)
+                .map_err(|e| AppError::Custom(format!("failed to send SIGINT: {}", e)))?;
+        }
         log::info!("Sent SIGINT to session {} (pid {})", id, pty_session.pid);
     }
 
@@ -434,14 +541,16 @@ pub async fn interrupt_session(
     Ok(())
 }
 
-/// Kill the process for a session, clean up worktree/branch, and remove from DB.
+/// Kill the process for a session with graceful shutdown sequence:
+/// SIGINT -> wait 3s -> SIGTERM -> wait 2s -> SIGKILL
+/// Then clean up worktree/branch and remove from DB.
 #[tauri::command]
 pub async fn kill_session(
     _app: AppHandle,
     state: State<'_, AppState>,
     id: String,
 ) -> AppResult<()> {
-    // Kill the process
+    // Kill the process with graceful shutdown
     {
         let mut map = state.processes.lock();
         if let Some(pty_session) = map.remove(&id) {
@@ -450,7 +559,27 @@ pub async fn kill_session(
             {
                 use nix::sys::signal::{kill, Signal};
                 use nix::unistd::Pid;
-                let _ = kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGKILL);
+
+                let pgid = -(pty_session.pid as i32);
+                let pid = Pid::from_raw(pty_session.pid as i32);
+                let pg_pid = Pid::from_raw(pgid);
+
+                // Step 1: SIGINT to process group
+                let _ = kill(pg_pid, Signal::SIGINT).or_else(|_| kill(pid, Signal::SIGINT));
+
+                // Wait 3 seconds, check if still alive
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                if kill(pid, None).is_ok() {
+                    // Still alive — SIGTERM
+                    let _ = kill(pg_pid, Signal::SIGTERM).or_else(|_| kill(pid, Signal::SIGTERM));
+
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    if kill(pid, None).is_ok() {
+                        // Still alive — SIGKILL
+                        let _ =
+                            kill(pg_pid, Signal::SIGKILL).or_else(|_| kill(pid, Signal::SIGKILL));
+                    }
+                }
             }
             // Dropping pty_session closes the PTY handles
         }
@@ -532,7 +661,10 @@ pub async fn pause_session(
         {
             use nix::sys::signal::{kill, Signal};
             use nix::unistd::Pid;
-            kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGSTOP)
+            // Send SIGSTOP to process group
+            let pgid = -(pty_session.pid as i32);
+            kill(Pid::from_raw(pgid), Signal::SIGSTOP)
+                .or_else(|_| kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGSTOP))
                 .map_err(|e| AppError::Custom(format!("failed to send SIGSTOP: {}", e)))?;
         }
     }
@@ -568,7 +700,10 @@ pub async fn resume_session(
         {
             use nix::sys::signal::{kill, Signal};
             use nix::unistd::Pid;
-            kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGCONT)
+            // Send SIGCONT to process group
+            let pgid = -(pty_session.pid as i32);
+            kill(Pid::from_raw(pgid), Signal::SIGCONT)
+                .or_else(|_| kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGCONT))
                 .map_err(|e| AppError::Custom(format!("failed to send SIGCONT: {}", e)))?;
         }
     } else {
@@ -650,70 +785,9 @@ pub async fn resume_session(
             last_output_map.insert(id.clone(), std::time::Instant::now());
         }
 
-        // Background thread: read PTY output, emit events, log to file
-        let sid = id.clone();
-        let app2 = app.clone();
+        // Start background PTY reader with throttled output
         let log_file_path = std::path::PathBuf::from(log_path).join("stdout.log");
-        std::thread::spawn(move || {
-            let mut reader = reader;
-            let mut child = child;
-            let mut buf = [0u8; 4096];
-
-            let mut log_file = std::fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open(&log_file_path)
-                .ok();
-
-            loop {
-                match reader.read(&mut buf) {
-                    Ok(0) => break,
-                    Ok(n) => {
-                        let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                        let _ = app2.emit(
-                            "session-output",
-                            SessionOutputPayload {
-                                session_id: sid.clone(),
-                                data,
-                            },
-                        );
-                        if let Some(ref mut f) = log_file {
-                            let _ = f.write_all(&buf[..n]);
-                        }
-                        let app_state = app2.state::<AppState>();
-                        {
-                            let mut lo = app_state.last_output_at.lock();
-                            lo.insert(sid.clone(), std::time::Instant::now());
-                        }
-                    }
-                    Err(e) => {
-                        log::error!("PTY read error for {}: {}", sid, e);
-                        break;
-                    }
-                }
-            }
-
-            let final_status = match child.wait() {
-                Ok(status) if status.success() => "completed",
-                _ => "failed",
-            };
-            log::info!("Session {} exited ({})", sid, final_status);
-
-            let app_state = app2.state::<AppState>();
-            {
-                let mut map = app_state.processes.lock();
-                map.remove(&sid);
-            }
-            {
-                let mut lo = app_state.last_output_at.lock();
-                lo.remove(&sid);
-            }
-
-            if let Err(e) = update_session_status(&app2, &sid, final_status) {
-                log::error!("Failed to update session {} status: {}", sid, e);
-            }
-            emit_session_changed(&app2, &sid);
-        });
+        start_pty_reader(app.clone(), id.clone(), reader, child, log_file_path);
     }
 
     update_session_status(&app, &id, "running")?;
