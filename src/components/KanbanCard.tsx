@@ -1,5 +1,7 @@
+import { useState } from "react";
 import type { Session } from "../lib/types";
 import { timeAgo } from "../lib/utils";
+import { replyToSession } from "../lib/tauri";
 
 const STATUS_PILL: Record<string, string> = {
   waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
@@ -55,11 +57,30 @@ interface KanbanCardProps {
 export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: KanbanCardProps) {
   const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
+  const [quickReply, setQuickReply] = useState("");
+  const [showQuickReply, setShowQuickReply] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  async function handleQuickReply(e: React.FormEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!quickReply.trim() || sending) return;
+    setSending(true);
+    try {
+      await replyToSession(session.id, quickReply.trim());
+      setQuickReply("");
+      setShowQuickReply(false);
+    } catch (err) {
+      console.error("[KanbanCard] Reply failed:", err);
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
     <div
       onClick={() => onView(session.id)}
-      className={`cursor-pointer rounded-md border border-gray-200 bg-white p-3 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700 ${closedBorder} ${isClosed ? "opacity-75" : ""}`}
+      className={`cursor-pointer rounded-md border border-gray-200 bg-white p-3 pl-7 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700 ${closedBorder} ${isClosed ? "opacity-75" : ""}`}
     >
       {/* Title + time */}
       <div className="flex items-start justify-between gap-2">
@@ -124,12 +145,20 @@ export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: 
       {/* Action buttons */}
       <div className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
         {session.status === "waiting" && (
-          <button
-            onClick={() => onReply?.(session.id)}
-            className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-red-500"
-          >
-            Reply
-          </button>
+          <>
+            <button
+              onClick={() => setShowQuickReply((v) => !v)}
+              className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-red-500"
+            >
+              Quick Reply
+            </button>
+            <button
+              onClick={() => onReply?.(session.id)}
+              className="rounded border border-red-300 px-2 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              Full View
+            </button>
+          </>
         )}
         {session.status === "running" && (
           <button
@@ -154,6 +183,31 @@ export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: 
           View
         </button>
       </div>
+
+      {/* Inline quick reply */}
+      {showQuickReply && session.status === "waiting" && (
+        <form
+          onSubmit={(e) => void handleQuickReply(e)}
+          className="mt-2 flex gap-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="text"
+            value={quickReply}
+            onChange={(e) => setQuickReply(e.target.value)}
+            placeholder="Type reply..."
+            autoFocus
+            className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-600"
+          />
+          <button
+            type="submit"
+            disabled={sending || !quickReply.trim()}
+            className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          >
+            {sending ? "..." : "Send"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

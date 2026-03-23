@@ -33,6 +33,9 @@ pub struct AppState {
 
     /// Map of session_id -> last time stdout output was observed from the process.
     pub last_output_at: Mutex<HashMap<String, Instant>>,
+
+    /// Map of shell_id -> running shell PTY (plain shells, not Claude sessions).
+    pub shell_processes: Mutex<HashMap<String, PtySession>>,
 }
 
 impl AppState {
@@ -41,6 +44,7 @@ impl AppState {
             db: Mutex::new(conn),
             processes: Mutex::new(HashMap::new()),
             last_output_at: Mutex::new(HashMap::new()),
+            shell_processes: Mutex::new(HashMap::new()),
         }
     }
 }
