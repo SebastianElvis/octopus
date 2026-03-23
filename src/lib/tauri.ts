@@ -33,9 +33,22 @@ function requireTauri(cmd: string): void {
 
 // Lazy imports — `@tauri-apps/api` throws at import time when __TAURI_INTERNALS__
 // is missing, so we dynamic-import only when we know we're inside Tauri.
-async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+async function tauriInvoke<T>(
+  cmd: string,
+  args?: Record<string, unknown>,
+  timeoutMs = 30000,
+): Promise<T> {
   const { invoke } = await import("@tauri-apps/api/core");
-  return invoke<T>(cmd, args);
+  const result = await Promise.race([
+    invoke<T>(cmd, args),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error(`Command "${cmd}" timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      ),
+    ),
+  ]);
+  return result;
 }
 
 async function tauriListen(

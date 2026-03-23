@@ -1,4 +1,4 @@
-import { formatError } from "../errors";
+import { formatError, isStructuredError, getErrorCode } from "../errors";
 
 describe("formatError", () => {
   it("extracts message from Error instances", () => {
@@ -58,5 +58,59 @@ describe("formatError", () => {
   it("handles booleans", () => {
     expect(formatError(true)).toBe("true");
     expect(formatError(false)).toBe("false");
+  });
+
+  it("extracts message from structured errors", () => {
+    expect(formatError({ code: "NOT_FOUND", message: "Resource not found" })).toBe(
+      "Resource not found",
+    );
+  });
+
+  it("prioritizes structured error message over Error instance", () => {
+    // Structured error detection happens before Error instance check
+    const err = { code: "AUTH_FAILED", message: "Authentication failed" };
+    expect(formatError(err)).toBe("Authentication failed");
+  });
+});
+
+describe("isStructuredError", () => {
+  it("returns true for objects with code and message strings", () => {
+    expect(isStructuredError({ code: "NOT_FOUND", message: "Not found" })).toBe(true);
+  });
+
+  it("returns false for plain Error instances", () => {
+    expect(isStructuredError(new Error("boom"))).toBe(false);
+  });
+
+  it("returns false for objects missing code", () => {
+    expect(isStructuredError({ message: "hello" })).toBe(false);
+  });
+
+  it("returns false for objects missing message", () => {
+    expect(isStructuredError({ code: "ERR" })).toBe(false);
+  });
+
+  it("returns false for null", () => {
+    expect(isStructuredError(null)).toBe(false);
+  });
+
+  it("returns false for strings", () => {
+    expect(isStructuredError("hello")).toBe(false);
+  });
+
+  it("returns false when code is not a string", () => {
+    expect(isStructuredError({ code: 404, message: "Not found" })).toBe(false);
+  });
+});
+
+describe("getErrorCode", () => {
+  it("returns code for structured errors", () => {
+    expect(getErrorCode({ code: "NOT_FOUND", message: "Not found" })).toBe("NOT_FOUND");
+  });
+
+  it("returns null for non-structured errors", () => {
+    expect(getErrorCode(new Error("boom"))).toBeNull();
+    expect(getErrorCode("string error")).toBeNull();
+    expect(getErrorCode(null)).toBeNull();
   });
 });
