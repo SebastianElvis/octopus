@@ -105,10 +105,13 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl border border-gray-800 bg-gray-900 p-6 shadow-2xl">
+      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-100">New Session</h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-300">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Session</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+          >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -123,14 +126,16 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
         <div className="space-y-4">
           {/* Repo selector */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">Repository</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+              Repository
+            </label>
             {repos.length === 0 ? (
-              <p className="text-xs text-gray-600">No repositories added yet.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-600">No repositories added yet.</p>
             ) : (
               <select
                 value={repoId}
                 onChange={(e) => setRepoId(e.target.value)}
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-blue-600 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               >
                 {repos.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -143,16 +148,18 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
 
           {/* Source type */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">Source</label>
-            <div className="flex rounded-md border border-gray-700 text-sm">
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+              Source
+            </label>
+            <div className="flex rounded-md border border-gray-300 text-sm dark:border-gray-700">
               {(["issue", "pr", "adhoc"] as SourceType[]).map((t) => (
                 <button
                   key={t}
                   onClick={() => setSourceType(t)}
                   className={`flex-1 py-1.5 capitalize ${
                     sourceType === t
-                      ? "bg-gray-700 text-gray-100"
-                      : "text-gray-500 hover:text-gray-300"
+                      ? "bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
                   }`}
                 >
                   {t === "adhoc" ? "Ad-hoc" : t === "issue" ? "Issue URL" : "PR URL"}
@@ -164,7 +171,7 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
           {/* URL input */}
           {(sourceType === "issue" || sourceType === "pr") && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-400">
+              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
                 {sourceType === "issue" ? "Issue URL" : "PR URL"}
               </label>
               <input
@@ -172,7 +179,7 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
                 value={url}
                 onChange={(e) => handleUrlChange(e.target.value)}
                 placeholder={`https://github.com/owner/repo/${sourceType}s/123`}
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:border-blue-600 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
               />
             </div>
           )}
@@ -180,7 +187,9 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
           {/* Issue picker */}
           {sourceType === "issue" && issues.length > 0 && (
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-400">Select Issue</label>
+              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Select Issue
+              </label>
               <select
                 value={selectedIssue?.number ?? ""}
                 onChange={(e) => {
@@ -188,7 +197,7 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
                   const found = issues.find((i) => i.number === num) ?? null;
                   setSelectedIssue(found);
                 }}
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 focus:border-blue-600 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               >
                 <option value="">-- Select an issue --</option>
                 {issues.map((i) => (
@@ -202,59 +211,67 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
 
           {/* Session name */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">Session Name</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+              Session Name
+            </label>
             <input
               type="text"
               value={sessionName}
               onChange={(e) => setSessionName(e.target.value)}
               placeholder="e.g. Fix login bug"
-              className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:border-blue-600 focus:outline-none"
+              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
             />
           </div>
 
           {/* Prompt */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-400">Prompt</label>
+            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+              Prompt
+            </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Describe the task for Claude…"
               rows={4}
-              className="w-full resize-none rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:border-blue-600 focus:outline-none"
+              className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
             />
           </div>
 
           {/* Base branch */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-400">Base Branch</label>
+              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Base Branch
+              </label>
               <input
                 type="text"
                 value={baseBranch}
                 onChange={(e) => setBaseBranch(e.target.value)}
                 placeholder="main"
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:border-blue-600 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-400">Branch Name</label>
+              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                Branch Name
+              </label>
               <input
                 type="text"
                 value={branchName}
                 onChange={(e) => setBranchName(e.target.value)}
                 placeholder="feature/my-branch"
-                className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:border-blue-600 focus:outline-none"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
               />
             </div>
           </div>
         </div>
 
-        {error && <p className="mt-3 text-xs text-red-400">{error}</p>}
+        {error && <p className="mt-3 text-xs text-red-600 dark:text-red-400">{error}</p>}
 
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="rounded-md border border-gray-700 px-4 py-2 text-sm font-medium text-gray-300 hover:border-gray-600 hover:text-gray-100"
+            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
           >
             Cancel
           </button>

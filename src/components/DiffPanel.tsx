@@ -59,18 +59,20 @@ export function DiffPanel({ worktreePath }: DiffPanelProps) {
 
   if (!worktreePath) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-gray-800 bg-gray-900">
-        <p className="text-sm text-gray-600">No worktree attached to this session.</p>
+      <div className="flex h-32 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
+        <p className="text-sm text-gray-400 dark:text-gray-600">
+          No worktree attached to this session.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-0 overflow-hidden rounded-lg border border-gray-800 bg-gray-900">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <h3 className="text-sm font-medium text-gray-300">Diff</h3>
+    <div className="flex flex-col gap-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-800">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Diff</h3>
         {!loading && (
-          <span className="text-xs text-gray-600">
+          <span className="text-xs text-gray-400 dark:text-gray-600">
             {files.length} file{files.length !== 1 ? "s" : ""} changed
           </span>
         )}
@@ -79,33 +81,40 @@ export function DiffPanel({ worktreePath }: DiffPanelProps) {
       <div className="max-h-96 overflow-y-auto">
         {loading && (
           <div className="flex h-24 items-center justify-center">
-            <span className="text-sm text-gray-600">Loading diff…</span>
+            <span className="text-sm text-gray-400 dark:text-gray-600">Loading diff…</span>
           </div>
         )}
 
         {!loading && files.length === 0 && (
           <div className="flex h-24 items-center justify-center">
-            <span className="text-sm text-gray-600">No changes.</span>
+            <span className="text-sm text-gray-400 dark:text-gray-600">No changes.</span>
           </div>
         )}
 
         {!loading &&
           files.map((file) => (
-            <div key={file.newPath} className="border-b border-gray-800 last:border-0">
+            <div
+              key={file.newPath}
+              className="border-b border-gray-200 last:border-0 dark:border-gray-800"
+            >
               <button
                 onClick={() => toggleFile(file.newPath)}
-                className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-gray-800/50"
+                className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50"
               >
-                <span className="font-mono text-xs text-gray-300">
+                <span className="font-mono text-xs text-gray-600 dark:text-gray-300">
                   {file.oldPath !== file.newPath
                     ? `${file.oldPath} → ${file.newPath}`
                     : file.newPath}
                 </span>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-green-500">+{file.additions}</span>
-                  <span className="text-xs font-medium text-red-500">-{file.deletions}</span>
+                  <span className="text-xs font-medium text-green-600 dark:text-green-500">
+                    +{file.additions}
+                  </span>
+                  <span className="text-xs font-medium text-red-600 dark:text-red-500">
+                    -{file.deletions}
+                  </span>
                   <svg
-                    className={`h-3 w-3 text-gray-600 transition-transform ${
+                    className={`h-3 w-3 text-gray-400 transition-transform dark:text-gray-600 ${
                       expandedFiles.has(file.newPath) ? "rotate-180" : ""
                     }`}
                     fill="none"
@@ -123,14 +132,17 @@ export function DiffPanel({ worktreePath }: DiffPanelProps) {
               </button>
 
               {expandedFiles.has(file.newPath) && (
-                <div className="overflow-x-auto bg-gray-950">
+                <div className="overflow-x-auto bg-white dark:bg-gray-950">
                   <table className="w-full border-collapse font-mono text-xs">
                     <tbody>
                       {file.lines.map((line, i) => {
                         if (line.type === "header") {
                           return (
-                            <tr key={i} className="bg-blue-950/30">
-                              <td colSpan={3} className="px-4 py-0.5 text-blue-400">
+                            <tr key={i} className="bg-blue-50 dark:bg-blue-950/30">
+                              <td
+                                colSpan={3}
+                                className="px-4 py-0.5 text-blue-600 dark:text-blue-400"
+                              >
                                 {line.content}
                               </td>
                             </tr>
@@ -138,24 +150,24 @@ export function DiffPanel({ worktreePath }: DiffPanelProps) {
                         }
                         const rowBg =
                           line.type === "add"
-                            ? "bg-green-950/40"
+                            ? "bg-green-50 dark:bg-green-950/40"
                             : line.type === "remove"
-                              ? "bg-red-950/40"
+                              ? "bg-red-50 dark:bg-red-950/40"
                               : "";
                         const textColor =
                           line.type === "add"
-                            ? "text-green-300"
+                            ? "text-green-700 dark:text-green-300"
                             : line.type === "remove"
-                              ? "text-red-300"
-                              : "text-gray-400";
+                              ? "text-red-700 dark:text-red-300"
+                              : "text-gray-600 dark:text-gray-400";
                         const prefix =
                           line.type === "add" ? "+" : line.type === "remove" ? "-" : " ";
                         return (
                           <tr key={i} className={rowBg}>
-                            <td className="w-10 select-none px-2 py-0.5 text-right text-gray-700">
+                            <td className="w-10 select-none px-2 py-0.5 text-right text-gray-400 dark:text-gray-700">
                               {line.oldLineNo ?? ""}
                             </td>
-                            <td className="w-10 select-none px-2 py-0.5 text-right text-gray-700">
+                            <td className="w-10 select-none px-2 py-0.5 text-right text-gray-400 dark:text-gray-700">
                               {line.newLineNo ?? ""}
                             </td>
                             <td className={`px-2 py-0.5 whitespace-pre ${textColor}`}>
@@ -174,15 +186,15 @@ export function DiffPanel({ worktreePath }: DiffPanelProps) {
       </div>
 
       {/* Commit bar */}
-      <div className="border-t border-gray-800 p-3">
-        {error && <p className="mb-2 text-xs text-red-400">{error}</p>}
+      <div className="border-t border-gray-200 p-3 dark:border-gray-800">
+        {error && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
         <div className="flex gap-2">
           <textarea
             value={commitMessage}
             onChange={(e) => setCommitMessage(e.target.value)}
             placeholder="Commit message…"
             rows={2}
-            className="flex-1 resize-none rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:border-blue-600 focus:outline-none"
+            className="flex-1 resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
           />
           <button
             onClick={() => {

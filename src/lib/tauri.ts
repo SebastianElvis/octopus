@@ -154,7 +154,5 @@ export async function onSessionOutput(
   callback: (payload: SessionOutputPayload) => void,
 ): Promise<() => void> {
   if (!isTauri()) return noop;
-  return tauriListen("session-output", (event) =>
-    callback(event.payload as SessionOutputPayload),
-  );
+  return tauriListen("session-output", (event) => callback(event.payload as SessionOutputPayload));
 }

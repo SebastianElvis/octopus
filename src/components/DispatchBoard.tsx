@@ -36,19 +36,19 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         {[1, 2, 3].map((n) => (
           <section key={n}>
             <div className="mb-3 flex animate-pulse items-center gap-2">
-              <span className="inline-block h-2 w-2 rounded-full bg-gray-700" />
-              <div className="h-3 w-24 rounded bg-gray-700" />
+              <span className="inline-block h-2 w-2 rounded-full bg-gray-200 dark:bg-gray-700" />
+              <div className="h-3 w-24 rounded bg-gray-200 dark:bg-gray-700" />
             </div>
             <div className="grid gap-3">
               {[1, 2].map((m) => (
                 <div
                   key={m}
-                  className="flex animate-pulse overflow-hidden rounded-lg border border-gray-800 bg-gray-900"
+                  className="flex animate-pulse overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900"
                 >
-                  <div className="w-1 flex-none bg-gray-700" />
+                  <div className="w-1 flex-none bg-gray-200 dark:bg-gray-700" />
                   <div className="flex flex-1 flex-col gap-2 px-4 py-3">
-                    <div className="h-3 w-48 rounded bg-gray-700" />
-                    <div className="h-2.5 w-32 rounded bg-gray-800" />
+                    <div className="h-3 w-48 rounded bg-gray-200 dark:bg-gray-700" />
+                    <div className="h-2.5 w-32 rounded bg-gray-100 dark:bg-gray-800" />
                   </div>
                 </div>
               ))}
@@ -91,8 +91,10 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
 
       {sessions.length === 0 && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <p className="text-lg font-medium text-gray-400">No sessions yet</p>
-          <p className="mt-1 text-sm text-gray-600">Create a new session to get started.</p>
+          <p className="text-lg font-medium text-gray-500 dark:text-gray-400">No sessions yet</p>
+          <p className="mt-1 text-sm text-gray-400 dark:text-gray-600">
+            Create a new session to get started.
+          </p>
           <button
             onClick={onNewSession}
             className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
@@ -126,13 +128,13 @@ function Zone({
 
   return (
     <section>
-      <h2 className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-gray-400">
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
         <span className={`inline-block h-2 w-2 rounded-full ${dotColors[accentColor]}`} />
         {title}
-        <span className="text-gray-600">({count})</span>
+        <span className="text-gray-400 dark:text-gray-600">({count})</span>
       </h2>
       {count === 0 ? (
-        <p className="text-sm text-gray-600">{empty}</p>
+        <p className="text-sm text-gray-400 dark:text-gray-600">{empty}</p>
       ) : (
         <div className="grid gap-3">{children}</div>
       )}

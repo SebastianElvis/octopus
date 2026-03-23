@@ -9,16 +9,16 @@ const STATUS_ACCENT: Record<string, string> = {
 };
 
 const STATUS_PILL: Record<string, string> = {
-  waiting: "bg-red-500/20 text-red-400 ring-1 ring-red-500/30",
-  running: "bg-green-500/20 text-green-400 ring-1 ring-green-500/30",
-  idle: "bg-gray-500/20 text-gray-400 ring-1 ring-gray-500/30",
-  done: "bg-gray-700/40 text-gray-500 ring-1 ring-gray-600/30",
+  waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
+  running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
+  idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
+  done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
 };
 
 const BLOCK_TYPE_PILL: Record<string, string> = {
-  decision: "bg-orange-500/20 text-orange-400 ring-1 ring-orange-500/30",
-  review: "bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/30",
-  confirm: "bg-yellow-500/20 text-yellow-400 ring-1 ring-yellow-500/30",
+  decision: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
+  review: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
+  confirm: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
 };
 
 interface SessionCardProps {
@@ -31,7 +31,7 @@ interface SessionCardProps {
 
 export function SessionCard({ session, onView, onReply, onInterrupt, onResume }: SessionCardProps) {
   return (
-    <div className="flex overflow-hidden rounded-lg border border-gray-800 bg-gray-900 transition-colors hover:border-gray-700">
+    <div className="flex overflow-hidden rounded-lg border border-gray-200 bg-white transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
       {/* Accent bar */}
       <div className={`w-1 flex-none ${STATUS_ACCENT[session.status]}`} />
 
@@ -40,7 +40,9 @@ export function SessionCard({ session, onView, onReply, onInterrupt, onResume }:
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="truncate font-medium text-gray-100">{session.name}</span>
+              <span className="truncate font-medium text-gray-900 dark:text-gray-100">
+                {session.name}
+              </span>
               <span
                 className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_PILL[session.status]}`}
               >
@@ -54,16 +56,20 @@ export function SessionCard({ session, onView, onReply, onInterrupt, onResume }:
                 </span>
               )}
             </div>
-            <p className="mt-0.5 truncate text-xs text-gray-500">
+            <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-500">
               {session.repo}
-              {session.branch && <span className="ml-1 text-gray-600">· {session.branch}</span>}
+              {session.branch && (
+                <span className="ml-1 text-gray-400 dark:text-gray-600">· {session.branch}</span>
+              )}
             </p>
           </div>
-          <span className="shrink-0 text-xs text-gray-600">{timeAgo(session.stateChangedAt)}</span>
+          <span className="shrink-0 text-xs text-gray-400 dark:text-gray-600">
+            {timeAgo(session.stateChangedAt)}
+          </span>
         </div>
 
         {session.lastMessage && (
-          <p className="truncate text-sm text-gray-400">{session.lastMessage}</p>
+          <p className="truncate text-sm text-gray-500 dark:text-gray-400">{session.lastMessage}</p>
         )}
 
         <div className="flex items-center gap-2">
@@ -93,13 +99,13 @@ export function SessionCard({ session, onView, onReply, onInterrupt, onResume }:
           )}
           <button
             onClick={() => onView(session.id)}
-            className="rounded-md border border-gray-700 px-2.5 py-1 text-xs font-medium text-gray-300 hover:border-gray-600 hover:text-gray-100"
+            className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
           >
             View
           </button>
 
           {(session.linkedIssue ?? session.linkedPR) && (
-            <div className="ml-auto flex items-center gap-2 text-xs text-gray-600">
+            <div className="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-gray-600">
               {session.linkedIssue && <span>#{session.linkedIssue.number}</span>}
               {session.linkedPR && <span>PR #{session.linkedPR.number}</span>}
             </div>

@@ -4,10 +4,12 @@ import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
 import { RepoSettings } from "./components/RepoSettings";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { onSessionStateChanged, onSessionOutput } from "./lib/tauri";
 import { useTauriEvent } from "./hooks/useTauriEvent";
+import { useTheme } from "./hooks/useTheme";
 
 type View = "board" | "session" | "settings";
 
@@ -22,6 +24,9 @@ function App() {
   const loadRepos = useRepoStore((s) => s.loadRepos);
   const repos = useRepoStore((s) => s.repos);
   const sessions = useSessionStore((s) => s.sessions);
+
+  // Apply theme class to <html> and listen for OS changes
+  useTheme();
 
   useEffect(() => {
     void loadSessions();
@@ -58,12 +63,14 @@ function App() {
   const waitingCount = sessions.filter((s) => s.status === "waiting").length;
 
   return (
-    <div className="flex min-h-screen bg-gray-950 text-gray-100">
+    <div className="flex min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       {/* Sidebar */}
-      <aside className="flex w-56 flex-col border-r border-gray-800 bg-gray-950">
+      <aside className="flex w-56 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
         <div className="px-4 py-4">
-          <h1 className="text-base font-semibold tracking-tight text-gray-100">TooManyTabs</h1>
-          <p className="text-xs text-gray-600">Claude Code dispatch board</p>
+          <h1 className="text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+            TooManyTabs
+          </h1>
+          <p className="text-xs text-gray-500 dark:text-gray-600">Claude Code dispatch board</p>
         </div>
 
         <nav className="flex flex-col gap-1 px-2">
@@ -85,9 +92,11 @@ function App() {
 
         {/* Repo list */}
         <div className="mt-4 px-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-600">Repos</p>
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-600">
+            Repos
+          </p>
           {repos.length === 0 ? (
-            <p className="text-xs text-gray-700">None added</p>
+            <p className="text-xs text-gray-400 dark:text-gray-700">None added</p>
           ) : (
             <div className="space-y-1">
               {repos.map((repo) => {
@@ -95,7 +104,7 @@ function App() {
                 return (
                   <div
                     key={repo.id}
-                    className="truncate text-xs text-gray-500"
+                    className="truncate text-xs text-gray-500 dark:text-gray-500"
                     title={repo.githubUrl}
                   >
                     {name}
@@ -106,7 +115,8 @@ function App() {
           )}
         </div>
 
-        <div className="mt-auto p-4">
+        <div className="mt-auto flex flex-col gap-2 p-4">
+          <ThemeToggle />
           <button
             onClick={() => setShowNewSession(true)}
             className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
@@ -154,8 +164,8 @@ function NavItem({
       onClick={onClick}
       className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors ${
         active
-          ? "bg-gray-800 text-gray-100"
-          : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+          ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
+          : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200"
       }`}
     >
       {label}
