@@ -43,7 +43,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const rightPanelCollapsed = useUIStore((s) => s.rightPanelCollapsed);
   const setPanelSize = useUIStore((s) => s.setPanelSize);
 
-  const [hasCommitted, setHasCommitted] = useState(false);
   const [showKillConfirm, setShowKillConfirm] = useState(false);
   const [centerTab, setCenterTab] = useState<CenterTab>("terminal");
 
@@ -115,7 +114,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
   function handleCommitted() {
     if (!session) return;
-    setHasCommitted(true);
     updateSession(session.id, { status: "done", stateChangedAt: Date.now() });
   }
 
@@ -273,7 +271,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               <RightPanel
                 session={session}
                 onCommitted={handleCommitted}
-                hasCommitted={hasCommitted}
               />
             </div>
           </>

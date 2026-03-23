@@ -6,7 +6,7 @@ interface PanelSizes {
   terminalHeight: number; // percentage of center panel
 }
 
-type RightPanelTab = "files" | "changes" | "github";
+type RightPanelTab = "files" | "changes";
 
 interface UIState {
   panelSizes: PanelSizes;
