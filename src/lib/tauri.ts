@@ -47,6 +47,7 @@ export async function spawnSession(params: {
   issueNumber?: number;
   prNumber?: number;
   force?: boolean;
+  dangerouslySkipPermissions?: boolean;
 }): Promise<Session> {
   requireTauri("spawn_session");
   const raw = await tauriInvoke<BackendSession>("spawn_session", { params });

@@ -56,6 +56,7 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
             linked_issue_number INTEGER,
             linked_pr_number INTEGER,
             prompt TEXT,
+            dangerously_skip_permissions INTEGER DEFAULT 0,
             created_at TEXT,
             state_changed_at TEXT
         );

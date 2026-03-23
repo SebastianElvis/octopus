@@ -26,6 +26,7 @@ pub struct Session {
     pub linked_issue_number: Option<i64>,
     pub linked_pr_number: Option<i64>,
     pub prompt: Option<String>,
+    pub dangerously_skip_permissions: Option<bool>,
     pub created_at: Option<String>,
     pub state_changed_at: Option<String>,
 }
@@ -53,6 +54,7 @@ pub struct SpawnSessionParams {
     pub issue_number: Option<i64>,
     pub pr_number: Option<i64>,
     pub force: Option<bool>,
+    pub dangerously_skip_permissions: Option<bool>,
 }
 
 // ---------------------------------------------------------------------------
@@ -81,7 +83,8 @@ fn query_session_by_id(db: &rusqlite::Connection, session_id: &str) -> AppResult
     let mut sessions = query_sessions(
         db,
         "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
-         linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at \
+         linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
+         dangerously_skip_permissions \
          FROM sessions WHERE id = ?1",
         &[&session_id],
     )?;
@@ -109,6 +112,7 @@ fn query_sessions(
 ) -> AppResult<Vec<Session>> {
     let mut stmt = db.prepare(sql)?;
     let rows = stmt.query_map(params, |row| {
+        let dsp_int: Option<i64> = row.get(13)?;
         Ok(Session {
             id: row.get(0)?,
             repo_id: row.get(1)?,
@@ -121,6 +125,7 @@ fn query_sessions(
             linked_issue_number: row.get(8)?,
             linked_pr_number: row.get(9)?,
             prompt: row.get(10)?,
+            dangerously_skip_permissions: Some(dsp_int.unwrap_or(0) != 0),
             created_at: row.get(11)?,
             state_changed_at: row.get(12)?,
         })
@@ -188,8 +193,9 @@ pub async fn spawn_session(
         db.execute(
             "INSERT INTO sessions \
              (id, repo_id, name, branch, status, worktree_path, log_path, \
-              linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at) \
-             VALUES (?1, ?2, ?3, ?4, 'running', ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+              linked_issue_number, linked_pr_number, prompt, dangerously_skip_permissions, \
+              created_at, state_changed_at) \
+             VALUES (?1, ?2, ?3, ?4, 'running', ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
             rusqlite::params![
                 session_id,
                 params.repo_id,
@@ -200,6 +206,7 @@ pub async fn spawn_session(
                 params.issue_number,
                 params.pr_number,
                 params.prompt,
+                params.dangerously_skip_permissions.unwrap_or(false) as i64,
                 now,
                 now
             ],
@@ -228,7 +235,11 @@ pub async fn spawn_session(
         .map_err(|e| AppError::Custom(format!("failed to take PTY writer: {}", e)))?;
 
     // Build command — run claude in interactive mode (no --print)
+    let skip_permissions = params.dangerously_skip_permissions.unwrap_or(false);
     let mut cmd = CommandBuilder::new("claude");
+    if skip_permissions {
+        cmd.arg("--dangerously-skip-permissions");
+    }
     cmd.arg(&params.prompt);
     cmd.cwd(&worktree_path);
     cmd.env("TERM", "xterm-256color");
@@ -533,7 +544,8 @@ pub async fn list_sessions(state: State<'_, AppState>) -> AppResult<Vec<Session>
     query_sessions(
         &db,
         "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
-         linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at \
+         linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
+         dangerously_skip_permissions \
          FROM sessions ORDER BY created_at DESC",
         &[],
     )
@@ -663,6 +675,9 @@ pub async fn resume_session(
 
         // Spawn claude --continue in the existing worktree
         let mut cmd = CommandBuilder::new("claude");
+        if session.dangerously_skip_permissions.unwrap_or(false) {
+            cmd.arg("--dangerously-skip-permissions");
+        }
         cmd.arg("--continue");
         cmd.cwd(worktree_path);
         cmd.env("TERM", "xterm-256color");

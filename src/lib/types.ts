@@ -14,6 +14,7 @@ export interface BackendSession {
   linkedIssueNumber?: number;
   linkedPrNumber?: number;
   prompt?: string;
+  dangerouslySkipPermissions?: boolean;
   createdAt?: string;
   stateChangedAt?: string;
 }
