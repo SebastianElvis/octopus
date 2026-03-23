@@ -345,9 +345,9 @@ pub async fn git_commit_and_push(worktree_path: String, commit_message: String) 
         )));
     }
 
-    // git commit
+    // git commit (--no-gpg-sign because GPG prompts can't work in a headless context)
     let commit_output = Command::new("git")
-        .args(["commit", "-m", &commit_message])
+        .args(["commit", "--no-gpg-sign", "-m", &commit_message])
         .current_dir(&worktree_path)
         .output()?;
     if !commit_output.status.success() {
@@ -382,11 +382,12 @@ pub async fn git_commit_and_push(worktree_path: String, commit_message: String) 
 #[tauri::command]
 pub async fn create_pr(
     state: State<'_, AppState>,
-    github_url: String,
-    branch: String,
+    repo_id: String,
+    head_branch: String,
     title: String,
-    body: String,
+    body: Option<String>,
 ) -> AppResult<GitHubPR> {
+    let github_url = lookup_github_url(&state, &repo_id)?;
     let token = get_github_token().await?;
     let (owner, repo) = parse_owner_repo(&github_url)?;
 
@@ -405,8 +406,8 @@ pub async fn create_pr(
 
     let payload = CreatePRBody {
         title: title.clone(),
-        body: body.clone(),
-        head: branch.clone(),
+        body: body.clone().unwrap_or_default(),
+        head: head_branch.clone(),
         base,
     };
 

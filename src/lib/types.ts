@@ -1,5 +1,22 @@
-export type SessionStatus = "waiting" | "running" | "idle" | "done" | "paused" | "stuck";
+export type SessionStatus = "waiting" | "running" | "idle" | "done" | "completed" | "failed" | "killed" | "paused" | "stuck";
 export type BlockType = "decision" | "review" | "confirm";
+
+/** Raw session shape returned by the Tauri backend (camelCase of Rust fields). */
+export interface BackendSession {
+  id: string;
+  repoId?: string;
+  name?: string;
+  branch?: string;
+  status?: string;
+  blockType?: string;
+  worktreePath?: string;
+  logPath?: string;
+  linkedIssueNumber?: number;
+  linkedPrNumber?: number;
+  prompt?: string;
+  createdAt?: string;
+  stateChangedAt?: string;
+}
 
 export interface Session {
   id: string;
@@ -15,6 +32,30 @@ export interface Session {
   linkedPR?: { number: number; title: string };
   worktreePath?: string;
   logPath?: string;
+  prompt?: string;
+}
+
+/** Convert a backend session to the frontend Session shape. */
+export function mapBackendSession(raw: BackendSession): Session {
+  return {
+    id: raw.id,
+    name: raw.name ?? "Untitled",
+    repo: raw.repoId ?? "",
+    repoId: raw.repoId ?? "",
+    branch: raw.branch ?? "",
+    status: (raw.status as SessionStatus) ?? "idle",
+    blockType: raw.blockType as BlockType | undefined,
+    worktreePath: raw.worktreePath,
+    logPath: raw.logPath,
+    prompt: raw.prompt,
+    stateChangedAt: raw.stateChangedAt ? new Date(raw.stateChangedAt).getTime() : Date.now(),
+    linkedIssue: raw.linkedIssueNumber
+      ? { number: raw.linkedIssueNumber, title: "" }
+      : undefined,
+    linkedPR: raw.linkedPrNumber
+      ? { number: raw.linkedPrNumber, title: "" }
+      : undefined,
+  };
 }
 
 export interface Repo {
@@ -80,4 +121,27 @@ export interface DiffFile {
   additions: number;
   deletions: number;
   lines: DiffLine[];
+}
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+  extension: string | null;
+}
+
+export interface ChangedFile {
+  path: string;
+  status: string;
+  staged: boolean;
+  oldPath: string | null;
+}
+
+export interface EditorTab {
+  id: string;
+  filePath: string;
+  fileName: string;
+  language: string;
+  isDirty: boolean;
 }

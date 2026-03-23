@@ -5,9 +5,34 @@ const STATUS_PILL: Record<string, string> = {
   waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
   running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
   idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
-  done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
-  paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
+  done: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
+  completed: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
+  failed: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
+  killed: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
+  paused: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
   stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
+};
+
+// Human-friendly labels for statuses
+const STATUS_LABEL: Record<string, string> = {
+  completed: "completed",
+  done: "closed",
+  failed: "failed",
+  killed: "killed",
+  idle: "idle",
+  waiting: "waiting",
+  running: "running",
+  paused: "paused",
+  stuck: "stuck",
+};
+
+// GitHub-style left border color for closed sessions
+const CLOSED_BORDER: Record<string, string> = {
+  completed: "border-l-purple-500",
+  done: "border-l-purple-500",
+  failed: "border-l-red-500",
+  killed: "border-l-gray-400",
+  idle: "border-l-gray-400",
 };
 
 const BLOCK_TYPE_PILL: Record<string, string> = {
@@ -25,10 +50,13 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: KanbanCardProps) {
+  const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
+  const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
+
   return (
     <div
       onClick={() => onView(session.id)}
-      className="cursor-pointer rounded-md border border-gray-200 bg-white p-3 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700"
+      className={`cursor-pointer rounded-md border border-gray-200 bg-white p-3 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700 ${closedBorder} ${isClosed ? "opacity-75" : ""}`}
     >
       {/* Title + time */}
       <div className="flex items-start justify-between gap-2">
@@ -60,7 +88,7 @@ export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: 
         <span
           className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${STATUS_PILL[session.status]}`}
         >
-          {session.status}
+          {STATUS_LABEL[session.status] ?? session.status}
         </span>
         {session.status === "waiting" && session.blockType && (
           <span

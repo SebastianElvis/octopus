@@ -6,11 +6,13 @@ import { formatError } from "../lib/errors";
 
 interface DiffPanelProps {
   worktreePath?: string;
+  sessionName?: string;
+  onCommitted?: () => void;
 }
 
-export function DiffPanel({ worktreePath }: DiffPanelProps) {
+export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelProps) {
   const [files, setFiles] = useState<DiffFile[]>([]);
-  const [commitMessage, setCommitMessage] = useState("");
+  const [commitMessage, setCommitMessage] = useState(sessionName ?? "");
   const [loading, setLoading] = useState(false);
   const [pushing, setPushing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export function DiffPanel({ worktreePath }: DiffPanelProps) {
     try {
       await gitCommitAndPush({ worktreePath, message: commitMessage });
       setCommitMessage("");
+      onCommitted?.();
     } catch (err: unknown) {
       setError(formatError(err));
     } finally {

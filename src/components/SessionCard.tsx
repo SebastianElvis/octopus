@@ -6,6 +6,8 @@ const STATUS_ACCENT: Record<string, string> = {
   running: "bg-green-500",
   idle: "bg-gray-500",
   done: "bg-gray-600",
+  completed: "bg-green-600",
+  failed: "bg-red-600",
   paused: "bg-gray-400",
   stuck: "bg-orange-500",
 };
@@ -15,6 +17,8 @@ const STATUS_PILL: Record<string, string> = {
   running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
   idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
   done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
+  completed: "bg-green-200/60 text-green-600 ring-1 ring-green-300/30 dark:bg-green-900/30 dark:text-green-400 dark:ring-green-700/30",
+  failed: "bg-red-200/60 text-red-600 ring-1 ring-red-300/30 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-700/30",
   paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
   stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
 };
@@ -31,9 +35,10 @@ interface SessionCardProps {
   onReply?: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
+  onKill?: (id: string) => void;
 }
 
-export function SessionCard({ session, onView, onReply, onInterrupt, onResume }: SessionCardProps) {
+export function SessionCard({ session, onView, onReply, onInterrupt, onResume, onKill }: SessionCardProps) {
   return (
     <div className="flex overflow-hidden rounded-lg border border-gray-200 bg-white transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
       {/* Accent bar */}
@@ -128,6 +133,14 @@ export function SessionCard({ session, onView, onReply, onInterrupt, onResume }:
           >
             View
           </button>
+          {onKill && (
+            <button
+              onClick={() => onKill(session.id)}
+              className="rounded-md border border-red-300 px-2.5 py-1 text-xs font-medium text-red-600 hover:border-red-400 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30"
+            >
+              Kill
+            </button>
+          )}
 
           {(session.linkedIssue ?? session.linkedPR) && (
             <div className="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-gray-600">

@@ -1,20 +1,24 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { DispatchBoard } from "./components/DispatchBoard";
 import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
 import { RepoSettings } from "./components/RepoSettings";
 import { IssueBacklog } from "./components/IssueBacklog";
-import { SessionsView } from "./components/SessionsView";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
+import { SidebarTree } from "./components/SidebarTree";
+import { ResizeHandle } from "./components/ResizeHandle";
+import { ToastContainer, type ToastItem } from "./components/Toast";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
+import { useUIStore } from "./stores/uiStore";
 import { onSessionStateChanged, onSessionOutput, fetchIssues, fetchPRs } from "./lib/tauri";
+import { requestNotificationPermission, sendSystemNotification } from "./lib/notifications";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
 
-type View = "home" | "session" | "repos" | "tasks" | "sessions";
+type View = "home" | "session" | "repos" | "tasks";
 
 function App() {
   const [view, setView] = useState<View>("home");
@@ -32,8 +36,19 @@ function App() {
   const repos = useRepoStore((s) => s.repos);
   const sessions = useSessionStore((s) => s.sessions);
 
-  // Apply theme class to <html> and listen for OS changes
+  const sidebarWidth = useUIStore((s) => s.panelSizes.sidebarWidth);
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const setPanelSize = useUIStore((s) => s.setPanelSize);
+
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const prevStatusRef = useRef<Record<string, string>>({});
+
   useTheme();
+
+  // Request notification permission on startup
+  useEffect(() => {
+    void requestNotificationPermission();
+  }, []);
 
   useEffect(() => {
     void loadSessions();
@@ -67,7 +82,59 @@ function App() {
     () =>
       onSessionStateChanged((payload) => {
         const { session } = payload;
+        const prevStatus = prevStatusRef.current[session.id];
+        prevStatusRef.current[session.id] = session.status;
+
         updateSession(session.id, session);
+
+        // Notify on important status transitions
+        const shouldNotify =
+          (session.status === "waiting" && prevStatus !== "waiting") ||
+          (session.status === "stuck" && prevStatus !== "stuck") ||
+          (session.status === "completed" && prevStatus !== "completed") ||
+          (session.status === "failed" && prevStatus !== "failed");
+
+        if (shouldNotify) {
+          const messages: Record<string, { toast: string; system: string; type: ToastItem["type"] }> = {
+            waiting: {
+              toast: `"${session.name}" needs your input`,
+              system: `Session "${session.name}" is waiting for your response.`,
+              type: "warning",
+            },
+            stuck: {
+              toast: `"${session.name}" appears stuck`,
+              system: `Session "${session.name}" has been inactive for 20+ minutes.`,
+              type: "warning",
+            },
+            completed: {
+              toast: `"${session.name}" completed`,
+              system: `Session "${session.name}" finished successfully.`,
+              type: "success",
+            },
+            failed: {
+              toast: `"${session.name}" failed`,
+              system: `Session "${session.name}" exited with an error.`,
+              type: "warning",
+            },
+          };
+
+          const msg = messages[session.status];
+          if (msg) {
+            // In-app toast
+            setToasts((prev) => [
+              ...prev,
+              {
+                id: `${session.id}-${session.status}-${Date.now()}`,
+                message: msg.toast,
+                type: msg.type,
+                sessionId: session.id,
+              },
+            ]);
+
+            // System notification
+            void sendSystemNotification("TooManyTabs", msg.system);
+          }
+        }
       }),
     [updateSession],
   );
@@ -78,6 +145,14 @@ function App() {
         appendOutput(payload.sessionId, payload.data);
       }),
     [appendOutput],
+  );
+
+  const handleSidebarResize = useCallback(
+    (delta: number) => {
+      const clamped = Math.max(180, Math.min(400, sidebarWidth + delta));
+      setPanelSize("sidebarWidth", clamped);
+    },
+    [sidebarWidth, setPanelSize],
   );
 
   function handleViewSession(id: string) {
@@ -111,83 +186,113 @@ function App() {
     setPrefillPR(null);
   }
 
+  function dismissToast(id: string) {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }
+
+  function handleToastClick(toast: ToastItem) {
+    if (toast.sessionId) {
+      handleViewSession(toast.sessionId);
+    }
+    dismissToast(toast.id);
+  }
+
   const waitingCount = sessions.filter((s) => s.status === "waiting").length;
+  const isSessionView = view === "session" && activeSessionId;
 
   return (
-    <div className="flex min-h-screen bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+    <div className="flex h-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
       {/* Sidebar */}
-      <aside className="flex w-56 flex-col border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div>
-            <h1 className="text-base font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-              TooManyTabs
-            </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-600">dispatch board</p>
-          </div>
-          <ThemeToggle />
-        </div>
-
-        <nav className="flex flex-col gap-1 px-2">
-          <NavItem
-            label="Home"
-            active={view === "home" || view === "session"}
-            badge={waitingCount > 0 ? waitingCount : undefined}
-            onClick={() => {
-              setView("home");
-              setActiveSessionId(null);
-            }}
-          />
-          <NavItem
-            label="Tasks"
-            active={view === "tasks"}
-            badge={openIssueCount > 0 ? openIssueCount : undefined}
-            onClick={() => setView("tasks")}
-          />
-          <NavItem
-            label="Sessions"
-            active={view === "sessions"}
-            badge={sessions.length > 0 ? sessions.length : undefined}
-            onClick={() => setView("sessions")}
-          />
-        </nav>
-
-        <div className="mt-auto flex flex-col gap-2 p-4">
-          <button
-            onClick={() => setShowNewSession(true)}
-            className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500"
+      {!sidebarCollapsed && (
+        <>
+          <aside
+            style={{ width: `${sidebarWidth}px` }}
+            className="flex shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
           >
-            + New Session
-          </button>
-        </div>
-      </aside>
+            {/* Brand */}
+            <div className="flex shrink-0 items-center justify-between px-4 py-3">
+              <div>
+                <h1 className="text-sm font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+                  TooManyTabs
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-600">dispatch board</p>
+              </div>
+              <ThemeToggle />
+            </div>
 
-      {/* Main content */}
-      <main className={`flex-1 overflow-hidden ${view === "home" ? "flex flex-col" : "overflow-y-auto p-6"}`}>
+            {/* Nav */}
+            <nav className="flex shrink-0 flex-col gap-0.5 px-2">
+              <NavItem
+                label="Home"
+                active={view === "home" || view === "session"}
+                badge={waitingCount > 0 ? waitingCount : undefined}
+                onClick={() => {
+                  setView("home");
+                  setActiveSessionId(null);
+                }}
+              />
+              <NavItem
+                label="Tasks"
+                active={view === "tasks"}
+                badge={openIssueCount > 0 ? openIssueCount : undefined}
+                onClick={() => setView("tasks")}
+              />
+              <NavItem label="Repos" active={view === "repos"} onClick={() => setView("repos")} />
+            </nav>
+
+            {/* Session tree */}
+            <div className="mt-3 flex-1 overflow-y-auto px-1">
+              <SidebarTree
+                repos={repos}
+                sessions={sessions}
+                activeSessionId={activeSessionId}
+                onSelectSession={handleViewSession}
+                onNewSession={() => setShowNewSession(true)}
+              />
+            </div>
+          </aside>
+          <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
+        </>
+      )}
+
+      {/* Main content — uses relative container so hidden views can be absolutely positioned */}
+      <main className="relative flex-1 overflow-hidden">
         <ErrorBoundary>
           {view === "home" && (
-            <DispatchBoard
-              onViewSession={handleViewSession}
-              onNewSession={() => setShowNewSession(true)}
-            />
+            <div className="flex h-full flex-col">
+              <DispatchBoard
+                onViewSession={handleViewSession}
+                onNewSession={() => setShowNewSession(true)}
+              />
+            </div>
           )}
-          {view === "session" && activeSessionId && (
-            <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
+          {/* SessionDetail: kept mounted with visibility:hidden to preserve xterm state.
+              xterm's IntersectionObserver auto-pauses rendering when not visible. */}
+          {activeSessionId && (
+            <div
+              className={
+                isSessionView
+                  ? "absolute inset-0 flex flex-col overflow-hidden"
+                  : "invisible absolute inset-0 overflow-hidden"
+              }
+            >
+              <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
+            </div>
           )}
-          {view === "repos" && <RepoSettings />}
+          {view === "repos" && (
+            <div className="h-full overflow-y-auto p-6">
+              <RepoSettings />
+            </div>
+          )}
           {view === "tasks" && (
-            <IssueBacklog
-              repos={repos}
-              onSelectIssue={handleSelectIssue}
-              onSelectPR={handleSelectPR}
-              onNavigateSettings={() => setView("repos")}
-            />
-          )}
-          {view === "sessions" && (
-            <SessionsView
-              onViewSession={handleViewSession}
-              onNewSession={() => setShowNewSession(true)}
-              onManageRepos={() => setView("repos")}
-            />
+            <div className="h-full overflow-y-auto p-6">
+              <IssueBacklog
+                repos={repos}
+                onSelectIssue={handleSelectIssue}
+                onSelectPR={handleSelectPR}
+                onNavigateSettings={() => setView("repos")}
+              />
+            </div>
           )}
         </ErrorBoundary>
       </main>
@@ -202,6 +307,13 @@ function App() {
           prefillPR={prefillPR ?? undefined}
         />
       )}
+
+      {/* Toast notifications */}
+      <ToastContainer
+        toasts={toasts}
+        onDismiss={dismissToast}
+        onClickToast={handleToastClick}
+      />
     </div>
   );
 }

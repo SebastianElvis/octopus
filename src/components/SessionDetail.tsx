@@ -1,27 +1,31 @@
-import { useState } from "react";
-import type { Session } from "../lib/types";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { timeAgo } from "../lib/utils";
-import {
-  replyToSession,
-  interruptSession,
-  pauseSession as tauriPauseSession,
-  resumeSession as tauriResumeSession,
-} from "../lib/tauri";
+import { killSession as tauriKillSession, fetchIssues, fetchPRs } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
-import { formatError } from "../lib/errors";
-import { DiffPanel } from "./DiffPanel";
+import { useEditorStore } from "../stores/editorStore";
+import { useUIStore } from "../stores/uiStore";
 import { TerminalPanel } from "./TerminalPanel";
-import { GitHubSidebar } from "./GitHubSidebar";
+import { CodeEditor } from "./CodeEditor";
+import { EditorTabs } from "./EditorTabs";
+import { RightPanel } from "./RightPanel";
+import { ResizeHandle } from "./ResizeHandle";
 import { ReviewComments } from "./ReviewComments";
+import { GitHubDetailView } from "./GitHubDetailView";
+import type { GitHubIssue, GitHubPR } from "../lib/types";
 
 const STATUS_PILL: Record<string, string> = {
   waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
   running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
   idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
   done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
+  completed: "bg-green-200/60 text-green-600 ring-1 ring-green-300/30 dark:bg-green-900/30 dark:text-green-400 dark:ring-green-700/30",
+  failed: "bg-red-200/60 text-red-600 ring-1 ring-red-300/30 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-700/30",
+  killed: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
   paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
   stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
 };
+
+type CenterTab = "terminal" | "editor" | "github";
 
 interface SessionDetailProps {
   sessionId: string;
@@ -32,9 +36,63 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const updateSession = useSessionStore((s) => s.updateSession);
 
-  const [replyText, setReplyText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
+  const activeTabId = useEditorStore((s) => s.activeTabId);
+  const contents = useEditorStore((s) => s.contents);
+  const tabs = useEditorStore((s) => s.tabs);
+  const rightPanelWidth = useUIStore((s) => s.panelSizes.rightPanelWidth);
+  const rightPanelCollapsed = useUIStore((s) => s.rightPanelCollapsed);
+  const setPanelSize = useUIStore((s) => s.setPanelSize);
+
+  const [hasCommitted, setHasCommitted] = useState(false);
+  const [showKillConfirm, setShowKillConfirm] = useState(false);
+  const [centerTab, setCenterTab] = useState<CenterTab>("terminal");
+
+  // GitHub data for the detail tab
+  const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
+  const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
+
+  const hasGitHubLink = !!(session?.linkedIssue || session?.linkedPR);
+
+  // Fetch linked issue/PR data
+  useEffect(() => {
+    if (!session?.repoId) return;
+    if (session.linkedIssue) {
+      fetchIssues(session.repoId)
+        .then((issues) => {
+          const found = issues.find((i) => i.number === session.linkedIssue!.number);
+          if (found) setGhIssue(found);
+        })
+        .catch(() => {});
+    }
+    if (session.linkedPR) {
+      fetchPRs(session.repoId)
+        .then((prs) => {
+          const found = prs.find((p) => p.number === session.linkedPR!.number);
+          if (found) setGhPR(found);
+        })
+        .catch(() => {});
+    }
+  }, [session?.repoId, session?.linkedIssue, session?.linkedPR]);
+
+  // When a file tab is clicked, switch to editor mode
+  const prevTabId = useRef(activeTabId);
+  useEffect(() => {
+    if (activeTabId && activeTabId !== prevTabId.current) {
+      setCenterTab("editor");
+    }
+    if (!activeTabId && tabs.length === 0 && centerTab === "editor") {
+      setCenterTab("terminal");
+    }
+    prevTabId.current = activeTabId;
+  }, [activeTabId, tabs.length, centerTab]);
+
+  const handleRightResize = useCallback(
+    (delta: number) => {
+      const clamped = Math.max(200, Math.min(600, rightPanelWidth - delta));
+      setPanelSize("rightPanelWidth", clamped);
+    },
+    [rightPanelWidth, setPanelSize],
+  );
 
   if (!session) {
     return (
@@ -44,267 +102,176 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     );
   }
 
-  async function handleReply() {
-    if (!replyText.trim() || !session) return;
-    setSending(true);
-    setSendError(null);
+  async function handleKill() {
+    if (!session) return;
     try {
-      await replyToSession(session.id, replyText.trim());
-      setReplyText("");
-      updateSession(session.id, { status: "running", stateChangedAt: Date.now() });
+      await tauriKillSession(session.id);
+      updateSession(session.id, { status: "killed", stateChangedAt: Date.now() });
+      onBack();
     } catch (err: unknown) {
-      setSendError(formatError(err));
-    } finally {
-      setSending(false);
+      console.error("[SessionDetail] Failed to kill session:", err);
     }
   }
 
-  async function handleInterrupt() {
+  function handleCommitted() {
     if (!session) return;
-    try {
-      await interruptSession(session.id);
-      updateSession(session.id, { status: "idle", stateChangedAt: Date.now() });
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to interrupt session:", formatError(err));
-    }
+    setHasCommitted(true);
+    updateSession(session.id, { status: "done", stateChangedAt: Date.now() });
   }
 
-  async function handlePause() {
-    if (!session) return;
-    try {
-      await tauriPauseSession(session.id);
-      updateSession(session.id, { status: "paused", stateChangedAt: Date.now() });
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to pause session:", formatError(err));
-    }
-  }
-
-  async function handleResume() {
-    if (!session) return;
-    try {
-      await tauriResumeSession(session.id);
-      updateSession(session.id, { status: "running", stateChangedAt: Date.now() });
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to resume session:", formatError(err));
-    }
-  }
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const activeContent = activeTabId ? contents[activeTabId] : null;
+  const showEditor = centerTab === "editor" && activeTab != null && activeContent != null;
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <button
-          onClick={onBack}
-          className="text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
-        >
-          Board
-        </button>
-        <span className="text-gray-400 dark:text-gray-700">/</span>
-        <span className="text-gray-900 dark:text-gray-100">{session.name}</span>
+    <div className="flex h-full flex-col overflow-hidden">
+      {/* Session header bar */}
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-950">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onBack}
+            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+          >
+            ← Board
+          </button>
+          <span className="text-gray-300 dark:text-gray-700">|</span>
+          <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{session.name}</h1>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_PILL[session.status]}`}
+          >
+            {session.status}
+          </span>
+          {session.branch && (
+            <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+              {session.branch}
+            </span>
+          )}
+          <span className="text-xs text-gray-400 dark:text-gray-600">
+            {timeAgo(session.stateChangedAt)}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          {showKillConfirm ? (
+            <>
+              <span className="text-xs text-red-600 dark:text-red-400">Kill session?</span>
+              <button
+                onClick={() => setShowKillConfirm(false)}
+                className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowKillConfirm(false);
+                  void handleKill();
+                }}
+                className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500"
+              >
+                Confirm Kill
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={() => setShowKillConfirm(true)}
+              className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              Kill
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* Session header */}
-      <SessionHeader
-        session={session}
-        onInterrupt={() => {
-          void handleInterrupt();
-        }}
-        onPause={() => {
-          void handlePause();
-        }}
-        onResume={() => {
-          void handleResume();
-        }}
-      />
-
-      {/* Stuck warning banner */}
+      {/* Stuck warning */}
       {session.status === "stuck" && (
-        <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-800/60 dark:bg-orange-950/30">
-          <svg
-            className="h-5 w-5 shrink-0 text-orange-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <p className="text-sm font-medium text-orange-700 dark:text-orange-400">
-            This session appears stuck — no output for more than 20 minutes.
-          </p>
+        <div className="flex shrink-0 items-center gap-2 border-b border-orange-200 bg-orange-50 px-4 py-2 dark:border-orange-800/60 dark:bg-orange-950/30">
+          <span className="text-xs font-medium text-orange-700 dark:text-orange-400">
+            ⚠ Session stuck — no output for 20+ minutes
+          </span>
         </div>
       )}
 
-      {/* Blocker banner */}
-      {session.status === "waiting" && (
-        <BlockerBanner
-          session={session}
-          replyText={replyText}
-          onReplyChange={setReplyText}
-          onSend={() => {
-            void handleReply();
-          }}
-          sending={sending}
-          error={sendError}
-        />
-      )}
+      {/* Main IDE area */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Center panel */}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {/* Unified tab bar */}
+          <EditorTabs
+            terminalActive={centerTab === "terminal"}
+            onSelectTerminal={() => setCenterTab("terminal")}
+            sessionStatus={session.status}
+            hasGitHubTab={hasGitHubLink}
+            githubActive={centerTab === "github"}
+            onSelectGitHub={() => setCenterTab("github")}
+            githubLabel={
+              session.linkedIssue
+                ? `Issue #${session.linkedIssue.number}`
+                : session.linkedPR
+                  ? `PR #${session.linkedPR.number}`
+                  : undefined
+            }
+          />
 
-      {/* Two-column layout */}
-      <div className="grid grid-cols-[1fr_280px] gap-6">
-        {/* Left column */}
-        <div className="flex flex-col gap-4">
-          <TerminalPanel sessionId={session.id} sessionStatus={session.status} />
-          <DiffPanel worktreePath={session.worktreePath} />
+          {/* Content area — relative container for visibility-based hiding */}
+          <div className="relative flex-1 overflow-hidden">
+            {/* Terminal — always mounted; uses visibility:hidden instead of display:none
+                so xterm keeps valid dimensions. IntersectionObserver auto-pauses rendering. */}
+            <div
+              className={
+                centerTab === "terminal"
+                  ? "absolute inset-0"
+                  : "invisible absolute inset-0"
+              }
+            >
+              <TerminalPanel sessionId={session.id} sessionStatus={session.status} visible={centerTab === "terminal"} />
+            </div>
+
+            {/* GitHub detail view */}
+            {centerTab === "github" && (
+              <GitHubDetailView issue={ghIssue} pr={ghPR} />
+            )}
+
+            {/* Code editor */}
+            {showEditor && (
+              <div className="h-full">
+                <CodeEditor
+                  content={activeContent}
+                  language={activeTab.language}
+                  readOnly
+                  darkMode
+                />
+              </div>
+            )}
+
+            {/* No file selected fallback */}
+            {centerTab === "editor" && !showEditor && (
+              <div className="flex h-full items-center justify-center bg-[#0d1117]">
+                <p className="text-sm text-gray-500">No file open</p>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Right sidebar */}
-        <GitHubSidebar
-          repoId={session.repoId}
-          linkedIssueNumber={session.linkedIssue?.number}
-          linkedPRNumber={session.linkedPR?.number}
-          branch={session.branch}
-          sessionName={session.name}
-        />
+        {/* Right panel */}
+        {!rightPanelCollapsed && (
+          <>
+            <ResizeHandle direction="horizontal" onResize={handleRightResize} />
+            <div style={{ width: `${rightPanelWidth}px` }} className="shrink-0 overflow-hidden">
+              <RightPanel
+                session={session}
+                onCommitted={handleCommitted}
+                hasCommitted={hasCommitted}
+              />
+            </div>
+          </>
+        )}
       </div>
 
       {/* PR Review Comments */}
       {session.linkedPR && (
-        <ReviewComments repoId={session.repoId} prNumber={session.linkedPR.number} />
-      )}
-    </div>
-  );
-}
-
-function SessionHeader({
-  session,
-  onInterrupt,
-  onPause,
-  onResume,
-}: {
-  session: Session;
-  onInterrupt: () => void;
-  onPause: () => void;
-  onResume: () => void;
-}) {
-  return (
-    <div className="flex items-start justify-between rounded-lg border border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{session.name}</h1>
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_PILL[session.status]}`}
-          >
-            {session.status}
-          </span>
-        </div>
-        <div className="flex items-center gap-3 text-sm text-gray-500">
-          <span>{session.repo}</span>
-          {session.branch && (
-            <>
-              <span className="text-gray-400 dark:text-gray-700">·</span>
-              <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
-                {session.branch}
-              </span>
-            </>
-          )}
-          <span className="text-gray-400 dark:text-gray-700">·</span>
-          <span className="text-xs">{timeAgo(session.stateChangedAt)}</span>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        {session.status === "running" && (
-          <>
-            <button
-              onClick={onPause}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
-            >
-              Pause
-            </button>
-            <button
-              onClick={onInterrupt}
-              className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-500"
-            >
-              Interrupt
-            </button>
-          </>
-        )}
-        {session.status === "paused" && (
-          <button
-            onClick={onResume}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
-          >
-            Resume
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function BlockerBanner({
-  session,
-  replyText,
-  onReplyChange,
-  onSend,
-  sending,
-  error,
-}: {
-  session: Session;
-  replyText: string;
-  onReplyChange: (v: string) => void;
-  onSend: () => void;
-  sending: boolean;
-  error: string | null;
-}) {
-  return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800/60 dark:bg-red-950/30">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-red-500" />
-        <span className="text-sm font-medium text-red-600 dark:text-red-400">
-          Waiting for input
-          {session.blockType && (
-            <span className="ml-2 text-xs text-red-500/80">({session.blockType})</span>
-          )}
-        </span>
-      </div>
-
-      {session.lastMessage && (
-        <div className="mb-3 rounded-md bg-white/60 p-3 font-mono text-sm text-gray-700 dark:bg-gray-900/60 dark:text-gray-300">
-          {session.lastMessage}
+        <div className="shrink-0 border-t border-gray-200 dark:border-gray-800">
+          <ReviewComments repoId={session.repoId} prNumber={session.linkedPR.number} />
         </div>
       )}
-
-      {error && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
-
-      <div className="flex gap-2">
-        <textarea
-          value={replyText}
-          onChange={(e) => onReplyChange(e.target.value)}
-          placeholder="Type your reply…"
-          rows={3}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              onSend();
-            }
-          }}
-          className="flex-1 resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-600"
-        />
-        <button
-          onClick={() => {
-            onSend();
-          }}
-          disabled={sending || !replyText.trim()}
-          className="self-end rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
-        >
-          {sending ? "Sending…" : "Send"}
-        </button>
-      </div>
-      <p className="mt-1 text-xs text-gray-400 dark:text-gray-600">Cmd+Enter to send</p>
     </div>
   );
 }

@@ -3,6 +3,11 @@ mod db;
 mod error;
 mod state;
 
+use commands::filesystem::{list_dir, read_file};
+use commands::git_ops::{
+    get_changed_files, get_file_at_head, get_file_diff, git_discard_files, git_stage_files,
+    git_unstage_files,
+};
 use commands::github::{
     create_pr, create_session_from_review, fetch_issues, fetch_pr_review_comments, fetch_prs,
     get_github_token, git_commit_and_push,
@@ -71,6 +76,16 @@ pub fn run() {
             create_worktree,
             remove_worktree,
             get_diff,
+            // filesystem
+            list_dir,
+            read_file,
+            // git operations
+            get_changed_files,
+            git_stage_files,
+            git_unstage_files,
+            git_discard_files,
+            get_file_diff,
+            get_file_at_head,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

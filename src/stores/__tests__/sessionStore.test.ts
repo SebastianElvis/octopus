@@ -101,11 +101,20 @@ describe("sessionStore", () => {
       vi.mocked(isTauri).mockReturnValue(true);
 
       const { invoke } = await import("@tauri-apps/api/core");
-      const mockSessions = [makeSession("s1"), makeSession("s2")];
-      vi.mocked(invoke).mockResolvedValueOnce(mockSessions);
+      // Backend returns BackendSession shapes (camelCase of Rust fields)
+      const backendSessions = [
+        { id: "s1", name: "Session s1", repoId: "repo-1", branch: "branch-s1", status: "idle", stateChangedAt: "2025-01-01T00:00:00Z" },
+        { id: "s2", name: "Session s2", repoId: "repo-1", branch: "branch-s2", status: "idle", stateChangedAt: "2025-01-01T00:00:00Z" },
+      ];
+      vi.mocked(invoke).mockResolvedValueOnce(backendSessions);
 
       await useSessionStore.getState().loadSessions();
-      expect(useSessionStore.getState().sessions).toEqual(mockSessions);
+      const sessions = useSessionStore.getState().sessions;
+      expect(sessions).toHaveLength(2);
+      expect(sessions[0].id).toBe("s1");
+      expect(sessions[0].name).toBe("Session s1");
+      expect(sessions[0].repoId).toBe("repo-1");
+      expect(sessions[1].id).toBe("s2");
     });
 
     it("silently handles backend errors", async () => {

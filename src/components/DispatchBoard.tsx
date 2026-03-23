@@ -13,12 +13,13 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   const sessionsLoading = useSessionStore((s) => s.sessionsLoading);
   const updateSession = useSessionStore((s) => s.updateSession);
 
-  const waiting = [...sessions.filter((s) => s.status === "waiting")].sort(
-    (a, b) => a.stateChangedAt - b.stateChangedAt,
+  const needsAttention = [...sessions.filter(
+    (s) => s.status === "waiting" || s.status === "paused" || s.status === "stuck",
+  )].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
+  const running = sessions.filter((s) => s.status === "running");
+  const closed = sessions.filter(
+    (s) => s.status === "idle" || s.status === "done" || s.status === "completed" || s.status === "failed" || s.status === "killed",
   );
-  const running = sessions.filter((s) => s.status === "running" || s.status === "stuck");
-  const paused = sessions.filter((s) => s.status === "paused");
-  const idle = sessions.filter((s) => s.status === "idle" || s.status === "done");
 
   const markStuck = useCallback(async () => {
     try {
@@ -47,7 +48,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   }
 
   function handleInterrupt(id: string) {
-    updateSession(id, { status: "idle", stateChangedAt: Date.now() });
+    onViewSession(id);
   }
 
   function handleResume(id: string) {
@@ -57,7 +58,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   if (sessionsLoading) {
     return (
       <div className="flex flex-1 gap-4 overflow-x-auto p-6">
-        {[1, 2, 3, 4].map((n) => (
+        {[1, 2, 3].map((n) => (
           <div key={n} className="flex w-72 shrink-0 animate-pulse flex-col rounded-lg bg-gray-50 dark:bg-gray-900">
             <div className="flex items-center gap-2 px-4 py-3">
               <div className="h-2 w-2 rounded-full bg-gray-200 dark:bg-gray-700" />
@@ -100,13 +101,19 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   return (
     <div className="flex flex-1 gap-4 overflow-x-auto p-6">
       <Column
-        title="Needs Input"
-        count={waiting.length}
+        title="Needs Attention"
+        count={needsAttention.length}
         accentColor="red"
-        empty="No sessions waiting."
+        empty="No sessions need attention."
       >
-        {waiting.map((s) => (
-          <KanbanCard key={s.id} session={s} onView={onViewSession} onReply={handleReply} />
+        {needsAttention.map((s) => (
+          <KanbanCard
+            key={s.id}
+            session={s}
+            onView={onViewSession}
+            onReply={s.status === "waiting" ? handleReply : undefined}
+            onResume={s.status === "paused" ? handleResume : undefined}
+          />
         ))}
       </Column>
 
@@ -116,15 +123,9 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         ))}
       </Column>
 
-      <Column title="Paused" count={paused.length} accentColor="gray" empty="No paused sessions.">
-        {paused.map((s) => (
-          <KanbanCard key={s.id} session={s} onView={onViewSession} onResume={handleResume} />
-        ))}
-      </Column>
-
-      <Column title="Idle / Done" count={idle.length} accentColor="gray" empty="No idle sessions.">
-        {idle.map((s) => (
-          <KanbanCard key={s.id} session={s} onView={onViewSession} onResume={handleResume} />
+      <Column title="Closed" count={closed.length} accentColor="gray" empty="No closed sessions.">
+        {closed.map((s) => (
+          <KanbanCard key={s.id} session={s} onView={onViewSession} />
         ))}
       </Column>
     </div>

@@ -267,7 +267,27 @@ mod tests {
             .output()
             .expect("git init");
         StdCommand::new("git")
-            .args(["commit", "--allow-empty", "-m", "initial"])
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(dir.path())
+            .output()
+            .expect("git config user.email");
+        StdCommand::new("git")
+            .args(["config", "user.name", "test"])
+            .current_dir(dir.path())
+            .output()
+            .expect("git config user.name");
+        StdCommand::new("git")
+            .args(["config", "commit.gpgSign", "false"])
+            .current_dir(dir.path())
+            .output()
+            .expect("git config commit.gpgSign");
+        StdCommand::new("git")
+            .args(["config", "core.hooksPath", "/dev/null"])
+            .current_dir(dir.path())
+            .output()
+            .expect("git config core.hooksPath");
+        StdCommand::new("git")
+            .args(["commit", "--no-gpg-sign", "--allow-empty", "-m", "initial"])
             .current_dir(dir.path())
             .output()
             .expect("git commit");

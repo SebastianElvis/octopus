@@ -10,9 +10,10 @@ import { useTauriEvent } from "../hooks/useTauriEvent";
 interface TerminalPanelProps {
   sessionId: string;
   sessionStatus: string;
+  visible?: boolean;
 }
 
-export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) {
+export function TerminalPanel({ sessionId, sessionStatus, visible = true }: TerminalPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -47,7 +48,6 @@ export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) 
         brightWhite: "#f0f6fc",
       },
       scrollback: 10000,
-      convertEol: true,
     });
 
     const fitAddon = new FitAddon();
@@ -65,8 +65,12 @@ export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) 
 
     // Replay any buffered output that arrived before mount
     const currentBuffer = useSessionStore.getState().outputBuffers[sessionId] ?? [];
-    for (const chunk of currentBuffer) {
-      terminal.write(chunk);
+    if (currentBuffer.length > 0) {
+      for (const chunk of currentBuffer) {
+        terminal.write(chunk);
+      }
+    } else if (["done", "completed", "failed", "killed", "idle"].includes(sessionStatus)) {
+      terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
     }
 
     // Handle terminal input → send to backend PTY
@@ -109,6 +113,18 @@ export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) 
     };
   }, [sessionId]);
 
+  // Refit terminal when tab becomes visible (xterm can't measure when hidden)
+  useEffect(() => {
+    if (visible && fitAddonRef.current && terminalRef.current) {
+      // Small delay to let the DOM layout settle after display change
+      const timer = setTimeout(() => {
+        fitAddonRef.current?.fit();
+        terminalRef.current?.refresh(0, terminalRef.current.rows - 1);
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
+
   // Listen for new PTY output events → write to terminal
   useTauriEvent(
     () =>
@@ -120,23 +136,11 @@ export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) 
     [sessionId],
   );
 
-  const isActive = sessionStatus === "running" || sessionStatus === "waiting";
-
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Terminal</h3>
-        <div className="flex items-center gap-2">
-          <span
-            className={`h-2 w-2 rounded-full ${isActive ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
-          />
-          <span className="text-xs text-gray-500">{sessionStatus}</span>
-        </div>
-      </div>
+    <div className="h-full overflow-hidden">
       <div
         ref={containerRef}
-        className="bg-[#0d1117]"
-        style={{ height: "420px" }}
+        className="h-full bg-[#0d1117]"
       />
     </div>
   );
