@@ -47,7 +47,6 @@ export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) 
         brightWhite: "#f0f6fc",
       },
       scrollback: 10000,
-      convertEol: true,
     });
 
     const fitAddon = new FitAddon();
