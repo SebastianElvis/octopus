@@ -1,4 +1,4 @@
-export type SessionStatus = "waiting" | "running" | "idle" | "done" | "paused" | "stuck";
+export type SessionStatus = "waiting" | "running" | "idle" | "done" | "completed" | "failed" | "paused" | "stuck";
 export type BlockType = "decision" | "review" | "confirm";
 
 /** Raw session shape returned by the Tauri backend (camelCase of Rust fields). */
@@ -121,4 +121,27 @@ export interface DiffFile {
   additions: number;
   deletions: number;
   lines: DiffLine[];
+}
+
+export interface FileEntry {
+  name: string;
+  path: string;
+  isDir: boolean;
+  size: number;
+  extension: string | null;
+}
+
+export interface ChangedFile {
+  path: string;
+  status: string;
+  staged: boolean;
+  oldPath: string | null;
+}
+
+export interface EditorTab {
+  id: string;
+  filePath: string;
+  fileName: string;
+  language: string;
+  isDirty: boolean;
 }

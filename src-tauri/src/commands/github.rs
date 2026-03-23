@@ -345,9 +345,9 @@ pub async fn git_commit_and_push(worktree_path: String, commit_message: String) 
         )));
     }
 
-    // git commit
+    // git commit (--no-gpg-sign because GPG prompts can't work in a headless context)
     let commit_output = Command::new("git")
-        .args(["commit", "-m", &commit_message])
+        .args(["commit", "--no-gpg-sign", "-m", &commit_message])
         .current_dir(&worktree_path)
         .output()?;
     if !commit_output.status.success() {

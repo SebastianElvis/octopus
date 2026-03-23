@@ -3,6 +3,16 @@ import type { GitHubIssue, GitHubPR, Repo, LabelInfo } from "../lib/types";
 import { fetchIssues, fetchPRs } from "../lib/tauri";
 import { formatError } from "../lib/errors";
 import { timeAgo } from "../lib/utils";
+import { isTauri } from "../lib/env";
+
+async function openExternal(url: string) {
+  if (isTauri()) {
+    const { open } = await import("@tauri-apps/plugin-shell");
+    await open(url);
+  } else {
+    window.open(url, "_blank");
+  }
+}
 
 type FilterTab = "all" | "issues" | "prs";
 
@@ -298,21 +308,13 @@ export function IssueBacklog({
             const ts = item.updatedAt || item.createdAt;
             const ago = ts ? timeAgo(new Date(ts).getTime()) : "";
             return (
-              <a
+              <button
                 key={`${item.repo.id}-${item.kind}-${String(item.number)}`}
-                href={item.url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => {
-                  // If they want to open in new session, they can use the button
-                  // Default: open on GitHub
-                  if (!e.metaKey && !e.ctrlKey) {
-                    e.preventDefault();
-                    if (item.kind === "issue" && item.issue) {
-                      onSelectIssue(item.repo, item.issue);
-                    } else if (item.kind === "pr" && item.pr) {
-                      onSelectPR(item.repo, item.pr);
-                    }
+                onClick={() => {
+                  if (item.kind === "issue" && item.issue) {
+                    onSelectIssue(item.repo, item.issue);
+                  } else if (item.kind === "pr" && item.pr) {
+                    onSelectPR(item.repo, item.pr);
                   }
                 }}
                 className="flex w-full items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
@@ -346,11 +348,11 @@ export function IssueBacklog({
                     {ago && <span>{ago}</span>}
                     {/* Direct GitHub link */}
                     <span
-                      className="text-blue-500 hover:underline dark:text-blue-400"
+                      role="link"
+                      className="cursor-pointer text-blue-500 hover:underline dark:text-blue-400"
                       onClick={(e) => {
-                        e.preventDefault();
                         e.stopPropagation();
-                        window.open(item.url, "_blank");
+                        void openExternal(item.url);
                       }}
                     >
                       GitHub &rarr;
@@ -375,7 +377,7 @@ export function IssueBacklog({
                     </div>
                   )}
                 </div>
-              </a>
+              </button>
             );
           })}
         </div>

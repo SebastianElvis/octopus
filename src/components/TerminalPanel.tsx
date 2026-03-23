@@ -64,8 +64,12 @@ export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) 
 
     // Replay any buffered output that arrived before mount
     const currentBuffer = useSessionStore.getState().outputBuffers[sessionId] ?? [];
-    for (const chunk of currentBuffer) {
-      terminal.write(chunk);
+    if (currentBuffer.length > 0) {
+      for (const chunk of currentBuffer) {
+        terminal.write(chunk);
+      }
+    } else if (["done", "completed", "failed", "idle"].includes(sessionStatus)) {
+      terminal.writeln("\x1b[90mSession has ended. Terminal output is not available for restored sessions.\x1b[0m");
     }
 
     // Handle terminal input → send to backend PTY
@@ -122,9 +126,9 @@ export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) 
   const isActive = sessionStatus === "running" || sessionStatus === "waiting";
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
-      <div className="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-900">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Terminal</h3>
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-3 py-1.5 dark:border-gray-800 dark:bg-gray-900">
+        <h3 className="text-xs font-medium text-gray-700 dark:text-gray-300">Terminal</h3>
         <div className="flex items-center gap-2">
           <span
             className={`h-2 w-2 rounded-full ${isActive ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
@@ -134,8 +138,7 @@ export function TerminalPanel({ sessionId, sessionStatus }: TerminalPanelProps) 
       </div>
       <div
         ref={containerRef}
-        className="bg-[#0d1117]"
-        style={{ height: "420px" }}
+        className="flex-1 bg-[#0d1117]"
       />
     </div>
   );

@@ -18,7 +18,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   );
   const running = sessions.filter((s) => s.status === "running" || s.status === "stuck");
   const paused = sessions.filter((s) => s.status === "paused");
-  const idle = sessions.filter((s) => s.status === "idle" || s.status === "done");
+  const idle = sessions.filter((s) => s.status === "idle" || s.status === "done" || s.status === "completed" || s.status === "failed");
 
   const markStuck = useCallback(async () => {
     try {

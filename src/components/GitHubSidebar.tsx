@@ -2,6 +2,16 @@ import { useState, useEffect } from "react";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
 import { fetchIssues, fetchPRs, createPR } from "../lib/tauri";
 import { formatError } from "../lib/errors";
+import { isTauri } from "../lib/env";
+
+async function openExternal(url: string) {
+  if (isTauri()) {
+    const { open } = await import("@tauri-apps/plugin-shell");
+    await open(url);
+  } else {
+    window.open(url, "_blank");
+  }
+}
 
 
 interface GitHubSidebarProps {
@@ -148,14 +158,13 @@ export function GitHubSidebar({
                   })}
                 </div>
               )}
-              <a
-                href={issue.htmlUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 block text-xs text-blue-600 hover:underline dark:text-blue-500"
+              <span
+                role="link"
+                className="mt-2 block cursor-pointer text-xs text-blue-600 hover:underline dark:text-blue-500"
+                onClick={() => void openExternal(issue.htmlUrl)}
               >
                 View on GitHub →
-              </a>
+              </span>
             </div>
           )}
         </>
@@ -197,14 +206,13 @@ export function GitHubSidebar({
               <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-500">
                 <span>{pr.headRef} → {pr.baseRef}</span>
               </div>
-              <a
-                href={pr.htmlUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-2 block text-xs text-blue-600 hover:underline dark:text-blue-500"
+              <span
+                role="link"
+                className="mt-2 block cursor-pointer text-xs text-blue-600 hover:underline dark:text-blue-500"
+                onClick={() => void openExternal(pr.htmlUrl)}
               >
                 View PR →
-              </a>
+              </span>
             </div>
           )}
         </>

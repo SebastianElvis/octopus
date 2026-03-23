@@ -8,7 +8,7 @@
  */
 
 import { isTauri } from "./env";
-import type { Session, BackendSession, Repo, GitHubIssue, GitHubPR, ReviewComment } from "./types";
+import type { Session, BackendSession, Repo, GitHubIssue, GitHubPR, ReviewComment, FileEntry, ChangedFile } from "./types";
 import { mapBackendSession } from "./types";
 
 /** No-op unlisten stub for when Tauri is not available. */
@@ -218,6 +218,50 @@ export async function createPR(params: {
 export async function getDiff(worktreePath: string): Promise<string> {
   if (!isTauri()) return "";
   return tauriInvoke<string>("get_diff", { worktreePath });
+}
+
+// ── Filesystem commands ──────────────────────────────────────────────────────
+
+export async function listDir(path: string): Promise<FileEntry[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<FileEntry[]>("list_dir", { path });
+}
+
+export async function readFile(path: string): Promise<string> {
+  if (!isTauri()) return "";
+  return tauriInvoke<string>("read_file", { path });
+}
+
+// ── Git operations ──────────────────────────────────────────────────────────
+
+export async function getChangedFiles(worktreePath: string): Promise<ChangedFile[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<ChangedFile[]>("get_changed_files", { worktreePath });
+}
+
+export async function gitStageFiles(worktreePath: string, paths: string[]): Promise<void> {
+  requireTauri("git_stage_files");
+  return tauriInvoke<void>("git_stage_files", { worktreePath, paths });
+}
+
+export async function gitUnstageFiles(worktreePath: string, paths: string[]): Promise<void> {
+  requireTauri("git_unstage_files");
+  return tauriInvoke<void>("git_unstage_files", { worktreePath, paths });
+}
+
+export async function gitDiscardFiles(worktreePath: string, paths: string[]): Promise<void> {
+  requireTauri("git_discard_files");
+  return tauriInvoke<void>("git_discard_files", { worktreePath, paths });
+}
+
+export async function getFileDiff(worktreePath: string, filePath: string, staged: boolean): Promise<string> {
+  if (!isTauri()) return "";
+  return tauriInvoke<string>("get_file_diff", { worktreePath, filePath, staged });
+}
+
+export async function getFileAtHead(worktreePath: string, filePath: string): Promise<string> {
+  if (!isTauri()) return "";
+  return tauriInvoke<string>("get_file_at_head", { worktreePath, filePath });
 }
 
 // ── Event listeners ──────────────────────────────────────────────────────────
