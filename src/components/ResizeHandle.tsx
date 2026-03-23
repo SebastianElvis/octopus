@@ -9,6 +9,10 @@ interface ResizeHandleProps {
 export function ResizeHandle({ direction, onResize, onResizeEnd }: ResizeHandleProps) {
   const dragging = useRef(false);
   const lastPos = useRef(0);
+  const onResizeRef = useRef(onResize);
+  const onResizeEndRef = useRef(onResizeEnd);
+  onResizeRef.current = onResize;
+  onResizeEndRef.current = onResizeEnd;
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -21,7 +25,7 @@ export function ResizeHandle({ direction, onResize, onResizeEnd }: ResizeHandleP
         const pos = direction === "horizontal" ? e.clientX : e.clientY;
         const delta = pos - lastPos.current;
         lastPos.current = pos;
-        onResize(delta);
+        onResizeRef.current(delta);
       };
 
       const handleMouseUp = () => {
@@ -30,7 +34,7 @@ export function ResizeHandle({ direction, onResize, onResizeEnd }: ResizeHandleP
         document.body.style.userSelect = "";
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
-        onResizeEnd?.();
+        onResizeEndRef.current?.();
       };
 
       document.body.style.cursor = direction === "horizontal" ? "col-resize" : "row-resize";
@@ -38,7 +42,7 @@ export function ResizeHandle({ direction, onResize, onResizeEnd }: ResizeHandleP
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [direction, onResize, onResizeEnd],
+    [direction],
   );
 
   const isHorizontal = direction === "horizontal";

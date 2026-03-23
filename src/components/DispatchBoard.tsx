@@ -9,15 +9,12 @@ interface DispatchBoardProps {
   onNewSession: () => void;
 }
 
-type StatusFilter = "all" | "waiting" | "running" | "completed" | "failed" | "stuck" | "paused" | "interrupted";
-
 export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const sessionsLoading = useSessionStore((s) => s.sessionsLoading);
   const updateSession = useSessionStore((s) => s.updateSession);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Filter sessions
@@ -32,11 +29,8 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
           s.branch.toLowerCase().includes(q),
       );
     }
-    if (statusFilter !== "all") {
-      result = result.filter((s) => s.status === statusFilter);
-    }
     return result;
-  }, [sessions, searchQuery, statusFilter]);
+  }, [sessions, searchQuery]);
 
   const needsAttention = [...filteredSessions.filter(
     (s) => s.status === "waiting" || s.status === "paused" || s.status === "stuck" || s.status === "interrupted",
@@ -226,21 +220,6 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
               </svg>
             </button>
           )}
-        </div>
-        <div className="flex items-center gap-1">
-          {(["all", "waiting", "running", "completed", "failed", "stuck"] as StatusFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                statusFilter === f
-                  ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900"
-                  : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-              }`}
-            >
-              {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
         </div>
       </div>
 
