@@ -22,6 +22,12 @@ pub struct PtySession {
     pub master: SendableMaster,
 }
 
+/// Cached GitHub auth token with expiry tracking.
+pub struct CachedToken {
+    pub token: String,
+    pub fetched_at: Instant,
+}
+
 /// Application-wide shared state, managed by Tauri.
 pub struct AppState {
     /// The SQLite database connection, protected by a mutex so it can be
@@ -36,6 +42,12 @@ pub struct AppState {
 
     /// Map of shell_id -> running shell PTY (plain shells, not Claude sessions).
     pub shell_processes: Mutex<HashMap<String, PtySession>>,
+
+    /// Shared HTTP client for connection reuse.
+    pub http_client: reqwest::Client,
+
+    /// Cached GitHub auth token (refreshed every 5 minutes).
+    pub github_token: Mutex<Option<CachedToken>>,
 }
 
 impl AppState {
@@ -45,6 +57,8 @@ impl AppState {
             processes: Mutex::new(HashMap::new()),
             last_output_at: Mutex::new(HashMap::new()),
             shell_processes: Mutex::new(HashMap::new()),
+            http_client: reqwest::Client::new(),
+            github_token: Mutex::new(None),
         }
     }
 }
@@ -69,5 +83,15 @@ mod tests {
 
         let last_output = state.last_output_at.lock();
         assert!(last_output.is_empty());
+    }
+
+    #[test]
+    fn cached_token_fields() {
+        let token = CachedToken {
+            token: "ghp_abc123".to_string(),
+            fetched_at: Instant::now(),
+        };
+        assert_eq!(token.token, "ghp_abc123");
+        assert!(token.fetched_at.elapsed().as_secs() < 1);
     }
 }

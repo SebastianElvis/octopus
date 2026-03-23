@@ -1,10 +1,21 @@
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::error::{AppError, AppResult};
-use crate::state::AppState;
+use crate::state::{AppState, CachedToken};
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// How long to cache a GitHub token before refreshing.
+const TOKEN_CACHE_DURATION: Duration = Duration::from_secs(5 * 60);
+
+/// Maximum retries for retryable HTTP errors.
+const MAX_RETRIES: u32 = 3;
 
 // ---------------------------------------------------------------------------
 // Data types
@@ -135,15 +146,11 @@ fn lookup_github_url(state: &AppState, repo_id: &str) -> AppResult<String> {
             rusqlite::params![repo_id],
             |row| row.get(0),
         )
-        .map_err(|_| AppError::Custom(format!("repo not found: {}", repo_id)))?;
+        .map_err(|_| AppError::NotFound(format!("repo not found: {}", repo_id)))?;
     Ok(url)
 }
 
 fn parse_owner_repo(github_url: &str) -> AppResult<(String, String)> {
-    // Handles:
-    //   https://github.com/owner/repo
-    //   https://github.com/owner/repo.git
-    //   git@github.com:owner/repo.git
     let stripped = github_url.trim_end_matches(".git").trim_end_matches('/');
 
     let part = if stripped.contains("github.com:") {
@@ -188,27 +195,144 @@ fn lookup_default_branch(state: &AppState, github_url: &str) -> String {
     }
 }
 
+/// Get or refresh the cached GitHub auth token.
+/// Caches the token for TOKEN_CACHE_DURATION (5 minutes).
+fn get_or_refresh_token(state: &AppState) -> AppResult<String> {
+    {
+        let cached = state.github_token.lock();
+        if let Some(ref ct) = *cached {
+            if ct.fetched_at.elapsed() < TOKEN_CACHE_DURATION {
+                return Ok(ct.token.clone());
+            }
+        }
+    }
+
+    // Token expired or not cached — refresh
+    let output = Command::new("gh")
+        .args(["auth", "token"])
+        .output()
+        .map_err(|e| AppError::Custom(format!("failed to run gh: {}", e)))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::AuthFailed(format!(
+            "gh auth token failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    let token = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    // Cache the new token
+    {
+        let mut cached = state.github_token.lock();
+        *cached = Some(CachedToken {
+            token: token.clone(),
+            fetched_at: Instant::now(),
+        });
+    }
+
+    Ok(token)
+}
+
+/// Categorize a GitHub API response status code into an appropriate error.
+fn categorize_github_error(status: reqwest::StatusCode, body: &str) -> AppError {
+    match status.as_u16() {
+        401 | 403 => AppError::AuthFailed(format!("GitHub API auth error {}: {}", status, body)),
+        404 => AppError::NotFound(format!("GitHub resource not found: {}", body)),
+        409 => AppError::Custom(format!("GitHub conflict (409): {}", body)),
+        429 => AppError::RateLimited(format!("GitHub rate limit exceeded: {}", body)),
+        s if s >= 500 => AppError::Custom(format!("GitHub server error {}: {}", status, body)),
+        _ => AppError::Custom(format!("GitHub API error {}: {}", status, body)),
+    }
+}
+
+/// Execute a GitHub API request with retry logic for 429 and 5xx errors.
+/// Uses exponential backoff with max MAX_RETRIES retries.
+async fn github_request(
+    _client: &reqwest::Client,
+    request_builder: impl Fn() -> reqwest::RequestBuilder,
+    token: &str,
+) -> AppResult<reqwest::Response> {
+    let mut last_error = None;
+
+    for attempt in 0..MAX_RETRIES {
+        let resp = request_builder()
+            .header("Authorization", format!("Bearer {}", token))
+            .header("User-Agent", "toomanytabs/0.1")
+            .header("Accept", "application/vnd.github+json")
+            .send()
+            .await?;
+
+        let status = resp.status();
+
+        // Log rate limit headers
+        if let Some(remaining) = resp.headers().get("x-ratelimit-remaining") {
+            if let Ok(remaining_str) = remaining.to_str() {
+                if let Ok(remaining_val) = remaining_str.parse::<u32>() {
+                    if remaining_val < 100 {
+                        log::warn!("GitHub API rate limit low: {} remaining", remaining_val);
+                    }
+                }
+            }
+        }
+
+        if status.is_success() {
+            return Ok(resp);
+        }
+
+        // For retryable errors (429, 5xx), retry with backoff
+        let is_retryable = status.as_u16() == 429 || status.as_u16() >= 500;
+        if is_retryable && attempt < MAX_RETRIES - 1 {
+            let backoff_ms = 1000 * 2u64.pow(attempt);
+
+            // If rate limited, check Retry-After or X-RateLimit-Reset headers
+            let wait_ms = if status.as_u16() == 429 {
+                if let Some(retry_after) = resp.headers().get("retry-after") {
+                    retry_after
+                        .to_str()
+                        .ok()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .map(|s| s * 1000)
+                        .unwrap_or(backoff_ms)
+                } else {
+                    backoff_ms
+                }
+            } else {
+                backoff_ms
+            };
+
+            log::warn!(
+                "GitHub API {} (attempt {}/{}), retrying in {}ms",
+                status,
+                attempt + 1,
+                MAX_RETRIES,
+                wait_ms
+            );
+            tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+            continue;
+        }
+
+        // Non-retryable or exhausted retries
+        let body = resp
+            .text()
+            .await
+            .unwrap_or_else(|e| format!("(failed to read response body: {})", e));
+        last_error = Some(categorize_github_error(status, &body));
+        break;
+    }
+
+    Err(last_error.unwrap_or_else(|| AppError::Custom("GitHub request failed".to_string())))
+}
+
 // ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
 
 /// Run `gh auth token` and return the token string.
 #[tauri::command]
-pub async fn get_github_token() -> AppResult<String> {
-    let output = Command::new("gh")
-        .args(["auth", "token"])
-        .output()
-        .map_err(|e| AppError::Custom(format!("failed to run gh: {}", e)))?;
-
-    if output.status.success() {
-        Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
-    } else {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        Err(AppError::Custom(format!(
-            "gh auth token failed: {}",
-            stderr.trim()
-        )))
-    }
+pub async fn get_github_token(state: State<'_, AppState>) -> AppResult<String> {
+    get_or_refresh_token(&state)
 }
 
 /// Fetch open issues for a repository via the GitHub REST API.
@@ -218,7 +342,7 @@ pub async fn fetch_issues(
     repo_id: String,
 ) -> AppResult<Vec<GitHubIssue>> {
     let github_url = lookup_github_url(&state, &repo_id)?;
-    let token = get_github_token().await?;
+    let token = get_or_refresh_token(&state)?;
     let (owner, repo) = parse_owner_repo(&github_url)?;
 
     let url = format!(
@@ -226,23 +350,8 @@ pub async fn fetch_issues(
         owner, repo
     );
 
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "toomanytabs/0.1")
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Custom(format!(
-            "GitHub API error {}: {}",
-            status, text
-        )));
-    }
+    let client = &state.http_client;
+    let resp = github_request(client, || client.get(&url), &token).await?;
 
     let api_issues: Vec<ApiIssue> = resp.json().await?;
 
@@ -276,7 +385,7 @@ pub async fn fetch_issues(
 #[tauri::command]
 pub async fn fetch_prs(state: State<'_, AppState>, repo_id: String) -> AppResult<Vec<GitHubPR>> {
     let github_url = lookup_github_url(&state, &repo_id)?;
-    let token = get_github_token().await?;
+    let token = get_or_refresh_token(&state)?;
     let (owner, repo) = parse_owner_repo(&github_url)?;
 
     let url = format!(
@@ -284,23 +393,8 @@ pub async fn fetch_prs(state: State<'_, AppState>, repo_id: String) -> AppResult
         owner, repo
     );
 
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "toomanytabs/0.1")
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Custom(format!(
-            "GitHub API error {}: {}",
-            status, text
-        )));
-    }
+    let client = &state.http_client;
+    let resp = github_request(client, || client.get(&url), &token).await?;
 
     let api_prs: Vec<ApiPR> = resp.json().await?;
 
@@ -371,9 +465,6 @@ pub async fn git_commit_and_push(worktree_path: String, commit_message: String) 
 }
 
 /// Create a pull request via the GitHub REST API.
-///
-/// Uses the repo's stored `default_branch` from the database as the base
-/// branch instead of hardcoding "main".
 #[tauri::command]
 pub async fn create_pr(
     state: State<'_, AppState>,
@@ -383,10 +474,9 @@ pub async fn create_pr(
     body: Option<String>,
 ) -> AppResult<GitHubPR> {
     let github_url = lookup_github_url(&state, &repo_id)?;
-    let token = get_github_token().await?;
+    let token = get_or_refresh_token(&state)?;
     let (owner, repo) = parse_owner_repo(&github_url)?;
 
-    // Look up the default branch from the DB instead of hardcoding "main"
     let base = lookup_default_branch(&state, &github_url);
 
     let url = format!("https://api.github.com/repos/{}/{}/pulls", owner, repo);
@@ -406,24 +496,9 @@ pub async fn create_pr(
         base,
     };
 
-    let client = reqwest::Client::new();
-    let resp = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "toomanytabs/0.1")
-        .header("Accept", "application/vnd.github+json")
-        .json(&payload)
-        .send()
-        .await?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Custom(format!(
-            "GitHub API error {}: {}",
-            status, text
-        )));
-    }
+    let client = &state.http_client;
+    let payload_json = serde_json::to_value(&payload)?;
+    let resp = github_request(client, || client.post(&url).json(&payload_json), &token).await?;
 
     let api_pr: ApiPR = resp.json().await?;
 
@@ -445,27 +520,14 @@ pub async fn create_pr(
 }
 
 /// Fetch pull request review (inline) comments via the GitHub REST API.
-///
-/// `repo_id` is the UUID stored in the DB; the command looks up the repo's
-/// `github_url` to derive `owner/repo`.
 #[tauri::command]
 pub async fn fetch_pr_review_comments(
     state: State<'_, AppState>,
     repo_id: String,
     pr_number: u64,
 ) -> AppResult<Vec<ReviewComment>> {
-    // Look up the github_url for the repo
-    let github_url = {
-        let db = state.db.lock();
-        let result: Result<String, _> = db.query_row(
-            "SELECT github_url FROM repos WHERE id = ?1",
-            [&repo_id],
-            |row| row.get(0),
-        );
-        result.map_err(|_| AppError::Custom(format!("repo {} not found", repo_id)))?
-    };
-
-    let token = get_github_token().await?;
+    let github_url = lookup_github_url(&state, &repo_id)?;
+    let token = get_or_refresh_token(&state)?;
     let (owner, repo) = parse_owner_repo(&github_url)?;
 
     let url = format!(
@@ -473,23 +535,8 @@ pub async fn fetch_pr_review_comments(
         owner, repo, pr_number
     );
 
-    let client = reqwest::Client::new();
-    let resp = client
-        .get(&url)
-        .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "toomanytabs/0.1")
-        .header("Accept", "application/vnd.github+json")
-        .send()
-        .await?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        let text = resp.text().await.unwrap_or_default();
-        return Err(AppError::Custom(format!(
-            "GitHub API error {}: {}",
-            status, text
-        )));
-    }
+    let client = &state.http_client;
+    let resp = github_request(client, || client.get(&url), &token).await?;
 
     let api_comments: Vec<ApiReviewComment> = resp.json().await?;
 
@@ -515,10 +562,7 @@ pub async fn fetch_pr_review_comments(
         .collect())
 }
 
-/// Fetch a subset of PR review comments and spawn a Claude session to address them.
-///
-/// Looks up repo details from the DB, builds a prompt from the selected
-/// comments, then delegates to the core session spawn logic.
+/// Create a session from PR review comments.
 #[tauri::command]
 pub async fn create_session_from_review(
     app: AppHandle,
@@ -535,7 +579,7 @@ pub async fn create_session_from_review(
             [&repo_id],
             |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         );
-        result.map_err(|_| AppError::Custom(format!("repo {} not found", repo_id)))?
+        result.map_err(|_| AppError::NotFound(format!("repo {} not found", repo_id)))?
     };
 
     // Fetch all review comments for the PR
@@ -548,7 +592,7 @@ pub async fn create_session_from_review(
         .collect();
 
     if selected.is_empty() {
-        return Err(AppError::Custom(
+        return Err(AppError::NotFound(
             "no matching review comments found for the provided IDs".to_string(),
         ));
     }
@@ -621,5 +665,44 @@ mod tests {
     fn parse_invalid_url_returns_error() {
         let result = parse_owner_repo("https://gitlab.com/octocat/hello-world");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn categorize_401_as_auth_failed() {
+        let err = categorize_github_error(reqwest::StatusCode::UNAUTHORIZED, "bad creds");
+        assert!(matches!(err, AppError::AuthFailed(_)));
+    }
+
+    #[test]
+    fn categorize_403_as_auth_failed() {
+        let err = categorize_github_error(reqwest::StatusCode::FORBIDDEN, "forbidden");
+        assert!(matches!(err, AppError::AuthFailed(_)));
+    }
+
+    #[test]
+    fn categorize_404_as_not_found() {
+        let err = categorize_github_error(reqwest::StatusCode::NOT_FOUND, "not found");
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn categorize_429_as_rate_limited() {
+        let err = categorize_github_error(reqwest::StatusCode::TOO_MANY_REQUESTS, "rate limited");
+        assert!(matches!(err, AppError::RateLimited(_)));
+    }
+
+    #[test]
+    fn categorize_500_as_server_error() {
+        let err =
+            categorize_github_error(reqwest::StatusCode::INTERNAL_SERVER_ERROR, "server error");
+        assert!(matches!(err, AppError::Custom(_)));
+        assert!(err.to_string().contains("server error"));
+    }
+
+    #[test]
+    fn categorize_409_as_conflict() {
+        let err = categorize_github_error(reqwest::StatusCode::CONFLICT, "merge conflict");
+        assert!(matches!(err, AppError::Custom(_)));
+        assert!(err.to_string().contains("conflict"));
     }
 }
