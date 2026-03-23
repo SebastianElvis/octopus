@@ -1,6 +1,5 @@
 import { FileTree } from "./FileTree";
 import { GitChangesPanel } from "./GitChangesPanel";
-import { GitHubSidebar } from "./GitHubSidebar";
 import type { Session } from "../lib/types";
 import { useUIStore } from "../stores/uiStore";
 import { useEditorStore } from "../stores/editorStore";
@@ -8,12 +7,11 @@ import { useEditorStore } from "../stores/editorStore";
 interface RightPanelProps {
   session: Session | null;
   onCommitted?: () => void;
-  hasCommitted: boolean;
 }
 
-type Tab = "files" | "changes" | "github";
+type Tab = "files" | "changes";
 
-export function RightPanel({ session, onCommitted, hasCommitted }: RightPanelProps) {
+export function RightPanel({ session, onCommitted }: RightPanelProps) {
   const activeTab = useUIStore((s) => s.rightPanelTab);
   const setTab = useUIStore((s) => s.setRightPanelTab);
   const openFile = useEditorStore((s) => s.openFile);
@@ -21,8 +19,10 @@ export function RightPanel({ session, onCommitted, hasCommitted }: RightPanelPro
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "files", label: "Files" },
     { id: "changes", label: "Changes" },
-    { id: "github", label: "GitHub" },
   ];
+
+  // Fall back to "changes" if the stored tab is no longer valid
+  const effectiveTab = tabs.some((t) => t.id === activeTab) ? activeTab : "changes";
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-gray-950">
@@ -33,7 +33,7 @@ export function RightPanel({ session, onCommitted, hasCommitted }: RightPanelPro
             key={tab.id}
             onClick={() => setTab(tab.id)}
             className={`flex items-center gap-1 px-3 py-2 text-xs font-medium transition-colors ${
-              activeTab === tab.id
+              effectiveTab === tab.id
                 ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
                 : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
             }`}
@@ -48,19 +48,19 @@ export function RightPanel({ session, onCommitted, hasCommitted }: RightPanelPro
 
       {/* Tab content */}
       <div className="flex-1 overflow-hidden">
-        {activeTab === "files" && session?.worktreePath && (
+        {effectiveTab === "files" && session?.worktreePath && (
           <FileTree
             rootPath={session.worktreePath}
             onFileSelect={(path) => void openFile(path)}
           />
         )}
-        {activeTab === "files" && !session?.worktreePath && (
+        {effectiveTab === "files" && !session?.worktreePath && (
           <div className="flex h-full items-center justify-center">
             <p className="text-xs text-gray-400 dark:text-gray-600">No worktree</p>
           </div>
         )}
 
-        {activeTab === "changes" && (
+        {effectiveTab === "changes" && (
           <GitChangesPanel
             worktreePath={session?.worktreePath}
             sessionName={session?.name}
@@ -69,19 +69,6 @@ export function RightPanel({ session, onCommitted, hasCommitted }: RightPanelPro
             branch={session?.branch}
             onCommitted={onCommitted}
           />
-        )}
-
-        {activeTab === "github" && session && (
-          <div className="p-3">
-            <GitHubSidebar
-              repoId={session.repoId}
-              linkedIssueNumber={session.linkedIssue?.number}
-              linkedPRNumber={session.linkedPR?.number}
-              branch={session.branch}
-              sessionName={session.name}
-              hasCommittedChanges={hasCommitted}
-            />
-          </div>
         )}
       </div>
     </div>
