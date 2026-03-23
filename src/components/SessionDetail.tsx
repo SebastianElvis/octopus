@@ -1,15 +1,8 @@
 import { useState } from "react";
 import type { Session } from "../lib/types";
 import { timeAgo } from "../lib/utils";
-import {
-  replyToSession,
-  interruptSession,
-  killSession as tauriKillSession,
-  pauseSession as tauriPauseSession,
-  resumeSession as tauriResumeSession,
-} from "../lib/tauri";
+import { killSession as tauriKillSession } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
-import { formatError } from "../lib/errors";
 import { DiffPanel } from "./DiffPanel";
 import { TerminalPanel } from "./TerminalPanel";
 import { GitHubSidebar } from "./GitHubSidebar";
@@ -35,10 +28,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
   const removeSession = useSessionStore((s) => s.removeSession);
 
-  const [replyText, setReplyText] = useState("");
-  const [interruptText, setInterruptText] = useState("");
-  const [sending, setSending] = useState(false);
-  const [sendError, setSendError] = useState<string | null>(null);
   const [hasCommitted, setHasCommitted] = useState(false);
   const [showKillConfirm, setShowKillConfirm] = useState(false);
 
@@ -50,32 +39,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     );
   }
 
-  async function handleReply() {
-    if (!replyText.trim() || !session) return;
-    setSending(true);
-    setSendError(null);
-    try {
-      await replyToSession(session.id, replyText.trim());
-      setReplyText("");
-      updateSession(session.id, { status: "running", stateChangedAt: Date.now() });
-    } catch (err: unknown) {
-      setSendError(formatError(err));
-    } finally {
-      setSending(false);
-    }
-  }
-
-  async function handleInterrupt() {
-    if (!session) return;
-    try {
-      await interruptSession(session.id, interruptText.trim() || undefined);
-      setInterruptText("");
-      // Session continues running after interrupt — don't change status
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to interrupt session:", formatError(err));
-    }
-  }
-
   async function handleKill() {
     if (!session) return;
     try {
@@ -83,7 +46,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       removeSession(session.id);
       onBack();
     } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to kill session:", formatError(err));
+      console.error("[SessionDetail] Failed to kill session:", err);
     }
   }
 
@@ -91,26 +54,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     if (!session) return;
     setHasCommitted(true);
     updateSession(session.id, { status: "done", stateChangedAt: Date.now() });
-  }
-
-  async function handlePause() {
-    if (!session) return;
-    try {
-      await tauriPauseSession(session.id);
-      updateSession(session.id, { status: "paused", stateChangedAt: Date.now() });
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to pause session:", formatError(err));
-    }
-  }
-
-  async function handleResume() {
-    if (!session) return;
-    try {
-      await tauriResumeSession(session.id);
-      updateSession(session.id, { status: "running", stateChangedAt: Date.now() });
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to resume session:", formatError(err));
-    }
   }
 
   return (
@@ -130,17 +73,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       {/* Session header */}
       <SessionHeader
         session={session}
-        interruptText={interruptText}
-        onInterruptTextChange={setInterruptText}
-        onInterrupt={() => {
-          void handleInterrupt();
-        }}
-        onPause={() => {
-          void handlePause();
-        }}
-        onResume={() => {
-          void handleResume();
-        }}
         onKill={() => setShowKillConfirm(true)}
       />
 
@@ -192,20 +124,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         </div>
       )}
 
-      {/* Blocker banner */}
-      {session.status === "waiting" && (
-        <BlockerBanner
-          session={session}
-          replyText={replyText}
-          onReplyChange={setReplyText}
-          onSend={() => {
-            void handleReply();
-          }}
-          sending={sending}
-          error={sendError}
-        />
-      )}
-
       {/* Two-column layout */}
       <div className="grid grid-cols-[1fr_280px] gap-6">
         {/* Left column */}
@@ -239,19 +157,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
 function SessionHeader({
   session,
-  interruptText,
-  onInterruptTextChange,
-  onInterrupt,
-  onPause,
-  onResume,
   onKill,
 }: {
   session: Session;
-  interruptText: string;
-  onInterruptTextChange: (v: string) => void;
-  onInterrupt: () => void;
-  onPause: () => void;
-  onResume: () => void;
   onKill: () => void;
 }) {
   return (
@@ -281,120 +189,13 @@ function SessionHeader({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {session.status === "running" && (
-            <>
-              <button
-                onClick={onPause}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
-              >
-                Pause
-              </button>
-              <button
-                onClick={onInterrupt}
-                className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-500"
-              >
-                Interrupt
-              </button>
-            </>
-          )}
-          {session.status === "paused" && (
-            <button
-              onClick={onResume}
-              className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
-            >
-              Resume
-            </button>
-          )}
-          <button
-            onClick={onKill}
-            className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:border-red-400 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30"
-          >
-            Kill
-          </button>
-        </div>
-      </div>
-
-      {/* Interrupt message input — shown when running */}
-      {session.status === "running" && (
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={interruptText}
-            onChange={(e) => onInterruptTextChange(e.target.value)}
-            placeholder="Type a correction message and press Interrupt…"
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                onInterrupt();
-              }
-            }}
-            className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:border-yellow-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
-          />
-        </div>
-      )}
-    </div>
-  );
-}
-
-function BlockerBanner({
-  session,
-  replyText,
-  onReplyChange,
-  onSend,
-  sending,
-  error,
-}: {
-  session: Session;
-  replyText: string;
-  onReplyChange: (v: string) => void;
-  onSend: () => void;
-  sending: boolean;
-  error: string | null;
-}) {
-  return (
-    <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800/60 dark:bg-red-950/30">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-red-500" />
-        <span className="text-sm font-medium text-red-600 dark:text-red-400">
-          Waiting for input
-          {session.blockType && (
-            <span className="ml-2 text-xs text-red-500/80">({session.blockType})</span>
-          )}
-        </span>
-      </div>
-
-      {session.lastMessage && (
-        <div className="mb-3 rounded-md bg-white/60 p-3 font-mono text-sm text-gray-700 dark:bg-gray-900/60 dark:text-gray-300">
-          {session.lastMessage}
-        </div>
-      )}
-
-      {error && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
-
-      <div className="flex gap-2">
-        <textarea
-          value={replyText}
-          onChange={(e) => onReplyChange(e.target.value)}
-          placeholder="Type your reply…"
-          rows={3}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-              onSend();
-            }
-          }}
-          className="flex-1 resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-600"
-        />
         <button
-          onClick={() => {
-            onSend();
-          }}
-          disabled={sending || !replyText.trim()}
-          className="self-end rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+          onClick={onKill}
+          className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:border-red-400 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:border-red-700 dark:hover:bg-red-950/30"
         >
-          {sending ? "Sending…" : "Send"}
+          Kill
         </button>
       </div>
-      <p className="mt-1 text-xs text-gray-400 dark:text-gray-600">Cmd+Enter to send</p>
     </div>
   );
 }
