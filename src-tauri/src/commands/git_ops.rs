@@ -302,7 +302,14 @@ mod tests {
             .current_dir(repo.path())
             .output();
         let _ = StdCommand::new("git")
-            .args(["commit", "--no-gpg-sign", "--no-verify", "-m", "cleanup", "--allow-empty"])
+            .args([
+                "commit",
+                "--no-gpg-sign",
+                "--no-verify",
+                "-m",
+                "cleanup",
+                "--allow-empty",
+            ])
             .current_dir(repo.path())
             .output();
 
@@ -312,7 +319,11 @@ mod tests {
             .iter()
             .filter(|f| !f.path.contains(".DS_Store"))
             .collect();
-        assert!(real_files.is_empty(), "unexpected changes: {:?}", real_files);
+        assert!(
+            real_files.is_empty(),
+            "unexpected changes: {:?}",
+            real_files
+        );
     }
 
     #[tokio::test]

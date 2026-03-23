@@ -23,10 +23,7 @@ pub struct FileEntry {
 pub async fn list_dir(path: String) -> AppResult<Vec<FileEntry>> {
     let dir_path = Path::new(&path);
     if !dir_path.is_dir() {
-        return Err(AppError::Custom(format!(
-            "Not a directory: {}",
-            path
-        )));
+        return Err(AppError::Custom(format!("Not a directory: {}", path)));
     }
 
     let mut entries: Vec<FileEntry> = Vec::new();
@@ -55,10 +52,7 @@ pub async fn list_dir(path: String) -> AppResult<Vec<FileEntry>> {
             Err(_) => continue,
         };
 
-        let name = entry
-            .file_name()
-            .to_string_lossy()
-            .to_string();
+        let name = entry.file_name().to_string_lossy().to_string();
 
         // Skip .git directory
         if name == ".git" {
@@ -88,12 +82,10 @@ pub async fn list_dir(path: String) -> AppResult<Vec<FileEntry>> {
     }
 
     // Sort: directories first, then alphabetical (case-insensitive)
-    entries.sort_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+    entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
 
     Ok(entries)
@@ -160,9 +152,7 @@ mod tests {
         let file = dir.path().join("test.txt");
         fs::write(&file, "hello world").unwrap();
 
-        let content = read_file(file.to_string_lossy().to_string())
-            .await
-            .unwrap();
+        let content = read_file(file.to_string_lossy().to_string()).await.unwrap();
         assert_eq!(content, "hello world");
     }
 

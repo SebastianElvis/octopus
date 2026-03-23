@@ -135,9 +135,9 @@ pub async fn write_to_shell(
         .shell_processes
         .lock()
         .map_err(|e| AppError::Custom(format!("shell map lock poisoned: {}", e)))?;
-    let pty_session = map.get_mut(&shell_id).ok_or_else(|| {
-        AppError::Custom(format!("no running shell {}", shell_id))
-    })?;
+    let pty_session = map
+        .get_mut(&shell_id)
+        .ok_or_else(|| AppError::Custom(format!("no running shell {}", shell_id)))?;
     pty_session.writer.write_all(data.as_bytes())?;
     pty_session.writer.flush()?;
     Ok(())
@@ -155,9 +155,9 @@ pub async fn resize_shell(
         .shell_processes
         .lock()
         .map_err(|e| AppError::Custom(format!("shell map lock poisoned: {}", e)))?;
-    let pty_session = map.get(&shell_id).ok_or_else(|| {
-        AppError::Custom(format!("no running shell {}", shell_id))
-    })?;
+    let pty_session = map
+        .get(&shell_id)
+        .ok_or_else(|| AppError::Custom(format!("no running shell {}", shell_id)))?;
     pty_session
         .master
         .0
@@ -173,10 +173,7 @@ pub async fn resize_shell(
 
 /// Kill a shell PTY.
 #[tauri::command]
-pub async fn kill_shell(
-    state: State<'_, AppState>,
-    shell_id: String,
-) -> AppResult<()> {
+pub async fn kill_shell(state: State<'_, AppState>, shell_id: String) -> AppResult<()> {
     let mut map = state
         .shell_processes
         .lock()
