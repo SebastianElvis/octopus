@@ -1,18 +1,26 @@
 import { useState } from "react";
 import type { Session } from "../lib/types";
 import { timeAgo } from "../lib/utils";
-import { replyToSession, interruptSession } from "../lib/tauri";
+import {
+  replyToSession,
+  interruptSession,
+  pauseSession as tauriPauseSession,
+  resumeSession as tauriResumeSession,
+} from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
 import { formatError } from "../lib/errors";
 import { DiffPanel } from "./DiffPanel";
 import { OutputPanel } from "./OutputPanel";
 import { GitHubSidebar } from "./GitHubSidebar";
+import { ReviewComments } from "./ReviewComments";
 
 const STATUS_PILL: Record<string, string> = {
   waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
   running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
   idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
   done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
+  paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
+  stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
 };
 
 interface SessionDetailProps {
@@ -61,6 +69,26 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
+  async function handlePause() {
+    if (!session) return;
+    try {
+      await tauriPauseSession(session.id);
+      updateSession(session.id, { status: "paused", stateChangedAt: Date.now() });
+    } catch (err: unknown) {
+      console.error("[SessionDetail] Failed to pause session:", formatError(err));
+    }
+  }
+
+  async function handleResume() {
+    if (!session) return;
+    try {
+      await tauriResumeSession(session.id);
+      updateSession(session.id, { status: "running", stateChangedAt: Date.now() });
+    } catch (err: unknown) {
+      console.error("[SessionDetail] Failed to resume session:", formatError(err));
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {/* Breadcrumb */}
@@ -81,7 +109,35 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         onInterrupt={() => {
           void handleInterrupt();
         }}
+        onPause={() => {
+          void handlePause();
+        }}
+        onResume={() => {
+          void handleResume();
+        }}
       />
+
+      {/* Stuck warning banner */}
+      {session.status === "stuck" && (
+        <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 dark:border-orange-800/60 dark:bg-orange-950/30">
+          <svg
+            className="h-5 w-5 shrink-0 text-orange-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <p className="text-sm font-medium text-orange-700 dark:text-orange-400">
+            This session appears stuck — no output for more than 20 minutes.
+          </p>
+        </div>
+      )}
 
       {/* Blocker banner */}
       {session.status === "waiting" && (
@@ -114,11 +170,26 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           sessionName={session.name}
         />
       </div>
+
+      {/* PR Review Comments */}
+      {session.linkedPR && (
+        <ReviewComments repoId={session.repoId} prNumber={session.linkedPR.number} />
+      )}
     </div>
   );
 }
 
-function SessionHeader({ session, onInterrupt }: { session: Session; onInterrupt: () => void }) {
+function SessionHeader({
+  session,
+  onInterrupt,
+  onPause,
+  onResume,
+}: {
+  session: Session;
+  onInterrupt: () => void;
+  onPause: () => void;
+  onResume: () => void;
+}) {
   return (
     <div className="flex items-start justify-between rounded-lg border border-gray-200 bg-gray-50 px-5 py-4 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex flex-col gap-1">
@@ -147,11 +218,27 @@ function SessionHeader({ session, onInterrupt }: { session: Session; onInterrupt
 
       <div className="flex items-center gap-2">
         {session.status === "running" && (
+          <>
+            <button
+              onClick={onPause}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100"
+            >
+              Pause
+            </button>
+            <button
+              onClick={onInterrupt}
+              className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-500"
+            >
+              Interrupt
+            </button>
+          </>
+        )}
+        {session.status === "paused" && (
           <button
-            onClick={onInterrupt}
-            className="rounded-md bg-yellow-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-yellow-500"
+            onClick={onResume}
+            className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
           >
-            Interrupt
+            Resume
           </button>
         )}
       </div>

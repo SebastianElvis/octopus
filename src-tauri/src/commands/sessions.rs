@@ -163,13 +163,36 @@ pub async fn spawn_session(
         },
     );
 
-    // Background thread to detect process exit
+    // Record initial last_output_at for the session
+    {
+        let mut last_output_map = state
+            .last_output_at
+            .lock()
+            .map_err(|e| AppError::Custom(format!("last_output_at lock poisoned: {}", e)))?;
+        last_output_map.insert(session_id.clone(), std::time::Instant::now());
+    }
+
+    // Background thread to detect process exit and track stdout activity
     let sid = session_id.clone();
     let app2 = app.clone();
+    let stdout_path_clone = stdout_path.clone();
     std::thread::spawn(move || {
+        let mut last_known_size: u64 = 0;
         loop {
             std::thread::sleep(std::time::Duration::from_secs(1));
             let app_state = app2.state::<AppState>();
+
+            // Update last_output_at if the stdout log has grown
+            if let Ok(meta) = std::fs::metadata(&stdout_path_clone) {
+                let current_size = meta.len();
+                if current_size > last_known_size {
+                    last_known_size = current_size;
+                    if let Ok(mut last_output_map) = app_state.last_output_at.lock() {
+                        last_output_map.insert(sid.clone(), std::time::Instant::now());
+                    }
+                }
+            }
+
             let mut map = match app_state.processes.lock() {
                 Ok(m) => m,
                 Err(e) => {
@@ -195,6 +218,11 @@ pub async fn spawn_session(
                         // Remove the finished process from the map
                         map.remove(&sid);
                         drop(map);
+
+                        // Clean up last_output_at entry
+                        if let Ok(mut last_output_map) = app_state.last_output_at.lock() {
+                            last_output_map.remove(&sid);
+                        }
 
                         if let Err(e) = update_session_status(&app2, &sid, final_status) {
                             log::error!("Failed to update session {} status: {}", sid, e);
@@ -360,4 +388,181 @@ pub async fn get_session(state: State<'_, AppState>, session_id: String) -> AppR
     sessions
         .pop()
         .ok_or_else(|| AppError::Custom(format!("session {} not found", session_id)))
+}
+
+/// Send SIGSTOP to the child process, suspending it, and mark it "paused" in the DB.
+#[tauri::command]
+pub async fn pause_session(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    session_id: String,
+) -> AppResult<()> {
+    {
+        let map = state
+            .processes
+            .lock()
+            .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+        let child = map.get(&session_id).ok_or_else(|| {
+            AppError::Custom(format!("no running process for session {}", session_id))
+        })?;
+
+        #[cfg(unix)]
+        {
+            use nix::sys::signal::{kill, Signal};
+            use nix::unistd::Pid;
+            kill(Pid::from_raw(child.id() as i32), Signal::SIGSTOP)
+                .map_err(|e| AppError::Custom(format!("failed to send SIGSTOP: {}", e)))?;
+            log::info!("Sent SIGSTOP to session {} (pid {})", session_id, child.id());
+        }
+    }
+
+    update_session_status(&app, &session_id, "paused")?;
+
+    let _ = app.emit(
+        "session-state-changed",
+        SessionStateChangedPayload {
+            session_id: session_id.clone(),
+            status: "paused".to_string(),
+        },
+    );
+
+    Ok(())
+}
+
+/// Send SIGCONT to the child process, resuming it, and mark it "running" in the DB.
+#[tauri::command]
+pub async fn resume_session(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    session_id: String,
+) -> AppResult<()> {
+    {
+        let map = state
+            .processes
+            .lock()
+            .map_err(|e| AppError::Custom(format!("process map lock poisoned: {}", e)))?;
+        let child = map.get(&session_id).ok_or_else(|| {
+            AppError::Custom(format!("no running process for session {}", session_id))
+        })?;
+
+        #[cfg(unix)]
+        {
+            use nix::sys::signal::{kill, Signal};
+            use nix::unistd::Pid;
+            kill(Pid::from_raw(child.id() as i32), Signal::SIGCONT)
+                .map_err(|e| AppError::Custom(format!("failed to send SIGCONT: {}", e)))?;
+            log::info!("Sent SIGCONT to session {} (pid {})", session_id, child.id());
+        }
+    }
+
+    update_session_status(&app, &session_id, "running")?;
+
+    let _ = app.emit(
+        "session-state-changed",
+        SessionStateChangedPayload {
+            session_id: session_id.clone(),
+            status: "running".to_string(),
+        },
+    );
+
+    Ok(())
+}
+
+/// Inspect all "running" sessions and flag any that have not produced stdout
+/// output in the last 20 minutes. Returns a list of session IDs that were
+/// newly marked as "stuck".
+#[tauri::command]
+pub async fn check_stuck_sessions(app: AppHandle, state: State<'_, AppState>) -> AppResult<Vec<String>> {
+    const STUCK_THRESHOLD: std::time::Duration = std::time::Duration::from_secs(20 * 60);
+
+    // Collect running sessions from DB
+    let running_sessions = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        query_sessions(
+            &db,
+            "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
+             linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at \
+             FROM sessions WHERE status = 'running'",
+            &[],
+        )?
+    };
+
+    let home = dirs::home_dir().ok_or_else(|| AppError::Custom("no home dir".to_string()))?;
+    let mut stuck_ids = Vec::new();
+
+    for session in running_sessions {
+        let sid = &session.id;
+
+        // First check the in-memory last_output_at tracker
+        let last_output_instant = {
+            let last_output_map = state
+                .last_output_at
+                .lock()
+                .map_err(|e| AppError::Custom(format!("last_output_at lock poisoned: {}", e)))?;
+            last_output_map.get(sid).copied()
+        };
+
+        let is_stuck = if let Some(instant) = last_output_instant {
+            instant.elapsed() > STUCK_THRESHOLD
+        } else {
+            // Fall back to checking the log file modification time
+            let log_path = home
+                .join(".toomanytabs")
+                .join("logs")
+                .join(sid)
+                .join("stdout.log");
+            match std::fs::metadata(&log_path) {
+                Ok(meta) => {
+                    match meta.modified() {
+                        Ok(modified) => {
+                            match modified.elapsed() {
+                                Ok(elapsed) => elapsed > STUCK_THRESHOLD,
+                                Err(_) => false, // Modified time is in the future
+                            }
+                        }
+                        Err(_) => false,
+                    }
+                }
+                Err(_) => false, // Log file doesn't exist yet
+            }
+        };
+
+        if is_stuck {
+            log::warn!("Session {} appears stuck (no output for >20 min)", sid);
+            update_session_status(&app, sid, "stuck")?;
+
+            let updated_session = {
+                let db = state
+                    .db
+                    .lock()
+                    .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+                query_sessions(
+                    &db,
+                    "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
+                     linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at \
+                     FROM sessions WHERE id = ?1",
+                    &[sid as &dyn rusqlite::types::ToSql],
+                )?
+            };
+
+            let _ = app.emit(
+                "session-state-changed",
+                SessionStateChangedPayload {
+                    session_id: sid.clone(),
+                    status: "stuck".to_string(),
+                },
+            );
+
+            if updated_session.is_empty() {
+                log::warn!("Could not re-fetch session {} after marking stuck", sid);
+            }
+
+            stuck_ids.push(sid.clone());
+        }
+    }
+
+    Ok(stuck_ids)
 }

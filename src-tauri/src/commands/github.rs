@@ -1,7 +1,7 @@
 use std::process::Command;
 
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::error::{AppError, AppResult};
 use crate::state::AppState;
@@ -54,6 +54,37 @@ struct ApiPR {
 struct ApiRef {
     #[serde(rename = "ref")]
     ref_name: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiReviewComment {
+    id: i64,
+    body: String,
+    path: String,
+    line: Option<i32>,
+    user: ApiUser,
+    created_at: String,
+    updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiUser {
+    login: String,
+}
+
+// ---------------------------------------------------------------------------
+// Public data types
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ReviewComment {
+    pub id: i64,
+    pub body: String,
+    pub path: String,
+    pub line: Option<i32>,
+    pub user: String,
+    pub created_at: String,
+    pub updated_at: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -343,6 +374,155 @@ pub async fn create_pr(
         head_ref: api_pr.head.ref_name,
         base_ref: api_pr.base.ref_name,
     })
+}
+
+/// Fetch pull request review (inline) comments via the GitHub REST API.
+///
+/// `repo_id` is the UUID stored in the DB; the command looks up the repo's
+/// `github_url` to derive `owner/repo`.
+#[tauri::command]
+pub async fn fetch_pr_review_comments(
+    state: State<'_, AppState>,
+    repo_id: String,
+    pr_number: u64,
+) -> AppResult<Vec<ReviewComment>> {
+    // Look up the github_url for the repo
+    let github_url = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let result: Result<String, _> = db.query_row(
+            "SELECT github_url FROM repos WHERE id = ?1",
+            [&repo_id],
+            |row| row.get(0),
+        );
+        result.map_err(|_| AppError::Custom(format!("repo {} not found", repo_id)))?
+    };
+
+    let token = get_github_token().await?;
+    let (owner, repo) = parse_owner_repo(&github_url)?;
+
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/pulls/{}/comments?per_page=100",
+        owner, repo, pr_number
+    );
+
+    let client = reqwest::Client::new();
+    let resp = client
+        .get(&url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("User-Agent", "toomanytabs/0.1")
+        .header("Accept", "application/vnd.github+json")
+        .send()
+        .await?;
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(AppError::Custom(format!(
+            "GitHub API error {}: {}",
+            status, text
+        )));
+    }
+
+    let api_comments: Vec<ApiReviewComment> = resp.json().await?;
+
+    log::info!(
+        "Fetched {} review comments for {}/{} PR #{}",
+        api_comments.len(),
+        owner,
+        repo,
+        pr_number
+    );
+
+    Ok(api_comments
+        .into_iter()
+        .map(|c| ReviewComment {
+            id: c.id,
+            body: c.body,
+            path: c.path,
+            line: c.line,
+            user: c.user.login,
+            created_at: c.created_at,
+            updated_at: c.updated_at,
+        })
+        .collect())
+}
+
+/// Fetch a subset of PR review comments and spawn a Claude session to address them.
+///
+/// Looks up repo details from the DB, builds a prompt from the selected
+/// comments, then delegates to the core session spawn logic.
+#[tauri::command]
+pub async fn create_session_from_review(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    repo_id: String,
+    pr_number: u64,
+    comment_ids: Vec<i64>,
+) -> AppResult<String> {
+    // Look up repo info
+    let (_github_url, worktree_path, default_branch) = {
+        let db = state
+            .db
+            .lock()
+            .map_err(|e| AppError::Custom(format!("db lock poisoned: {}", e)))?;
+        let result: Result<(String, String, String), _> = db.query_row(
+            "SELECT github_url, local_path, default_branch FROM repos WHERE id = ?1",
+            [&repo_id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        );
+        result.map_err(|_| AppError::Custom(format!("repo {} not found", repo_id)))?
+    };
+
+    // Fetch all review comments for the PR
+    let all_comments = fetch_pr_review_comments(state.clone(), repo_id.clone(), pr_number).await?;
+
+    // Filter to only the requested comment ids
+    let selected: Vec<&ReviewComment> = all_comments
+        .iter()
+        .filter(|c| comment_ids.contains(&c.id))
+        .collect();
+
+    if selected.is_empty() {
+        return Err(AppError::Custom(
+            "no matching review comments found for the provided IDs".to_string(),
+        ));
+    }
+
+    // Build prompt
+    let comment_text = selected
+        .iter()
+        .map(|c| {
+            let line_info = c
+                .line
+                .map(|l| format!(" (line {})", l))
+                .unwrap_or_default();
+            format!("- `{}`{}:\n  {}", c.path, line_info, c.body)
+        })
+        .collect::<Vec<_>>()
+        .join("\n\n");
+
+    let prompt = format!(
+        "Address the following PR review comments on PR #{}:\n\n{}",
+        pr_number, comment_text
+    );
+
+    let session_name = format!("Review PR #{}", pr_number);
+    let branch = default_branch.clone();
+
+    // Delegate to spawn_session
+    crate::commands::sessions::spawn_session(
+        app,
+        state,
+        repo_id,
+        session_name,
+        branch,
+        prompt,
+        worktree_path,
+    )
+    .await
 }
 
 #[cfg(test)]

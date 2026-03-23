@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, useCallback, type ReactNode } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { SessionCard } from "./SessionCard";
+import { checkStuckSessions } from "../lib/tauri";
 
 interface DispatchBoardProps {
   onViewSession: (id: string) => void;
@@ -15,8 +16,31 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   const waiting = [...sessions.filter((s) => s.status === "waiting")].sort(
     (a, b) => a.stateChangedAt - b.stateChangedAt,
   );
-  const running = sessions.filter((s) => s.status === "running");
+  const running = sessions.filter((s) => s.status === "running" || s.status === "stuck");
+  const paused = sessions.filter((s) => s.status === "paused");
   const idle = sessions.filter((s) => s.status === "idle" || s.status === "done");
+
+  const markStuck = useCallback(async () => {
+    try {
+      const stuckIds = await checkStuckSessions();
+      for (const id of stuckIds) {
+        updateSession(id, { status: "stuck" });
+      }
+    } catch {
+      // ignore — backend may not be available
+    }
+  }, [updateSession]);
+
+  useEffect(() => {
+    void markStuck();
+    const interval = setInterval(
+      () => {
+        void markStuck();
+      },
+      5 * 60 * 1000,
+    );
+    return () => clearInterval(interval);
+  }, [markStuck]);
 
   function handleReply(id: string) {
     onViewSession(id);
@@ -83,6 +107,12 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         ))}
       </Zone>
 
+      <Zone title="Paused" count={paused.length} accentColor="gray" empty="No paused sessions.">
+        {paused.map((s) => (
+          <SessionCard key={s.id} session={s} onView={onViewSession} onResume={handleResume} />
+        ))}
+      </Zone>
+
       <Zone title="Idle / Done" count={idle.length} accentColor="gray" empty="No idle sessions.">
         {idle.map((s) => (
           <SessionCard key={s.id} session={s} onView={onViewSession} onResume={handleResume} />
@@ -116,7 +146,7 @@ function Zone({
 }: {
   title: string;
   count: number;
-  accentColor: "red" | "green" | "gray";
+  accentColor: "red" | "green" | "gray" | "orange";
   empty: string;
   children: ReactNode;
 }) {
@@ -124,6 +154,7 @@ function Zone({
     red: "bg-red-500",
     green: "bg-green-500",
     gray: "bg-gray-500",
+    orange: "bg-orange-500",
   };
 
   return (

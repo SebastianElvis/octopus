@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::process::Child;
 use std::sync::Mutex;
+use std::time::Instant;
 
 use rusqlite::Connection;
 
@@ -12,6 +13,9 @@ pub struct AppState {
 
     /// Map of session_id -> running child process.
     pub processes: Mutex<HashMap<String, Child>>,
+
+    /// Map of session_id -> last time stdout output was observed from the process.
+    pub last_output_at: Mutex<HashMap<String, Instant>>,
 }
 
 impl AppState {
@@ -19,6 +23,7 @@ impl AppState {
         AppState {
             db: Mutex::new(conn),
             processes: Mutex::new(HashMap::new()),
+            last_output_at: Mutex::new(HashMap::new()),
         }
     }
 }
@@ -39,5 +44,9 @@ mod tests {
 
         let procs = state.processes.lock().expect("lock processes");
         assert!(procs.is_empty());
+        drop(procs);
+
+        let last_output = state.last_output_at.lock().expect("lock last_output_at");
+        assert!(last_output.is_empty());
     }
 }

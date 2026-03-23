@@ -3,20 +3,26 @@ import { DispatchBoard } from "./components/DispatchBoard";
 import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
 import { RepoSettings } from "./components/RepoSettings";
+import { IssueBacklog } from "./components/IssueBacklog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
-import { onSessionStateChanged, onSessionOutput } from "./lib/tauri";
+import { onSessionStateChanged, onSessionOutput, fetchIssues, fetchPRs } from "./lib/tauri";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
+import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
 
-type View = "board" | "session" | "settings";
+type View = "board" | "session" | "settings" | "issues";
 
 function App() {
   const [view, setView] = useState<View>("board");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
+  const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
+  const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
+  const [prefillPR, setPrefillPR] = useState<GitHubPR | null>(null);
+  const [openIssueCount, setOpenIssueCount] = useState(0);
 
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const updateSession = useSessionStore((s) => s.updateSession);
@@ -32,6 +38,29 @@ function App() {
     void loadSessions();
     void loadRepos();
   }, [loadSessions, loadRepos]);
+
+  // Fetch total open issue count for badge
+  useEffect(() => {
+    if (repos.length === 0) return;
+    let cancelled = false;
+    void Promise.all(
+      repos.flatMap((repo) => [
+        fetchIssues(repo.id)
+          .then((issues) => issues.filter((i) => i.state === "open").length)
+          .catch(() => 0),
+        fetchPRs(repo.id)
+          .then((prs) => prs.filter((p) => p.state === "open").length)
+          .catch(() => 0),
+      ]),
+    ).then((counts) => {
+      if (!cancelled) {
+        setOpenIssueCount(counts.reduce((a, b) => a + b, 0));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [repos]);
 
   useTauriEvent(
     () =>
@@ -60,6 +89,27 @@ function App() {
     setActiveSessionId(null);
   }
 
+  function handleSelectIssue(repo: Repo, issue: GitHubIssue) {
+    setPrefillRepo(repo);
+    setPrefillIssue(issue);
+    setPrefillPR(null);
+    setShowNewSession(true);
+  }
+
+  function handleSelectPR(repo: Repo, pr: GitHubPR) {
+    setPrefillRepo(repo);
+    setPrefillPR(pr);
+    setPrefillIssue(null);
+    setShowNewSession(true);
+  }
+
+  function handleCloseModal() {
+    setShowNewSession(false);
+    setPrefillRepo(null);
+    setPrefillIssue(null);
+    setPrefillPR(null);
+  }
+
   const waitingCount = sessions.filter((s) => s.status === "waiting").length;
 
   return (
@@ -84,6 +134,12 @@ function App() {
             }}
           />
           <NavItem
+            label="Issues"
+            active={view === "issues"}
+            badge={openIssueCount > 0 ? openIssueCount : undefined}
+            onClick={() => setView("issues")}
+          />
+          <NavItem
             label="Settings"
             active={view === "settings"}
             onClick={() => setView("settings")}
@@ -92,11 +148,25 @@ function App() {
 
         {/* Repo list */}
         <div className="mt-4 px-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-600">
-            Repos
-          </p>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-600">
+              Repos ({String(repos.length)})
+            </p>
+            <button
+              onClick={() => setView("settings")}
+              className="rounded px-1.5 py-0.5 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
+              title="Manage repositories"
+            >
+              +
+            </button>
+          </div>
           {repos.length === 0 ? (
-            <p className="text-xs text-gray-400 dark:text-gray-700">None added</p>
+            <button
+              onClick={() => setView("settings")}
+              className="w-full rounded-md border border-dashed border-gray-300 px-3 py-2 text-center text-xs text-gray-500 transition-colors hover:border-blue-400 hover:text-blue-600 dark:border-gray-700 dark:text-gray-500 dark:hover:border-blue-600 dark:hover:text-blue-400"
+            >
+              Connect a repo
+            </button>
           ) : (
             <div className="space-y-1">
               {repos.map((repo) => {
@@ -139,11 +209,27 @@ function App() {
             <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
           )}
           {view === "settings" && <RepoSettings />}
+          {view === "issues" && (
+            <IssueBacklog
+              repos={repos}
+              onSelectIssue={handleSelectIssue}
+              onSelectPR={handleSelectPR}
+              onNavigateSettings={() => setView("settings")}
+            />
+          )}
         </ErrorBoundary>
       </main>
 
       {/* New session modal */}
-      {showNewSession && <NewSessionModal repos={repos} onClose={() => setShowNewSession(false)} />}
+      {showNewSession && (
+        <NewSessionModal
+          repos={repos}
+          onClose={handleCloseModal}
+          prefillRepo={prefillRepo ?? undefined}
+          prefillIssue={prefillIssue ?? undefined}
+          prefillPR={prefillPR ?? undefined}
+        />
+      )}
     </div>
   );
 }

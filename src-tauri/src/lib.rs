@@ -3,10 +3,14 @@ mod db;
 mod error;
 mod state;
 
-use commands::github::{create_pr, fetch_issues, fetch_prs, get_github_token, git_commit_and_push};
+use commands::github::{
+    create_pr, create_session_from_review, fetch_issues, fetch_pr_review_comments, fetch_prs,
+    get_github_token, git_commit_and_push,
+};
 use commands::repos::{add_repo, list_repos};
 use commands::sessions::{
-    get_session, interrupt_session, kill_session, list_sessions, reply_to_session, spawn_session,
+    check_stuck_sessions, get_session, interrupt_session, kill_session, list_sessions,
+    pause_session, reply_to_session, resume_session, spawn_session,
 };
 use commands::worktree::{create_worktree, get_diff, remove_worktree};
 use state::AppState;
@@ -45,6 +49,9 @@ pub fn run() {
             kill_session,
             list_sessions,
             get_session,
+            pause_session,
+            resume_session,
+            check_stuck_sessions,
             // repos
             add_repo,
             list_repos,
@@ -54,6 +61,8 @@ pub fn run() {
             fetch_prs,
             git_commit_and_push,
             create_pr,
+            fetch_pr_review_comments,
+            create_session_from_review,
             // worktree
             create_worktree,
             remove_worktree,

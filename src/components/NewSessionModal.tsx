@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Repo, GitHubIssue } from "../lib/types";
+import type { Repo, GitHubIssue, GitHubPR } from "../lib/types";
 import { fetchIssues, spawnSession } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
 import { formatError } from "../lib/errors";
@@ -9,13 +9,24 @@ type SourceType = "issue" | "pr" | "adhoc";
 interface NewSessionModalProps {
   repos: Repo[];
   onClose: () => void;
+  prefillRepo?: Repo;
+  prefillIssue?: GitHubIssue;
+  prefillPR?: GitHubPR;
 }
 
-export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
+export function NewSessionModal({
+  repos,
+  onClose,
+  prefillRepo,
+  prefillIssue,
+  prefillPR,
+}: NewSessionModalProps) {
   const addSession = useSessionStore((s) => s.addSession);
 
-  const [repoId, setRepoId] = useState(repos[0]?.id ?? "");
-  const [sourceType, setSourceType] = useState<SourceType>("adhoc");
+  const [repoId, setRepoId] = useState(prefillRepo?.id ?? (repos.length > 0 ? repos[0].id : ""));
+  const [sourceType, setSourceType] = useState<SourceType>(
+    prefillIssue ? "issue" : prefillPR ? "pr" : "adhoc",
+  );
   const [url, setUrl] = useState("");
   const [prompt, setPrompt] = useState("");
   const [baseBranch, setBaseBranch] = useState("");
@@ -57,6 +68,22 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
     }
   }, [selectedIssue]);
 
+  // Prefill from props
+  useEffect(() => {
+    if (prefillIssue) {
+      setSelectedIssue(prefillIssue);
+    }
+    if (prefillPR) {
+      setPrompt(prefillPR.body ?? "");
+      const slug = prefillPR.title
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .slice(0, 40);
+      setBranchName(prefillPR.headBranch || `pr-${prefillPR.number}-${slug}`);
+      setSessionName(prefillPR.title.slice(0, 60));
+    }
+  }, [prefillIssue, prefillPR]);
+
   useEffect(() => {
     if (!selectedIssue && branchName === "") {
       setBranchName(`session-${Date.now()}`);
@@ -77,6 +104,7 @@ export function NewSessionModal({ repos, onClose }: NewSessionModalProps) {
         prompt: prompt.trim(),
         name: sessionName || branchName,
         issueNumber: selectedIssue?.number,
+        prNumber: prefillPR?.number,
       });
       addSession(session);
       onClose();

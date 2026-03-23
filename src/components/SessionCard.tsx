@@ -6,6 +6,8 @@ const STATUS_ACCENT: Record<string, string> = {
   running: "bg-green-500",
   idle: "bg-gray-500",
   done: "bg-gray-600",
+  paused: "bg-gray-400",
+  stuck: "bg-orange-500",
 };
 
 const STATUS_PILL: Record<string, string> = {
@@ -13,6 +15,8 @@ const STATUS_PILL: Record<string, string> = {
   running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
   idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
   done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
+  paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
+  stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
 };
 
 const BLOCK_TYPE_PILL: Record<string, string> = {
@@ -96,6 +100,27 @@ export function SessionCard({ session, onView, onReply, onInterrupt, onResume }:
             >
               Resume
             </button>
+          )}
+          {session.status === "paused" && (
+            <button
+              onClick={() => onResume?.(session.id)}
+              className="rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-500"
+            >
+              Resume
+            </button>
+          )}
+          {session.status === "stuck" && (
+            <span className="flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400">
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              No output for &gt;20min
+            </span>
           )}
           <button
             onClick={() => onView(session.id)}

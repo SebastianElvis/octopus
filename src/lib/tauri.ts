@@ -8,7 +8,7 @@
  */
 
 import { isTauri } from "./env";
-import type { Session, Repo, GitHubIssue, GitHubPR } from "./types";
+import type { Session, Repo, GitHubIssue, GitHubPR, ReviewComment } from "./types";
 
 /** No-op unlisten stub for when Tauri is not available. */
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -61,6 +61,35 @@ export async function listSessions(): Promise<Session[]> {
 
 export async function getSession(id: string): Promise<Session> {
   return tauriInvoke<Session>("get_session", { id });
+}
+
+export async function pauseSession(id: string): Promise<void> {
+  return tauriInvoke<void>("pause_session", { id });
+}
+
+export async function resumeSession(id: string): Promise<void> {
+  return tauriInvoke<void>("resume_session", { id });
+}
+
+export async function checkStuckSessions(): Promise<string[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<string[]>("check_stuck_sessions");
+}
+
+export async function fetchPrReviewComments(
+  repoId: string,
+  prNumber: number,
+): Promise<ReviewComment[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<ReviewComment[]>("fetch_pr_review_comments", { repoId, prNumber });
+}
+
+export async function createSessionFromReview(params: {
+  repoId: string;
+  prNumber: number;
+  commentIds: number[];
+}): Promise<Session> {
+  return tauriInvoke<Session>("create_session_from_review", { params });
 }
 
 // ── Worktree commands ────────────────────────────────────────────────────────

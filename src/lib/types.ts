@@ -1,4 +1,4 @@
-export type SessionStatus = "waiting" | "running" | "idle" | "done";
+export type SessionStatus = "waiting" | "running" | "idle" | "done" | "paused" | "stuck";
 export type BlockType = "decision" | "review" | "confirm";
 
 export interface Session {
@@ -42,6 +42,16 @@ export interface GitHubPR {
   url: string;
   headBranch: string;
   ciStatus: "pending" | "success" | "failure" | "unknown";
+}
+
+export interface ReviewComment {
+  id: number;
+  body: string;
+  path: string;
+  line: number | null;
+  user: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DiffLine {
