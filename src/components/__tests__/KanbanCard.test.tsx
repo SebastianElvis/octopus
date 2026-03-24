@@ -149,7 +149,7 @@ describe("KanbanCard", () => {
     expect(container.firstChild).toHaveClass("opacity-75");
   });
 
-  // H1 feature tests
+  // New tests for H1 features
 
   it("shows CI indicator dot when ciStatus is provided", () => {
     const { container } = render(
@@ -196,5 +196,33 @@ describe("KanbanCard", () => {
     fireEvent.click(screen.getByText("Quick Reply"));
     const textarea = screen.getByPlaceholderText("Type reply... (Cmd+Enter to send)");
     expect(textarea.tagName).toBe("TEXTAREA");
+  });
+
+  it("shows Retry button for failed sessions when onRetry is provided", () => {
+    const onRetry = vi.fn();
+    render(
+      <KanbanCard
+        session={makeSession({ status: "failed" })}
+        onView={() => {}}
+        onRetry={onRetry}
+      />,
+    );
+    expect(screen.getByText("Retry")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Retry"));
+    expect(onRetry).toHaveBeenCalledWith("s1");
+  });
+
+  it("shows Kill button with confirmation for running sessions", () => {
+    const onKill = vi.fn();
+    render(
+      <KanbanCard session={makeSession({ status: "running" })} onView={() => {}} onKill={onKill} />,
+    );
+    expect(screen.getByText("Kill")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Kill"));
+    // Should show confirmation
+    expect(screen.getByText(/Kill "Fix bug #42"\?/)).toBeInTheDocument();
+    // Confirm kill
+    fireEvent.click(screen.getByText("Yes"));
+    expect(onKill).toHaveBeenCalledWith("s1");
   });
 });

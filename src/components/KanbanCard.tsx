@@ -55,6 +55,8 @@ interface KanbanCardProps {
   onReply?: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
+  onRetry?: (id: string) => void;
+  onKill?: (id: string) => void;
   ciStatus?: CIStatus;
 }
 
@@ -64,6 +66,8 @@ export function KanbanCard({
   onReply,
   onInterrupt,
   onResume,
+  onRetry,
+  onKill,
   ciStatus,
 }: KanbanCardProps) {
   const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
@@ -72,15 +76,7 @@ export function KanbanCard({
   const [showQuickReply, setShowQuickReply] = useState(false);
   const [sending, setSending] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
-
-  const ciDotColor =
-    ciStatus === "success"
-      ? "bg-green-500"
-      : ciStatus === "failure"
-        ? "bg-red-500"
-        : ciStatus === "pending"
-          ? "bg-yellow-500"
-          : null;
+  const [showKillConfirm, setShowKillConfirm] = useState(false);
 
   async function handleQuickReply(e: React.SyntheticEvent) {
     e.preventDefault();
@@ -98,6 +94,15 @@ export function KanbanCard({
       setSending(false);
     }
   }
+
+  const ciDotColor =
+    ciStatus === "success"
+      ? "bg-green-500"
+      : ciStatus === "failure"
+        ? "bg-red-500"
+        : ciStatus === "pending"
+          ? "bg-yellow-500"
+          : null;
 
   return (
     <div
@@ -206,6 +211,49 @@ export function KanbanCard({
             Resume
           </button>
         )}
+        {(session.status === "failed" || session.status === "stuck") && onRetry && (
+          <button
+            onClick={() => onRetry(session.id)}
+            className="rounded bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-blue-500"
+          >
+            Retry
+          </button>
+        )}
+        {/* Kill with confirmation */}
+        {(session.status === "running" ||
+          session.status === "waiting" ||
+          session.status === "stuck") &&
+          onKill &&
+          !showKillConfirm && (
+            <button
+              onClick={() => setShowKillConfirm(true)}
+              className="rounded border border-red-300 px-2 py-0.5 text-[10px] font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              Kill
+            </button>
+          )}
+        {showKillConfirm && onKill && (
+          <>
+            <span className="text-[10px] text-red-600 dark:text-red-400">
+              Kill &quot;{session.name}&quot;?
+            </span>
+            <button
+              onClick={() => setShowKillConfirm(false)}
+              className="rounded px-1.5 py-0.5 text-[10px] text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+            >
+              No
+            </button>
+            <button
+              onClick={() => {
+                setShowKillConfirm(false);
+                onKill(session.id);
+              }}
+              className="rounded bg-red-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-red-500"
+            >
+              Yes
+            </button>
+          </>
+        )}
         <button
           onClick={() => onView(session.id)}
           className="rounded border border-gray-300 px-2 py-0.5 text-[10px] font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200"
@@ -214,7 +262,6 @@ export function KanbanCard({
         </button>
       </div>
 
-      {/* Inline quick reply */}
       {/* Inline quick reply - textarea for multi-line */}
       {showQuickReply && session.status === "waiting" && (
         <form

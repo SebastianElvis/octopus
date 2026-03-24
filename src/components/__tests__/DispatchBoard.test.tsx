@@ -7,6 +7,17 @@ vi.mock("../../lib/tauri", () => ({
   checkStuckSessions: vi.fn(() => Promise.resolve([])),
   killSession: vi.fn(() => Promise.resolve()),
   resumeSession: vi.fn(() => Promise.resolve()),
+  retrySession: vi.fn(() =>
+    Promise.resolve({
+      id: "new",
+      name: "retry",
+      repo: "",
+      repoId: "",
+      branch: "",
+      status: "running",
+      stateChangedAt: Date.now(),
+    }),
+  ),
 }));
 
 function makeSession(overrides: Partial<Session> = {}): Session {
