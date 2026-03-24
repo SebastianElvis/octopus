@@ -217,7 +217,7 @@ export function IssueBacklog({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Task Backlog</h2>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Task Backlog</h2>
       </div>
 
       {/* Search bar */}
@@ -482,7 +482,11 @@ function IssueIcon({ state }: { state: string }) {
     );
   }
   return (
-    <svg className="mt-0.5 h-4 w-4 shrink-0 text-green-700 dark:text-green-500" viewBox="0 0 16 16" fill="currentColor">
+    <svg
+      className="mt-0.5 h-4 w-4 shrink-0 text-green-700 dark:text-green-500"
+      viewBox="0 0 16 16"
+      fill="currentColor"
+    >
       <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
       <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
     </svg>

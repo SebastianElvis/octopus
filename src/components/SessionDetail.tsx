@@ -368,7 +368,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       {/* lastMessage display */}
       {session.lastMessage && (
         <div className="shrink-0 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/50">
-          <p className="text-xs text-gray-600 dark:text-gray-400">
+          <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400">
             <span className="font-medium">Last message:</span> {session.lastMessage}
           </p>
         </div>
@@ -380,7 +380,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           <h3 className="mb-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
             Session Recap
           </h3>
-          <p className="whitespace-pre-wrap text-xs text-gray-700 dark:text-gray-300">{recap}</p>
+          <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-700 dark:text-gray-300">
+            {recap}
+          </p>
         </div>
       )}
 
@@ -396,7 +398,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               Close
             </button>
           </div>
-          <pre className="whitespace-pre-wrap font-mono text-xs text-gray-300">{fullLog}</pre>
+          <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-gray-300">
+            {fullLog}
+          </pre>
         </div>
       )}
 
@@ -406,7 +410,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           {/* Recent output context */}
           {lastOutputLines.length > 0 && (
             <div className="mb-2 max-h-32 overflow-y-auto rounded bg-gray-900 px-3 py-2">
-              <pre className="font-mono text-xs text-gray-300">{lastOutputLines.join("")}</pre>
+              <pre className="font-mono text-xs leading-5 text-gray-300">
+                {lastOutputLines.join("")}
+              </pre>
             </div>
           )}
           <div className="flex gap-2">

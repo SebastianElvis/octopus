@@ -206,7 +206,9 @@ export function RepoSettings() {
                 <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                   {repo.githubUrl}
                 </p>
-                <p className="truncate text-xs text-gray-500 dark:text-gray-400">{repo.localPath}</p>
+                <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                  {repo.localPath}
+                </p>
                 <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                   Default branch: {repo.defaultBranch}
                 </p>

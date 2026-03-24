@@ -195,9 +195,9 @@ export function OnboardingDialog({
 
 function ShortcutRow({ keys, action }: { keys: string; action: string }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between py-1">
       <span className="text-xs text-gray-600 dark:text-gray-400">{action}</span>
-      <kbd className="rounded border border-gray-300 px-1.5 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-400">
+      <kbd className="rounded border border-gray-300 px-2 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-400">
         {keys}
       </kbd>
     </div>
