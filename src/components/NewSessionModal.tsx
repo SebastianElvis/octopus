@@ -15,9 +15,12 @@ interface NewSessionModalProps {
 
 type LinkedItem = { kind: "issue"; issue: GitHubIssue } | { kind: "pr"; pr: GitHubPR };
 
-function generatePrompt(kind: "issue" | "pr", url: string): string {
+type CreationStep = "idle" | "worktree" | "spawning" | "done";
+
+function generatePrompt(kind: "issue" | "pr", url: string, body?: string): string {
+  const bodyNote = body ? `\n\nIssue body:\n${body}` : "";
   if (kind === "issue") {
-    return `Read ${url} , understand the requirements, and resolve the issue.`;
+    return `Read ${url} , understand the requirements, and resolve the issue.${bodyNote}`;
   }
   return `Read ${url} , review the changes, and address any feedback or requested changes.`;
 }
@@ -36,7 +39,7 @@ export function NewSessionModal({
   const [query, setQuery] = useState("");
   const [prompt, setPrompt] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [createdName, setCreatedName] = useState<string | null>(null);
+  const [creationStep, setCreationStep] = useState<CreationStep>("idle");
   const [error, setError] = useState<string | null>(null);
   const [worktreeConflict, setWorktreeConflict] = useState(false);
   const [dangerouslySkipPermissions, setDangerouslySkipPermissions] = useState(false);
@@ -65,7 +68,7 @@ export function NewSessionModal({
   useEffect(() => {
     if (prefillIssue) {
       setLinked({ kind: "issue", issue: prefillIssue });
-      setPrompt(generatePrompt("issue", prefillIssue.htmlUrl));
+      setPrompt(generatePrompt("issue", prefillIssue.htmlUrl, prefillIssue.body));
       setQuery(`#${prefillIssue.number}`);
     }
     if (prefillPR) {
@@ -115,7 +118,7 @@ export function NewSessionModal({
   function selectIssue(issue: GitHubIssue) {
     setLinked({ kind: "issue", issue });
     if (!prompt) {
-      setPrompt(generatePrompt("issue", issue.htmlUrl));
+      setPrompt(generatePrompt("issue", issue.htmlUrl, issue.body));
     }
     setShowDropdown(false);
   }
@@ -194,6 +197,9 @@ export function NewSessionModal({
     return prompt.trim().slice(0, 60) || `session-${Date.now()}`;
   }
 
+  const branchPreview = deriveBranchName();
+  const canSubmit = prompt.trim().length > 0 && repos.length > 0 && !submitting;
+
   async function handleSubmit(force = false) {
     if (!repoId || !prompt.trim()) {
       setError("Please select a repository and provide a prompt.");
@@ -202,7 +208,9 @@ export function NewSessionModal({
     setSubmitting(true);
     setError(null);
     setWorktreeConflict(false);
+    setCreationStep("worktree");
     try {
+      setCreationStep("spawning");
       const session = await spawnSession({
         repoId,
         branch: deriveBranchName(),
@@ -214,12 +222,12 @@ export function NewSessionModal({
         dangerouslySkipPermissions: dangerouslySkipPermissions || undefined,
       });
       addSession(session);
-      setCreatedName(session.name);
-      setTimeout(() => {
-        onClose();
-        onCreated?.(session.id);
-      }, 1200);
+      setCreationStep("done");
+      // Close immediately and let the toast handle notification
+      onClose();
+      onCreated?.(session.id);
     } catch (err: unknown) {
+      setCreationStep("idle");
       const msg = formatError(err);
       if (msg.includes("WORKTREE_CONFLICT:")) {
         setError(msg.replace("WORKTREE_CONFLICT: ", ""));
@@ -230,35 +238,6 @@ export function NewSessionModal({
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (createdName) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900">
-          <div className="flex flex-col items-center py-8">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-              <svg
-                className="h-6 w-6 text-green-600 dark:text-green-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Session Created
-            </h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{createdName}</p>
-            <p className="mt-3 text-xs text-gray-400 dark:text-gray-600">
-              Switching to dispatch board...
-            </p>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -280,6 +259,23 @@ export function NewSessionModal({
             </svg>
           </button>
         </div>
+
+        {/* Progress steps */}
+        {creationStep !== "idle" && creationStep !== "done" && (
+          <div className="mb-4 flex items-center gap-2">
+            <StepIndicator
+              active={creationStep === "worktree"}
+              done={creationStep === "spawning"}
+              label="Creating worktree"
+            />
+            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+            <StepIndicator
+              active={creationStep === "spawning"}
+              done={false}
+              label="Spawning session"
+            />
+          </div>
+        )}
 
         <div className="space-y-4">
           {/* Repo selector */}
@@ -355,7 +351,7 @@ export function NewSessionModal({
                     )}
                     {linked.kind === "pr" && (
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
-                        {linked.pr.headRef} → {linked.pr.baseRef}
+                        {linked.pr.headRef} &rarr; {linked.pr.baseRef}
                       </p>
                     )}
                   </div>
@@ -387,7 +383,7 @@ export function NewSessionModal({
                     // Delay to allow dropdown click to register
                     setTimeout(() => setShowDropdown(false), 200);
                   }}
-                  placeholder="Paste URL, type #number, or search…"
+                  placeholder="Paste URL, type #number, or search..."
                   className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
                 />
 
@@ -396,7 +392,7 @@ export function NewSessionModal({
                   <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                     {loadingItems && (
                       <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-600">
-                        Loading…
+                        Loading...
                       </div>
                     )}
                     {!loadingItems && filteredItems.length === 0 && (
@@ -449,14 +445,21 @@ export function NewSessionModal({
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Describe the task for Claude…"
+              placeholder="Describe the task for Claude..."
               rows={4}
               className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
             />
+            {/* Branch name preview */}
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-600">
+              Branch:{" "}
+              <code className="rounded bg-gray-100 px-1 py-0.5 font-mono dark:bg-gray-800">
+                {branchPreview}
+              </code>
+            </p>
           </div>
 
           {/* Skip permissions */}
-          <label className="flex items-center gap-2 cursor-pointer">
+          <label className="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
               checked={dangerouslySkipPermissions}
@@ -495,21 +498,46 @@ export function NewSessionModal({
               disabled={submitting}
               className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-40"
             >
-              {submitting ? "Replacing…" : "Replace & Create"}
+              {submitting ? "Replacing..." : "Replace & Create"}
             </button>
           ) : (
             <button
               onClick={() => {
                 void handleSubmit();
               }}
-              disabled={submitting || repos.length === 0}
+              disabled={!canSubmit}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
             >
-              {submitting ? "Creating…" : "Create Session"}
+              {submitting ? "Creating..." : "Create Session"}
             </button>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function StepIndicator({ active, done, label }: { active: boolean; done: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        className={`h-2 w-2 rounded-full ${
+          done
+            ? "bg-green-500"
+            : active
+              ? "animate-pulse bg-blue-500"
+              : "bg-gray-300 dark:bg-gray-600"
+        }`}
+      />
+      <span
+        className={`text-xs ${
+          active || done
+            ? "font-medium text-gray-700 dark:text-gray-300"
+            : "text-gray-400 dark:text-gray-600"
+        }`}
+      >
+        {label}
+      </span>
     </div>
   );
 }
