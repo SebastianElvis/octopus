@@ -245,7 +245,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+            className="cursor-pointer text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-300"
           >
             &larr; Board
           </button>
@@ -271,7 +271,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               onClick={() => {
                 void handleResume();
               }}
-              className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
+              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
               Resume
             </button>
@@ -281,7 +281,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               onClick={() => {
                 void handleRetry();
               }}
-              className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
+              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
               Retry
             </button>
@@ -292,7 +292,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                 void handleViewLog();
               }}
               disabled={logLoading}
-              className="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
             >
               {logLoading ? "Loading..." : "View Full Log"}
             </button>
@@ -303,7 +303,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                 void handleGenerateRecap();
               }}
               disabled={recapLoading}
-              className="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
             >
               {recapLoading
                 ? "Generating..."
@@ -321,7 +321,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               </span>
               <button
                 onClick={() => setShowKillConfirm(false)}
-                className="rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800"
+                className="cursor-pointer rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:bg-gray-800 dark:active:bg-gray-700"
               >
                 Cancel
               </button>
@@ -330,7 +330,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   setShowKillConfirm(false);
                   void handleKill();
                 }}
-                className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500"
+                className="cursor-pointer rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
               >
                 Confirm Kill
               </button>
@@ -338,7 +338,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           ) : (
             <button
               onClick={() => setShowKillConfirm(true)}
-              className="rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30"
+              className="cursor-pointer rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 active:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:active:bg-red-950/50"
             >
               Kill
             </button>
@@ -393,7 +393,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             <h3 className="mb-1 text-xs font-semibold text-gray-400">Full Log</h3>
             <button
               onClick={() => setShowFullLog(false)}
-              className="text-xs text-gray-500 hover:text-gray-300"
+              className="cursor-pointer text-xs text-gray-500 hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
               Close
             </button>
@@ -433,7 +433,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                 void handleReply();
               }}
               disabled={replying || !replyText.trim()}
-              className="self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+              className="cursor-pointer self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {replying ? "..." : "Send"}
             </button>

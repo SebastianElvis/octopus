@@ -84,7 +84,7 @@ function SettingsModalInner({
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Settings</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            className="cursor-pointer text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-300"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -103,7 +103,7 @@ function SettingsModalInner({
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 py-2.5 text-xs font-medium transition-colors ${
+              className={`cursor-pointer px-3 py-2.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                 activeTab === tab.id
                   ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
                   : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
@@ -210,7 +210,7 @@ function SettingsModalInner({
                   onClick={() => {
                     void handleSaveApiKey();
                   }}
-                  className="mt-2 rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+                  className="mt-2 cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
                 >
                   {apiKeySaved ? "Saved" : "Save"}
                 </button>
@@ -233,7 +233,7 @@ function SettingsModalInner({
                   onShowShortcuts();
                   onClose();
                 }}
-                className="mt-3 text-xs text-blue-600 hover:underline dark:text-blue-500"
+                className="mt-3 cursor-pointer text-xs text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-blue-500"
               >
                 View full shortcuts overlay
               </button>

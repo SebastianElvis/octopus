@@ -31,7 +31,7 @@ export function EditorTabs({
       {/* Pinned Claude terminal tab */}
       <button
         onClick={onSelectTerminal}
-        className={`flex items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs dark:border-gray-800 ${
+        className={`flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
           terminalActive
             ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
             : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
@@ -47,7 +47,7 @@ export function EditorTabs({
       {hasGitHubTab && onSelectGitHub && (
         <button
           onClick={onSelectGitHub}
-          className={`flex items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs dark:border-gray-800 ${
+          className={`flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
             githubActive
               ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
               : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"

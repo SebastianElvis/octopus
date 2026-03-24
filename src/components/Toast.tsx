@@ -68,7 +68,7 @@ function ToastCard({
         visible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"
       }`}
     >
-      <button onClick={onClick} className="flex-1 text-left text-sm font-medium">
+      <button onClick={onClick} className="flex-1 cursor-pointer text-left text-sm font-medium">
         {toast.message}
       </button>
       <button
@@ -77,7 +77,7 @@ function ToastCard({
           setVisible(false);
           setTimeout(onDismiss, 200);
         }}
-        className="shrink-0 rounded p-0.5 text-white/70 hover:text-white"
+        className="shrink-0 cursor-pointer rounded p-0.5 text-white/70 hover:text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:ring-offset-1"
       >
         <svg
           className="h-4 w-4"
