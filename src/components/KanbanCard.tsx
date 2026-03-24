@@ -46,20 +46,39 @@ const BLOCK_TYPE_PILL: Record<string, string> = {
   confirm: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
 };
 
+export type CIStatus = "success" | "failure" | "pending" | null;
+
 interface KanbanCardProps {
   session: Session;
   onView: (id: string) => void;
   onReply?: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
+  ciStatus?: CIStatus;
 }
 
-export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: KanbanCardProps) {
+export function KanbanCard({
+  session,
+  onView,
+  onReply,
+  onInterrupt,
+  onResume,
+  ciStatus,
+}: KanbanCardProps) {
   const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
   const [quickReply, setQuickReply] = useState("");
   const [showQuickReply, setShowQuickReply] = useState(false);
   const [sending, setSending] = useState(false);
+
+  const ciDotColor =
+    ciStatus === "success"
+      ? "bg-green-500"
+      : ciStatus === "failure"
+        ? "bg-red-500"
+        : ciStatus === "pending"
+          ? "bg-yellow-500"
+          : null;
 
   async function handleQuickReply(e: React.SyntheticEvent) {
     e.preventDefault();
@@ -87,9 +106,15 @@ export function KanbanCard({ session, onView, onReply, onInterrupt, onResume }: 
         <span className="line-clamp-2 text-sm font-medium text-gray-900 dark:text-gray-100">
           {session.name}
         </span>
-        <span className="shrink-0 text-[10px] text-gray-400 dark:text-gray-600">
-          {timeAgo(session.stateChangedAt)}
-        </span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {/* CI indicator dot */}
+          {ciDotColor && (
+            <span className={`h-2 w-2 rounded-full ${ciDotColor}`} title={`CI: ${ciStatus}`} />
+          )}
+          <span className="text-[10px] text-gray-400 dark:text-gray-600">
+            {timeAgo(session.stateChangedAt)}
+          </span>
+        </div>
       </div>
 
       {/* Repo + branch */}

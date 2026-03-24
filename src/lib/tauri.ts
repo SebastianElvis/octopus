@@ -17,6 +17,7 @@ import type {
   ReviewComment,
   FileEntry,
   ChangedFile,
+  CheckRun,
 } from "./types";
 import { mapBackendSession } from "./types";
 
@@ -213,6 +214,11 @@ export async function fetchIssues(repoId: string): Promise<GitHubIssue[]> {
 export async function fetchPRs(repoId: string): Promise<GitHubPR[]> {
   if (!isTauri()) return [];
   return tauriInvoke<GitHubPR[]>("fetch_prs", { repoId });
+}
+
+export async function fetchCheckRuns(repoId: string, gitRef: string): Promise<CheckRun[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<CheckRun[]>("fetch_check_runs", { repoId, gitRef });
 }
 
 // ── Git commands ─────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import type { GitHubIssue, GitHubPR } from "../lib/types";
-import { fetchIssues, fetchPRs, createPR } from "../lib/tauri";
+import { useState, useEffect, useRef, useCallback } from "react";
+import type { GitHubIssue, GitHubPR, CheckRun } from "../lib/types";
+import { fetchIssues, fetchPRs, createPR, fetchCheckRuns } from "../lib/tauri";
 import { formatError } from "../lib/errors";
 import { isTauri } from "../lib/env";
 
@@ -41,6 +41,11 @@ export function GitHubSidebar({
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  // CI checks
+  const [checkRuns, setCheckRuns] = useState<CheckRun[]>([]);
+  const [loadingChecks, setLoadingChecks] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     if (!repoId || !linkedIssueNumber) return;
     setLoadingIssue(true);
@@ -66,6 +71,50 @@ export function GitHubSidebar({
       .catch((err: unknown) => setPrError(formatError(err)))
       .finally(() => setLoadingPR(false));
   }, [repoId, linkedPRNumber]);
+
+  // Poll CI checks when PR exists
+  const fetchChecks = useCallback(async () => {
+    if (!repoId || !pr?.headRef) return;
+    setLoadingChecks(true);
+    try {
+      const runs = await fetchCheckRuns(repoId, pr.headRef);
+      setCheckRuns(runs);
+    } catch {
+      // silently ignore check fetch failures
+    } finally {
+      setLoadingChecks(false);
+    }
+  }, [repoId, pr?.headRef]);
+
+  useEffect(() => {
+    if (!pr) return;
+    void fetchChecks();
+  }, [pr, fetchChecks]);
+
+  // Poll every 30s if checks are pending
+  useEffect(() => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    if (!pr || checkRuns.length === 0) return;
+    const allCompleted = checkRuns.every((c) => c.status === "completed");
+    if (allCompleted) return;
+
+    pollRef.current = setInterval(() => {
+      void fetchChecks();
+    }, 30000);
+
+    return () => {
+      if (pollRef.current) {
+        clearInterval(pollRef.current);
+        pollRef.current = null;
+      }
+    };
+  }, [pr, checkRuns, fetchChecks]);
+
+  const anyChecksFailing =
+    checkRuns.length > 0 && checkRuns.some((c) => c.conclusion === "failure");
 
   async function handleOpenPR() {
     if (!repoId || !branch) return;
@@ -183,6 +232,32 @@ export function GitHubSidebar({
               >
                 View on GitHub →
               </span>
+
+              {/* CI Status Pills */}
+              {(checkRuns.length > 0 || loadingChecks) && (
+                <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-800">
+                  <h4 className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-500">
+                    CI Checks
+                  </h4>
+                  {loadingChecks && checkRuns.length === 0 && (
+                    <span className="text-xs text-gray-400 dark:text-gray-600">Loading...</span>
+                  )}
+                  <div className="flex flex-wrap gap-1">
+                    {checkRuns.map((check) => (
+                      <CheckRunPill key={check.id} check={check} />
+                    ))}
+                  </div>
+                  {anyChecksFailing && (
+                    <p className="mt-1.5 text-xs text-red-600 dark:text-red-400">
+                      Failing:{" "}
+                      {checkRuns
+                        .filter((c) => c.conclusion === "failure")
+                        .map((c) => c.name)
+                        .join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
             </>
           )}
         </DetailSection>
@@ -215,6 +290,23 @@ export function GitHubSidebar({
         <p className="text-xs text-gray-400 dark:text-gray-600">No GitHub context linked.</p>
       )}
     </div>
+  );
+}
+
+function CheckRunPill({ check }: { check: CheckRun }) {
+  const colorCls =
+    check.conclusion === "success"
+      ? "bg-green-500/20 text-green-700 dark:text-green-400"
+      : check.conclusion === "failure"
+        ? "bg-red-500/20 text-red-700 dark:text-red-400"
+        : check.status === "in_progress"
+          ? "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400"
+          : "bg-gray-500/20 text-gray-600 dark:text-gray-400";
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${colorCls}`}>
+      {check.name}
+    </span>
   );
 }
 
