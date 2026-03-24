@@ -146,6 +146,21 @@ struct ApiCheckRunsResponse {
     check_runs: Vec<ApiCheckRun>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MergeResult {
+    pub sha: String,
+    pub merged: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiMergeResponse {
+    sha: Option<String>,
+    merged: Option<bool>,
+    message: Option<String>,
+}
+
 // ---------------------------------------------------------------------------
 // Public data types
 // ---------------------------------------------------------------------------
@@ -632,6 +647,90 @@ pub async fn fetch_check_runs(
             completed_at: c.completed_at,
         })
         .collect())
+}
+
+/// Merge a pull request via the GitHub REST API.
+#[tauri::command]
+pub async fn merge_pr(
+    state: State<'_, AppState>,
+    repo_id: String,
+    pr_number: u64,
+    merge_method: String,
+) -> AppResult<MergeResult> {
+    let github_url = lookup_github_url(&state, &repo_id)?;
+    let token = get_or_refresh_token(&state)?;
+    let (owner, repo) = parse_owner_repo(&github_url)?;
+
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/pulls/{}/merge",
+        owner, repo, pr_number
+    );
+
+    #[derive(Serialize)]
+    struct MergeBody {
+        merge_method: String,
+    }
+
+    let payload = MergeBody {
+        merge_method: merge_method.clone(),
+    };
+
+    let client = &state.http_client;
+    let payload_json = serde_json::to_value(&payload)?;
+    let resp = github_request(client, || client.put(&url).json(&payload_json), &token).await?;
+
+    let api_merge: ApiMergeResponse = resp.json().await?;
+
+    log::info!(
+        "Merged PR #{} in {}/{} using {}",
+        pr_number,
+        owner,
+        repo,
+        merge_method
+    );
+
+    Ok(MergeResult {
+        sha: api_merge.sha.unwrap_or_default(),
+        merged: api_merge.merged.unwrap_or(true),
+        message: api_merge
+            .message
+            .unwrap_or_else(|| "Pull Request merged".to_string()),
+    })
+}
+
+/// Delete a remote branch via the GitHub REST API.
+#[tauri::command]
+pub async fn delete_remote_branch(
+    state: State<'_, AppState>,
+    repo_id: String,
+    branch: String,
+) -> AppResult<()> {
+    let github_url = lookup_github_url(&state, &repo_id)?;
+    let token = get_or_refresh_token(&state)?;
+    let (owner, repo) = parse_owner_repo(&github_url)?;
+
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/git/refs/heads/{}",
+        owner, repo, branch
+    );
+
+    let client = &state.http_client;
+    let resp = github_request(client, || client.delete(&url), &token).await?;
+
+    // 204 No Content is success for DELETE
+    if resp.status().as_u16() != 204 && !resp.status().is_success() {
+        let body = resp
+            .text()
+            .await
+            .unwrap_or_else(|e| format!("(failed to read response body: {})", e));
+        return Err(AppError::Custom(format!(
+            "Failed to delete branch '{}': {}",
+            branch, body
+        )));
+    }
+
+    log::info!("Deleted remote branch '{}' in {}/{}", branch, owner, repo);
+    Ok(())
 }
 
 /// Create a session from PR review comments.
