@@ -3,6 +3,7 @@ mod db;
 mod error;
 mod state;
 
+use commands::ai::{generate_recap, get_setting, set_setting};
 use commands::filesystem::{list_dir, read_file};
 use commands::git_ops::{
     get_changed_files, get_file_at_head, get_file_diff, git_discard_files, git_stage_files,
@@ -289,6 +290,10 @@ pub fn run() {
             git_discard_files,
             get_file_diff,
             get_file_at_head,
+            // ai & settings
+            get_setting,
+            set_setting,
+            generate_recap,
             // system
             check_prerequisites,
         ])

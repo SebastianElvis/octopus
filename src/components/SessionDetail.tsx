@@ -3,6 +3,7 @@ import { timeAgo } from "../lib/utils";
 import {
   killSession as tauriKillSession,
   resumeSession as tauriResumeSession,
+  generateRecap,
   fetchIssues,
   fetchPRs,
 } from "../lib/tauri";
@@ -60,6 +61,12 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   // GitHub data for the detail tab
   const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
   const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
+
+  // Recap state
+  const [recap, setRecap] = useState<string | null>(null);
+  const [recapLoading, setRecapLoading] = useState(false);
+  const [recapError, setRecapError] = useState<string | null>(null);
+  const [showRecap, setShowRecap] = useState(false);
 
   const hasGitHubLink = !!(session?.linkedIssue ?? session?.linkedPR);
 
@@ -150,6 +157,27 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
+  async function handleGenerateRecap() {
+    if (!session) return;
+    if (recap) {
+      setShowRecap(!showRecap);
+      return;
+    }
+    setRecapLoading(true);
+    setRecapError(null);
+    try {
+      const result = await generateRecap(session.id);
+      setRecap(result);
+      setShowRecap(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to generate recap";
+      setRecapError(message);
+      console.error("[SessionDetail] Failed to generate recap:", err);
+    } finally {
+      setRecapLoading(false);
+    }
+  }
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeContent = activeTabId ? contents[activeTabId] : null;
   const showEditor = centerTab === "editor" && activeTab != null && activeContent != null;
@@ -190,6 +218,25 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
             >
               Resume
+            </button>
+          )}
+          {(session.status === "completed" ||
+            session.status === "failed" ||
+            session.status === "waiting") && (
+            <button
+              onClick={() => {
+                void handleGenerateRecap();
+              }}
+              disabled={recapLoading}
+              className="rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            >
+              {recapLoading
+                ? "Generating..."
+                : recap
+                  ? showRecap
+                    ? "Hide Recap"
+                    : "Show Recap"
+                  : "Generate Recap"}
             </button>
           )}
           {showKillConfirm ? (
@@ -238,6 +285,23 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             ⚠ Session interrupted — the app was restarted while this session was active. Click
             Resume to continue.
           </span>
+        </div>
+      )}
+
+      {/* Recap panel */}
+      {showRecap && recap && (
+        <div className="shrink-0 border-b border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800/60 dark:bg-blue-950/20">
+          <h3 className="mb-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
+            Session Recap
+          </h3>
+          <p className="whitespace-pre-wrap text-xs text-gray-700 dark:text-gray-300">{recap}</p>
+        </div>
+      )}
+
+      {/* Recap error */}
+      {recapError && (
+        <div className="shrink-0 border-b border-red-200 bg-red-50 px-4 py-2 dark:border-red-800/60 dark:bg-red-950/20">
+          <p className="text-xs text-red-600 dark:text-red-400">{recapError}</p>
         </div>
       )}
 
