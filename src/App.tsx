@@ -10,6 +10,7 @@ import { SidebarTree } from "./components/SidebarTree";
 import { ResizeHandle } from "./components/ResizeHandle";
 import { CommandPalette } from "./components/CommandPalette";
 import { ToastContainer, type ToastItem } from "./components/Toast";
+import { OnboardingDialog, useOnboarding } from "./components/OnboardingDialog";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { useUIStore } from "./stores/uiStore";
@@ -31,6 +32,8 @@ function App() {
   const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
   const [prefillPR, setPrefillPR] = useState<GitHubPR | null>(null);
   const [openIssueCount, setOpenIssueCount] = useState(0);
+
+  const { showOnboarding, dismissOnboarding } = useOnboarding();
 
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const updateSession = useSessionStore((s) => s.updateSession);
@@ -366,6 +369,21 @@ function App() {
           )}
         </ErrorBoundary>
       </main>
+
+      {/* Onboarding dialog */}
+      {showOnboarding && (
+        <OnboardingDialog
+          onClose={dismissOnboarding}
+          onOpenRepoSettings={() => {
+            setView("repos");
+            dismissOnboarding();
+          }}
+          onOpenNewSession={() => {
+            setShowNewSession(true);
+            dismissOnboarding();
+          }}
+        />
+      )}
 
       {/* New session modal */}
       {showNewSession && (
