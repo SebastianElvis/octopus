@@ -1,35 +1,12 @@
 import type { Session } from "../lib/types";
 import { timeAgo } from "../lib/utils";
-
-const STATUS_ACCENT: Record<string, string> = {
-  waiting: "bg-red-500",
-  running: "bg-green-500",
-  idle: "bg-gray-500",
-  done: "bg-gray-600",
-  completed: "bg-green-600",
-  failed: "bg-red-600",
-  paused: "bg-gray-400",
-  stuck: "bg-orange-500",
-};
-
-const STATUS_PILL: Record<string, string> = {
-  waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
-  running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
-  idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
-  done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
-  completed:
-    "bg-green-200/60 text-green-600 ring-1 ring-green-300/30 dark:bg-green-900/30 dark:text-green-400 dark:ring-green-700/30",
-  failed:
-    "bg-red-200/60 text-red-600 ring-1 ring-red-300/30 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-700/30",
-  paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
-  stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
-};
-
-const BLOCK_TYPE_PILL: Record<string, string> = {
-  decision: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
-  review: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
-  confirm: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
-};
+import {
+  STATUS_ACCENT,
+  STATUS_PILL,
+  STATUS_DOT,
+  BLOCK_TYPE_PILL,
+  RUNNING_PULSE,
+} from "../lib/statusColors";
 
 interface SessionCardProps {
   session: Session;
@@ -62,8 +39,11 @@ export function SessionCard({
                 {session.name}
               </span>
               <span
-                className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_PILL[session.status]}`}
+                className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
               >
+                <span
+                  className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"} ${session.status === "running" ? RUNNING_PULSE : ""}`}
+                />
                 {session.status}
               </span>
               {session.status === "waiting" && session.blockType && (

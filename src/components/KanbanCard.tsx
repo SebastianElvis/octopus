@@ -3,49 +3,14 @@ import type { Session } from "../lib/types";
 import { timeAgo } from "../lib/utils";
 import { replyToSession } from "../lib/tauri";
 import { formatError } from "../lib/errors";
-
-const STATUS_PILL: Record<string, string> = {
-  waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
-  running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
-  idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
-  done: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
-  completed: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
-  failed: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
-  killed: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
-  paused: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
-  stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
-  interrupted: "bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/30 dark:text-amber-400",
-};
-
-// Human-friendly labels for statuses
-const STATUS_LABEL: Record<string, string> = {
-  completed: "completed",
-  done: "closed",
-  failed: "failed",
-  killed: "killed",
-  idle: "idle",
-  waiting: "waiting",
-  running: "running",
-  paused: "paused",
-  stuck: "stuck",
-  interrupted: "interrupted",
-};
-
-// GitHub-style left border color for closed sessions
-const CLOSED_BORDER: Record<string, string> = {
-  completed: "border-l-purple-500",
-  done: "border-l-purple-500",
-  failed: "border-l-red-500",
-  killed: "border-l-gray-400",
-  idle: "border-l-gray-400",
-  interrupted: "border-l-amber-500",
-};
-
-const BLOCK_TYPE_PILL: Record<string, string> = {
-  decision: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
-  review: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
-  confirm: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
-};
+import {
+  STATUS_PILL,
+  STATUS_LABEL,
+  CLOSED_BORDER,
+  BLOCK_TYPE_PILL,
+  STATUS_DOT,
+  RUNNING_PULSE,
+} from "../lib/statusColors";
 
 export type CIStatus = "success" | "failure" | "pending" | null;
 
@@ -143,8 +108,11 @@ export function KanbanCard({
       {/* Pills row */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span
-          className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${STATUS_PILL[session.status]}`}
+          className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
         >
+          <span
+            className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"} ${session.status === "running" ? RUNNING_PULSE : ""}`}
+          />
           {STATUS_LABEL[session.status] ?? session.status}
         </span>
         {session.status === "waiting" && session.blockType && (

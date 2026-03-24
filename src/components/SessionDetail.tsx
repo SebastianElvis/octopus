@@ -23,22 +23,7 @@ import { ReviewComments } from "./ReviewComments";
 import { GitHubDetailView } from "./GitHubDetailView";
 import { ShellPanel } from "./ShellPanel";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
-
-const STATUS_PILL: Record<string, string> = {
-  waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
-  running: "bg-green-500/20 text-green-600 ring-1 ring-green-500/30 dark:text-green-400",
-  idle: "bg-gray-500/20 text-gray-500 ring-1 ring-gray-500/30 dark:text-gray-400",
-  done: "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
-  completed:
-    "bg-green-200/60 text-green-600 ring-1 ring-green-300/30 dark:bg-green-900/30 dark:text-green-400 dark:ring-green-700/30",
-  failed:
-    "bg-red-200/60 text-red-600 ring-1 ring-red-300/30 dark:bg-red-900/30 dark:text-red-400 dark:ring-red-700/30",
-  killed:
-    "bg-gray-200/60 text-gray-500 ring-1 ring-gray-300/30 dark:bg-gray-700/40 dark:text-gray-500 dark:ring-gray-600/30",
-  paused: "bg-gray-400/20 text-gray-500 ring-1 ring-gray-400/30 dark:text-gray-400",
-  stuck: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
-  interrupted: "bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/30 dark:text-amber-400",
-};
+import { STATUS_PILL, STATUS_DOT, RUNNING_PULSE } from "../lib/statusColors";
 
 type CenterTab = "terminal" | "editor" | "github";
 
@@ -252,8 +237,11 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           <span className="text-gray-300 dark:text-gray-700">|</span>
           <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{session.name}</h1>
           <span
-            className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_PILL[session.status]}`}
+            className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
           >
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"} ${session.status === "running" ? RUNNING_PULSE : ""}`}
+            />
             {session.status}
           </span>
           {session.branch && (
