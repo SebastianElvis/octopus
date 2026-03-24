@@ -9,15 +9,16 @@ interface Props {
 
 interface State {
   error: Error | null;
+  resetKey: number;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { error: null };
+    this.state = { error: null, resetKey: 0 };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
   }
 
@@ -26,11 +27,12 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   handleReset = () => {
-    this.setState({ error: null });
+    // Increment resetKey to force remount the entire child tree
+    this.setState((prev) => ({ error: null, resetKey: prev.resetKey + 1 }));
   };
 
   render() {
-    const { error } = this.state;
+    const { error, resetKey } = this.state;
     const { children, fallback } = this.props;
 
     if (error) {
@@ -56,6 +58,7 @@ export class ErrorBoundary extends Component<Props, State> {
       );
     }
 
-    return children;
+    // Use key to force remount on reset
+    return <div key={resetKey}>{children}</div>;
   }
 }

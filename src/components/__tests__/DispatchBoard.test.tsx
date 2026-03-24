@@ -26,20 +26,21 @@ beforeEach(() => {
   useSessionStore.setState({
     sessions: [],
     sessionsLoading: false,
+    sessionsError: null,
   });
 });
 
 describe("DispatchBoard", () => {
   it("shows empty state when no sessions", () => {
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
-    expect(screen.getByText("No sessions yet")).toBeInTheDocument();
-    expect(screen.getByText("+ New Session")).toBeInTheDocument();
+    expect(screen.getByText("Welcome to TooManyTabs")).toBeInTheDocument();
+    expect(screen.getByText("Get Started")).toBeInTheDocument();
   });
 
   it("calls onNewSession when button clicked in empty state", () => {
     const onNewSession = vi.fn();
     render(<DispatchBoard onViewSession={() => {}} onNewSession={onNewSession} />);
-    fireEvent.click(screen.getByText("+ New Session"));
+    fireEvent.click(screen.getByText("Get Started"));
     expect(onNewSession).toHaveBeenCalled();
   });
 
@@ -49,6 +50,29 @@ describe("DispatchBoard", () => {
       <DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />,
     );
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+  });
+
+  it("shows error state when sessionsError is set", () => {
+    useSessionStore.setState({
+      sessionsLoading: false,
+      sessionsError: "Database connection failed",
+    });
+    render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
+    expect(screen.getByText("Failed to load sessions")).toBeInTheDocument();
+    expect(screen.getByText("Database connection failed")).toBeInTheDocument();
+    expect(screen.getByText("Retry")).toBeInTheDocument();
+  });
+
+  it("retry button triggers loadSessions", () => {
+    const loadSessions = vi.fn(() => Promise.resolve());
+    useSessionStore.setState({
+      sessionsLoading: false,
+      sessionsError: "Something broke",
+      loadSessions,
+    });
+    render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
+    fireEvent.click(screen.getByText("Retry"));
+    expect(loadSessions).toHaveBeenCalled();
   });
 
   it("renders three kanban columns", () => {
