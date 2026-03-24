@@ -15,12 +15,14 @@ interface UIState {
   rightPanelCollapsed: boolean;
   sidebarCollapsed: boolean;
   soundEnabled: boolean;
+  terminalFontSize: number;
 
   setPanelSize: (key: keyof PanelSizes, value: number) => void;
   setRightPanelTab: (tab: RightPanelTab) => void;
   toggleRightPanel: () => void;
   toggleSidebar: () => void;
   toggleSound: () => void;
+  setTerminalFontSize: (size: number) => void;
 }
 
 const STORAGE_KEY = "tmt-panel-sizes";
@@ -43,6 +45,19 @@ function saveSizes(sizes: PanelSizes) {
   }
 }
 
+function loadTerminalFontSize(): number {
+  try {
+    const val = localStorage.getItem("tmt-terminal-font-size");
+    if (val) {
+      const n = parseInt(val, 10);
+      if (!isNaN(n) && n >= 8 && n <= 24) return n;
+    }
+  } catch {
+    /* ignore */
+  }
+  return 13;
+}
+
 function loadSoundPref(): boolean {
   try {
     const val = localStorage.getItem("tmt-sound-enabled");
@@ -58,6 +73,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   rightPanelCollapsed: false,
   sidebarCollapsed: false,
   soundEnabled: loadSoundPref(),
+  terminalFontSize: loadTerminalFontSize(),
 
   setPanelSize: (key, value) => {
     const newSizes = { ...get().panelSizes, [key]: value };
@@ -76,5 +92,13 @@ export const useUIStore = create<UIState>((set, get) => ({
       /* ignore */
     }
     set({ soundEnabled: next });
+  },
+  setTerminalFontSize: (size: number) => {
+    try {
+      localStorage.setItem("tmt-terminal-font-size", String(size));
+    } catch {
+      /* ignore */
+    }
+    set({ terminalFontSize: size });
   },
 }));
