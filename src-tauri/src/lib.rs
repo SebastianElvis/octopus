@@ -335,7 +335,7 @@ mod tests {
     fn recover_sessions_handles_empty_db() {
         let conn = rusqlite::Connection::open_in_memory().expect("open");
         conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
-        db::run_migrations(&conn).expect("migrations");
+        db::create_schema(&conn).expect("create schema");
         // Should not panic on empty DB
         recover_sessions(&conn);
     }
@@ -344,7 +344,7 @@ mod tests {
     fn scan_orphaned_worktrees_handles_missing_dir() {
         let conn = rusqlite::Connection::open_in_memory().expect("open");
         conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
-        db::run_migrations(&conn).expect("migrations");
+        db::create_schema(&conn).expect("create schema");
         // Should not panic when worktrees directory doesn't exist
         scan_orphaned_worktrees(&conn);
     }

@@ -34,92 +34,42 @@ pub fn open_connection() -> AppResult<Connection> {
     Ok(conn)
 }
 
-/// Get the current schema version from the database.
-fn get_schema_version(conn: &Connection) -> i64 {
-    // Create the schema_version table if it doesn't exist
-    let _ = conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL DEFAULT 0);",
-    );
+/// Create all tables if they don't already exist.
+pub fn create_schema(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS repos (
+            id TEXT PRIMARY KEY,
+            github_url TEXT,
+            local_path TEXT,
+            default_branch TEXT,
+            added_at TEXT
+        );
 
-    let result: Result<i64, _> =
-        conn.query_row("SELECT version FROM schema_version LIMIT 1", [], |row| {
-            row.get(0)
-        });
+        CREATE TABLE IF NOT EXISTS sessions (
+            id TEXT PRIMARY KEY,
+            repo_id TEXT REFERENCES repos(id),
+            name TEXT,
+            branch TEXT,
+            status TEXT,
+            block_type TEXT,
+            worktree_path TEXT,
+            log_path TEXT,
+            linked_issue_number INTEGER,
+            linked_pr_number INTEGER,
+            prompt TEXT,
+            dangerously_skip_permissions INTEGER DEFAULT 0,
+            created_at TEXT,
+            state_changed_at TEXT,
+            last_message TEXT
+        );
 
-    match result {
-        Ok(v) => v,
-        Err(_) => {
-            // No row exists, insert initial version
-            let _ = conn.execute("INSERT INTO schema_version (version) VALUES (0)", []);
-            0
-        }
-    }
-}
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        );",
+    )?;
 
-/// Set the schema version in the database.
-fn set_schema_version(conn: &Connection, version: i64) -> AppResult<()> {
-    conn.execute("UPDATE schema_version SET version = ?1", [version])?;
-    Ok(())
-}
-
-/// Run the database migrations using a versioned migration system.
-pub fn run_migrations(conn: &Connection) -> AppResult<()> {
-    let current_version = get_schema_version(conn);
-
-    if current_version < 1 {
-        conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS repos (
-                id TEXT PRIMARY KEY,
-                github_url TEXT,
-                local_path TEXT,
-                default_branch TEXT,
-                added_at TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS sessions (
-                id TEXT PRIMARY KEY,
-                repo_id TEXT REFERENCES repos(id),
-                name TEXT,
-                branch TEXT,
-                status TEXT,
-                block_type TEXT,
-                worktree_path TEXT,
-                log_path TEXT,
-                linked_issue_number INTEGER,
-                linked_pr_number INTEGER,
-                prompt TEXT,
-                dangerously_skip_permissions INTEGER DEFAULT 0,
-                created_at TEXT,
-                state_changed_at TEXT
-            );
-
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            );",
-        )?;
-        set_schema_version(conn, 1)?;
-        log::info!("Applied migration v1: initial schema");
-    }
-
-    if current_version < 2 {
-        // Add last_message column to sessions table
-        // ALTER TABLE ADD COLUMN is safe even if the column already exists in some edge cases,
-        // but we guard with the version check.
-        let has_column: bool = conn
-            .prepare("SELECT last_message FROM sessions LIMIT 0")
-            .is_ok();
-        if !has_column {
-            conn.execute_batch("ALTER TABLE sessions ADD COLUMN last_message TEXT;")?;
-        }
-        set_schema_version(conn, 2)?;
-        log::info!("Applied migration v2: add last_message to sessions");
-    }
-
-    log::info!(
-        "Database migrations completed successfully (version {})",
-        get_schema_version(conn)
-    );
+    log::info!("Database schema initialized");
     Ok(())
 }
 
@@ -153,10 +103,10 @@ pub fn run_wal_checkpoint(conn: &Connection) {
     }
 }
 
-/// Convenience: open a connection and run migrations in one step.
+/// Convenience: open a connection and create schema in one step.
 pub fn init_db() -> AppResult<Connection> {
     let conn = open_connection()?;
-    run_migrations(&conn)?;
+    create_schema(&conn)?;
     Ok(conn)
 }
 
@@ -168,12 +118,12 @@ mod tests {
         let conn = Connection::open_in_memory().expect("open in-memory db");
         conn.execute_batch("PRAGMA foreign_keys=ON;")
             .expect("enable FK");
-        run_migrations(&conn).expect("migrations");
+        create_schema(&conn).expect("create schema");
         conn
     }
 
     #[test]
-    fn migrations_create_tables() {
+    fn schema_creates_tables() {
         let conn = in_memory_connection();
 
         // Verify the repos table exists by querying it
@@ -196,33 +146,16 @@ mod tests {
     }
 
     #[test]
-    fn migrations_are_idempotent() {
+    fn schema_is_idempotent() {
         let conn = in_memory_connection();
-        // Running migrations a second time should not fail
-        run_migrations(&conn).expect("second migration run");
+        // Running create_schema a second time should not fail
+        create_schema(&conn).expect("second create_schema run");
     }
 
     #[test]
-    fn schema_version_tracking() {
-        let conn = Connection::open_in_memory().expect("open in-memory db");
-        conn.execute_batch("PRAGMA foreign_keys=ON;")
-            .expect("enable FK");
-
-        // Before migrations, version should be 0
-        let v = get_schema_version(&conn);
-        assert_eq!(v, 0);
-
-        // After migrations, version should be 2
-        run_migrations(&conn).expect("migrations");
-        let v = get_schema_version(&conn);
-        assert_eq!(v, 2);
-    }
-
-    #[test]
-    fn last_message_column_exists_after_migration() {
+    fn last_message_column_exists() {
         let conn = in_memory_connection();
 
-        // Insert a repo first (FK constraint)
         conn.execute(
             "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -236,7 +169,6 @@ mod tests {
         )
         .expect("insert repo");
 
-        // Insert a session with last_message
         conn.execute(
             "INSERT INTO sessions (id, repo_id, name, status, last_message, created_at, state_changed_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -296,7 +228,6 @@ mod tests {
     fn insert_and_query_session() {
         let conn = in_memory_connection();
 
-        // Insert a repo first (FK constraint)
         conn.execute(
             "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
              VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -335,8 +266,6 @@ mod tests {
 
     #[test]
     fn db_path_returns_expected_suffix() {
-        // This test just verifies the path ends with the expected components.
-        // It will fail if there is no home directory (unlikely in CI/dev).
         if let Ok(p) = db_path() {
             assert!(p.ends_with(".toomanytabs/toomanytabs.db"));
         }

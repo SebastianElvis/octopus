@@ -58,7 +58,7 @@ Each store in `src/stores/` manages a domain: `sessionStore` (sessions + output 
 - `commands/git_ops.rs` + `github.rs` + `worktree.rs`: Git and GitHub operations
 - `commands/github.rs`: GitHub API with shared HTTP client, token caching (5min), retry with exponential backoff, rate limit handling, CI checks, PR merge, issue close
 - `commands/ai.rs`: Claude API integration for session recaps, key-value settings store
-- `db.rs`: SQLite with WAL mode, versioned migrations (`schema_version` table), `PRAGMA busy_timeout = 5000`, periodic WAL checkpoint
+- `db.rs`: SQLite with WAL mode, `CREATE TABLE IF NOT EXISTS` schema init, `PRAGMA busy_timeout = 5000`, periodic WAL checkpoint
 - `error.rs`: `AppError` with structured error codes (`DB_ERROR`, `IO_ERROR`, `HTTP_ERROR`, `NOT_FOUND`, `AUTH_FAILED`, `RATE_LIMITED`)
 - `lib.rs`: Crash recovery (sentinel file, session recovery, orphaned worktree scan), prerequisites check, WAL checkpoint background task
 
@@ -67,7 +67,7 @@ Each store in `src/stores/` manages a domain: `sessionStore` (sessions + output 
 Special states: `stuck` (no output 20+ min), `interrupted` (process died), `paused`, `killed`
 
 ### Database (SQLite)
-Stored at `~/.toomanytabs/toomanytabs.db`. Tables: `repos` (GitHub URL, local path), `sessions` (linked to repo, tracks status, worktree path, linked issue/PR numbers, last_message), `settings` (key-value store for API keys etc.), `schema_version` (migration tracking). Versioned migrations run on startup via `db::run_migrations()`.
+Stored at `~/.toomanytabs/toomanytabs.db`. Tables: `repos` (GitHub URL, local path), `sessions` (linked to repo, tracks status, worktree path, linked issue/PR numbers, last_message), `settings` (key-value store for API keys etc.). Schema is created on startup via `db::create_schema()` using `CREATE TABLE IF NOT EXISTS`.
 
 ## Key Patterns
 
