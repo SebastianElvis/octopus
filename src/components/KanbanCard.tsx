@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Session } from "../lib/types";
 import { timeAgo } from "../lib/utils";
 import { replyToSession } from "../lib/tauri";
+import { formatError } from "../lib/errors";
 
 const STATUS_PILL: Record<string, string> = {
   waiting: "bg-red-500/20 text-red-600 ring-1 ring-red-500/30 dark:text-red-400",
@@ -70,6 +71,7 @@ export function KanbanCard({
   const [quickReply, setQuickReply] = useState("");
   const [showQuickReply, setShowQuickReply] = useState(false);
   const [sending, setSending] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
 
   const ciDotColor =
     ciStatus === "success"
@@ -85,12 +87,13 @@ export function KanbanCard({
     e.stopPropagation();
     if (!quickReply.trim() || sending) return;
     setSending(true);
+    setReplyError(null);
     try {
       await replyToSession(session.id, quickReply.trim());
       setQuickReply("");
       setShowQuickReply(false);
     } catch (err) {
-      console.error("[KanbanCard] Reply failed:", err);
+      setReplyError(formatError(err));
     } finally {
       setSending(false);
     }
@@ -212,26 +215,33 @@ export function KanbanCard({
       </div>
 
       {/* Inline quick reply */}
+      {/* Inline quick reply - textarea for multi-line */}
       {showQuickReply && session.status === "waiting" && (
         <form
           onSubmit={(e) => {
             void handleQuickReply(e);
           }}
-          className="mt-2 flex gap-1"
+          className="mt-2 flex flex-col gap-1"
           onClick={(e) => e.stopPropagation()}
         >
-          <input
-            type="text"
+          <textarea
             value={quickReply}
             onChange={(e) => setQuickReply(e.target.value)}
-            placeholder="Type reply..."
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                void handleQuickReply(e);
+              }
+            }}
+            placeholder="Type reply... (Cmd+Enter to send)"
             autoFocus
-            className="flex-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-600"
+            rows={3}
+            className="w-full resize-none rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-600"
           />
+          {replyError && <p className="text-[10px] text-red-600 dark:text-red-400">{replyError}</p>}
           <button
             type="submit"
             disabled={sending || !quickReply.trim()}
-            className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            className="self-end rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
           >
             {sending ? "..." : "Send"}
           </button>

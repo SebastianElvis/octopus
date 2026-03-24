@@ -148,4 +148,53 @@ describe("KanbanCard", () => {
     );
     expect(container.firstChild).toHaveClass("opacity-75");
   });
+
+  // H1 feature tests
+
+  it("shows CI indicator dot when ciStatus is provided", () => {
+    const { container } = render(
+      <KanbanCard session={makeSession()} onView={() => {}} ciStatus="success" />,
+    );
+    const dot = container.querySelector('[title="CI: success"]');
+    expect(dot).toBeInTheDocument();
+    expect(dot).toHaveClass("bg-green-500");
+  });
+
+  it("shows red CI dot for failure", () => {
+    const { container } = render(
+      <KanbanCard session={makeSession()} onView={() => {}} ciStatus="failure" />,
+    );
+    const dot = container.querySelector('[title="CI: failure"]');
+    expect(dot).toBeInTheDocument();
+    expect(dot).toHaveClass("bg-red-500");
+  });
+
+  it("shows yellow CI dot for pending", () => {
+    const { container } = render(
+      <KanbanCard session={makeSession()} onView={() => {}} ciStatus="pending" />,
+    );
+    const dot = container.querySelector('[title="CI: pending"]');
+    expect(dot).toBeInTheDocument();
+    expect(dot).toHaveClass("bg-yellow-500");
+  });
+
+  it("does not show CI dot when ciStatus is null", () => {
+    const { container } = render(
+      <KanbanCard session={makeSession()} onView={() => {}} ciStatus={null} />,
+    );
+    expect(container.querySelector('[title^="CI:"]')).not.toBeInTheDocument();
+  });
+
+  it("shows textarea for quick reply (multi-line)", () => {
+    render(
+      <KanbanCard
+        session={makeSession({ status: "waiting" })}
+        onView={() => {}}
+        onReply={() => {}}
+      />,
+    );
+    fireEvent.click(screen.getByText("Quick Reply"));
+    const textarea = screen.getByPlaceholderText("Type reply... (Cmd+Enter to send)");
+    expect(textarea.tagName).toBe("TEXTAREA");
+  });
 });
