@@ -336,7 +336,7 @@ export function GitHubSidebar({
                       disabled={
                         merging || (checkRuns.length > 0 && !allChecksPass && !checksPending)
                       }
-                      className="flex-1 rounded bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-500 disabled:opacity-40"
+                      className="flex-1 cursor-pointer rounded bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-500 active:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {merging ? "Merging..." : "Merge PR"}
                     </button>
@@ -365,7 +365,7 @@ export function GitHubSidebar({
                       onClick={() => {
                         void handleCloseIssue();
                       }}
-                      className="mt-1 text-xs text-blue-600 hover:underline dark:text-blue-500"
+                      className="mt-1 cursor-pointer text-xs text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-blue-500"
                     >
                       Close Issue #{linkedIssueNumber}
                     </button>
@@ -396,7 +396,7 @@ export function GitHubSidebar({
               void handleOpenPR();
             }}
             disabled={creating}
-            className="w-full rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+            className="w-full cursor-pointer rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {creating ? "Creating PR…" : "Open PR"}
           </button>

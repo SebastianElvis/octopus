@@ -224,7 +224,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
           onClick={() => {
             void loadSessions();
           }}
-          className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+          className="mt-4 cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
         >
           Retry
         </button>
@@ -266,7 +266,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         </div>
         <button
           onClick={onNewSession}
-          className="mt-6 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+          className="mt-6 cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
         >
           Get Started
         </button>
@@ -299,7 +299,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         </div>
         <button
           onClick={onNewSession}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500"
+          className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
         >
           + New Session
         </button>
@@ -331,7 +331,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="cursor-pointer text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:text-gray-300"
             >
               <svg
                 className="h-3 w-3"
@@ -358,7 +358,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
               onClick={() => {
                 void handleBulkKill();
               }}
-              className="rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500"
+              className="cursor-pointer rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
             >
               Kill Selected
             </button>
@@ -368,14 +368,14 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
               onClick={() => {
                 void handleBulkResume();
               }}
-              className="rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500"
+              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
               Resume Selected
             </button>
           )}
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="ml-auto text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            className="ml-auto cursor-pointer text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-400 dark:hover:text-gray-200"
           >
             Clear selection
           </button>

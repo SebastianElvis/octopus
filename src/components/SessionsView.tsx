@@ -82,13 +82,13 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
         <div className="mt-4 flex gap-2">
           <button
             onClick={onManageRepos}
-            className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 dark:active:bg-gray-700"
           >
             Add a Repo
           </button>
           <button
             onClick={onNewSession}
-            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+            className="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           >
             + New Session
           </button>
@@ -103,7 +103,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
         <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Sessions</h2>
         <button
           onClick={onManageRepos}
-          className="rounded-md px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/40"
+          className="cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 active:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-blue-400 dark:hover:bg-blue-950/40 dark:active:bg-blue-950/60"
         >
           Manage Repos
         </button>

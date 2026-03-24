@@ -136,7 +136,7 @@ export function GitChangesPanel({
           onClick={() => {
             void refreshChanges();
           }}
-          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+          className="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300 dark:active:bg-gray-700"
           title="Refresh"
         >
           <svg
@@ -230,7 +230,7 @@ export function GitChangesPanel({
               void handleCommit();
             }}
             disabled={committing || pushing || !commitMessage.trim() || staged.length === 0}
-            className="flex-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+            className="flex-1 cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {committing ? "Committing..." : "Commit"}
           </button>
@@ -239,7 +239,7 @@ export function GitChangesPanel({
               void handlePush();
             }}
             disabled={pushing || committing}
-            className="rounded border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:border-blue-500 dark:text-blue-400 dark:hover:bg-blue-950/30"
+            className="cursor-pointer rounded border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 active:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-500 dark:text-blue-400 dark:hover:bg-blue-950/30 dark:active:bg-blue-950/50"
           >
             {pushing ? "Pushing..." : "Push"}
           </button>
@@ -248,7 +248,7 @@ export function GitChangesPanel({
               void handleCommitAndPush();
             }}
             disabled={pushing || committing || !commitMessage.trim() || staged.length === 0}
-            className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+            className="cursor-pointer rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
           >
             {pushing ? "..." : "Commit & Push"}
           </button>
@@ -312,7 +312,7 @@ function FileSection({
           )}
           <button
             onClick={onBulkAction}
-            className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
+            className="cursor-pointer text-xs text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-400"
           >
             {bulkLabel}
           </button>
@@ -336,7 +336,7 @@ function FileSection({
           >
             <button
               onClick={() => onSelect(f)}
-              className="flex flex-1 items-center gap-1.5 truncate text-left"
+              className="flex flex-1 cursor-pointer items-center gap-1.5 truncate text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
               <span
                 className={`shrink-0 rounded px-1 py-0.5 text-xs font-mono leading-none ${badge.cls}`}

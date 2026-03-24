@@ -115,7 +115,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
               void handleCreateSession();
             }}
             disabled={creating}
-            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+            className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {creating ? "Creating..." : `Create Session to Address (${String(selectedIds.size)})`}
           </button>

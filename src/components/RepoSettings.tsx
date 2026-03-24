@@ -83,7 +83,7 @@ export function RepoSettings() {
         <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Repositories</h2>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500"
+          className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
         >
           + Add Repo
         </button>
@@ -159,7 +159,7 @@ export function RepoSettings() {
                   setError(null);
                 }}
                 disabled={adding}
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 disabled:opacity-40 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600"
+                className="cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:active:bg-gray-800"
               >
                 Cancel
               </button>
@@ -168,7 +168,7 @@ export function RepoSettings() {
                   void handleAdd();
                 }}
                 disabled={adding}
-                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+                className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {adding ? "Adding…" : "Add"}
               </button>
@@ -217,7 +217,7 @@ export function RepoSettings() {
                 onClick={() => {
                   void removeRepo(repo.id);
                 }}
-                className="ml-3 shrink-0 rounded-md border border-gray-300 px-2.5 py-1 text-xs text-red-500 hover:border-red-300 hover:text-red-600 dark:border-gray-700 dark:text-red-400 dark:hover:border-red-800 dark:hover:text-red-300"
+                className="ml-3 shrink-0 cursor-pointer rounded-md border border-gray-300 px-2.5 py-1 text-xs text-red-500 hover:border-red-300 hover:text-red-600 active:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-gray-700 dark:text-red-400 dark:hover:border-red-800 dark:hover:text-red-300 dark:active:bg-red-950/30"
               >
                 Remove
               </button>
