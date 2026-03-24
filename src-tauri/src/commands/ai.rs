@@ -176,14 +176,14 @@ pub async fn generate_recap(state: State<'_, AppState>, session_id: String) -> A
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::run_migrations;
+    use crate::db::create_schema;
     use rusqlite::Connection;
 
     fn setup_state() -> AppState {
         let conn = Connection::open_in_memory().expect("open in-memory db");
         conn.execute_batch("PRAGMA foreign_keys=ON;")
             .expect("enable FK");
-        run_migrations(&conn).expect("migrations");
+        create_schema(&conn).expect("create schema");
         AppState::new(conn)
     }
 
