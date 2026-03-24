@@ -53,7 +53,7 @@ export function FileTree({ rootPath, onFileSelect }: FileTreeProps) {
   if (rootLoading && rootEntries.length === 0) {
     return (
       <div className="flex h-20 items-center justify-center">
-        <span className="text-xs text-gray-400 dark:text-gray-600">Loading…</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">Loading…</span>
       </div>
     );
   }
@@ -61,7 +61,7 @@ export function FileTree({ rootPath, onFileSelect }: FileTreeProps) {
   if (rootEntries.length === 0) {
     return (
       <div className="flex h-20 items-center justify-center">
-        <span className="text-xs text-gray-400 dark:text-gray-600">Empty directory</span>
+        <span className="text-xs text-gray-400 dark:text-gray-500">Empty directory</span>
       </div>
     );
   }
@@ -114,7 +114,7 @@ function FileTreeNode({
           style={{ paddingLeft: `${depth * 12 + 4}px` }}
         >
           <svg
-            className={`h-3 w-3 shrink-0 text-gray-400 transition-transform dark:text-gray-600 ${isExpanded ? "rotate-90" : ""}`}
+            className={`h-3 w-3 shrink-0 text-gray-400 transition-transform dark:text-gray-500 ${isExpanded ? "rotate-90" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -129,7 +129,7 @@ function FileTreeNode({
             {isLoading && children.length === 0 && (
               <div
                 style={{ paddingLeft: `${(depth + 1) * 12 + 4}px` }}
-                className="py-0.5 text-gray-400 dark:text-gray-600"
+                className="py-0.5 text-gray-400 dark:text-gray-500"
               >
                 Loading…
               </div>

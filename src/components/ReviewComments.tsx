@@ -98,7 +98,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
         <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Review Comments
         </h3>
-        <p className="text-xs text-gray-400 dark:text-gray-600">No review comments on this PR.</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">No review comments on this PR.</p>
       </div>
     );
   }
@@ -146,11 +146,11 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
                   <span className="font-medium text-gray-700 dark:text-gray-300">
                     {comment.user}
                   </span>
-                  <span className="text-gray-400 dark:text-gray-600">
+                  <span className="text-gray-400 dark:text-gray-500">
                     {timeAgo(new Date(comment.createdAt).getTime())}
                   </span>
                 </div>
-                <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-600">
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
                   <span className="font-mono">{comment.path}</span>
                   {comment.line !== null && <span>:{String(comment.line)}</span>}
                 </div>

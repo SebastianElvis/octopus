@@ -284,7 +284,7 @@ export function NewSessionModal({
               Repository
             </label>
             {repos.length === 0 ? (
-              <p className="text-xs text-gray-400 dark:text-gray-600">No repositories added yet.</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">No repositories added yet.</p>
             ) : (
               <select
                 value={repoId}
@@ -307,7 +307,7 @@ export function NewSessionModal({
           {/* Unified source input */}
           <div className="relative">
             <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-              Link Issue or PR <span className="text-gray-400 dark:text-gray-600">(optional)</span>
+              Link Issue or PR <span className="text-gray-400 dark:text-gray-500">(optional)</span>
             </label>
 
             {/* Show linked item card */}
@@ -325,7 +325,7 @@ export function NewSessionModal({
                       >
                         {linked.kind === "issue" ? "Issue" : "PR"}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-600">
+                      <span className="text-xs text-gray-400 dark:text-gray-500">
                         #{linked.kind === "issue" ? linked.issue.number : linked.pr.number}
                       </span>
                     </div>
@@ -357,7 +357,7 @@ export function NewSessionModal({
                   </div>
                   <button
                     onClick={clearLinked}
-                    className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-400"
+                    className="shrink-0 rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-400"
                     title="Remove"
                   >
                     <svg
@@ -384,19 +384,19 @@ export function NewSessionModal({
                     setTimeout(() => setShowDropdown(false), 200);
                   }}
                   placeholder="Paste URL, type #number, or search..."
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                 />
 
                 {/* Dropdown */}
                 {showDropdown && (
                   <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
                     {loadingItems && (
-                      <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-600">
+                      <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
                         Loading...
                       </div>
                     )}
                     {!loadingItems && filteredItems.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-600">
+                      <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
                         {query ? "No matches" : "No open issues or PRs"}
                       </div>
                     )}
@@ -423,7 +423,7 @@ export function NewSessionModal({
                         >
                           {item.kind === "issue" ? "I" : "PR"}
                         </span>
-                        <span className="text-xs text-gray-400 dark:text-gray-600">
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
                           #{item.number}
                         </span>
                         <span className="truncate text-gray-700 dark:text-gray-300">
@@ -447,10 +447,10 @@ export function NewSessionModal({
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Describe the task for Claude..."
               rows={4}
-              className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+              className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
             />
             {/* Branch name preview */}
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-600">
+            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
               Branch:{" "}
               <code className="rounded bg-gray-100 px-1 py-0.5 font-mono dark:bg-gray-800">
                 {branchPreview}
@@ -533,7 +533,7 @@ function StepIndicator({ active, done, label }: { active: boolean; done: boolean
         className={`text-xs ${
           active || done
             ? "font-medium text-gray-700 dark:text-gray-300"
-            : "text-gray-400 dark:text-gray-600"
+            : "text-gray-400 dark:text-gray-500"
         }`}
       >
         {label}

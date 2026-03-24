@@ -319,7 +319,7 @@ function App() {
                 <h1 className="text-sm font-semibold tracking-tight text-gray-900 dark:text-gray-100">
                   TooManyTabs
                 </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-600">dispatch board</p>
+                <p className="text-xs text-gray-500 dark:text-gray-500">dispatch board</p>
               </div>
               <div className="flex items-center gap-1">
                 {/* Settings gear */}

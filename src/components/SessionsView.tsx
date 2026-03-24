@@ -76,7 +76,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <p className="text-lg font-medium text-gray-500 dark:text-gray-400">No sessions yet</p>
-        <p className="mt-1 text-sm text-gray-400 dark:text-gray-600">
+        <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">
           Connect a repository and create a session to get started.
         </p>
         <div className="mt-4 flex gap-2">
@@ -147,7 +147,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                     {activeCount} active
                   </span>
                 )}
-                <span className="text-xs text-gray-400 dark:text-gray-600">
+                <span className="text-xs text-gray-400 dark:text-gray-500">
                   {repoSessions.length} {repoSessions.length === 1 ? "session" : "sessions"}
                 </span>
               </div>
@@ -157,7 +157,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
             {!isCollapsed && (
               <div className="border-t border-gray-100 px-4 py-3 dark:border-gray-800">
                 {repoSessions.length === 0 ? (
-                  <p className="text-xs text-gray-400 dark:text-gray-600">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     No sessions for this repository.
                   </p>
                 ) : (

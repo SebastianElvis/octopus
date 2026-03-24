@@ -201,7 +201,7 @@ export function IssueBacklog({
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <p className="text-lg font-medium text-gray-500 dark:text-gray-400">No repos connected</p>
-        <p className="mt-1 text-sm text-gray-400 dark:text-gray-600">
+        <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">
           Connect a repository to browse its issues and pull requests.
         </p>
         <button
@@ -226,7 +226,7 @@ export function IssueBacklog({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search by title, #number, label, or author..."
-        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
       />
 
       {/* Filter row: type tabs + dropdowns */}
@@ -366,7 +366,7 @@ export function IssueBacklog({
 
       {/* Items list */}
       {!loading && filtered.length === 0 && (
-        <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-600">
+        <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
           {search || selectedRepo !== "all" || selectedLabel !== "all"
             ? "No results match your filters."
             : "No open issues or pull requests found."}
@@ -407,7 +407,7 @@ export function IssueBacklog({
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-500">
                     <span className="font-medium text-gray-600 dark:text-gray-400">{rName}</span>
-                    <span className="text-gray-400 dark:text-gray-600">#{String(item.number)}</span>
+                    <span className="text-gray-400 dark:text-gray-500">#{String(item.number)}</span>
                     {item.author && <span>by {item.author}</span>}
                     {item.comments > 0 && (
                       <span className="flex items-center gap-0.5">
@@ -473,7 +473,7 @@ function IssueIcon({ state }: { state: string }) {
   if (state === "closed") {
     return (
       <svg
-        className="mt-0.5 h-4 w-4 shrink-0 text-[#8250df]"
+        className="mt-0.5 h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400"
         viewBox="0 0 16 16"
         fill="currentColor"
       >
@@ -482,7 +482,7 @@ function IssueIcon({ state }: { state: string }) {
     );
   }
   return (
-    <svg className="mt-0.5 h-4 w-4 shrink-0 text-[#1a7f37]" viewBox="0 0 16 16" fill="currentColor">
+    <svg className="mt-0.5 h-4 w-4 shrink-0 text-green-700 dark:text-green-500" viewBox="0 0 16 16" fill="currentColor">
       <path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
       <path d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0-13 0Z" />
     </svg>
@@ -493,10 +493,10 @@ function IssueIcon({ state }: { state: string }) {
 function PRIcon({ state }: { state: string }) {
   const color =
     state === "merged"
-      ? "text-[#8250df]"
+      ? "text-purple-600 dark:text-purple-400"
       : state === "closed"
-        ? "text-[#cf222e]"
-        : "text-[#1a7f37]";
+        ? "text-red-600 dark:text-red-400"
+        : "text-green-700 dark:text-green-500";
   return (
     <svg className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} viewBox="0 0 16 16" fill="currentColor">
       <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />

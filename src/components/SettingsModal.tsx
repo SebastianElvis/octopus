@@ -159,7 +159,7 @@ function SettingsModalInner({
                   <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                     Sound Notifications
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-500">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Play a sound when sessions need attention
                   </p>
                 </div>
@@ -180,7 +180,7 @@ function SettingsModalInner({
                 <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                   System Notifications
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-500">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   Desktop notifications are managed by your OS settings
                 </p>
               </div>
@@ -193,7 +193,7 @@ function SettingsModalInner({
                 <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
                   Claude API Key
                 </label>
-                <p className="mb-2 text-xs text-gray-500 dark:text-gray-500">
+                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
                   Used for generating session recaps. Optional if you have Claude CLI configured.
                 </p>
                 <input
@@ -201,7 +201,7 @@ function SettingsModalInner({
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-ant-..."
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
                 />
                 {apiKeyError && (
                   <p className="mt-1 text-xs text-red-600 dark:text-red-400">{apiKeyError}</p>
@@ -249,7 +249,7 @@ function ShortcutRow({ keys, action }: { keys: string; action: string }) {
   return (
     <div className="flex items-center justify-between py-1">
       <span className="text-sm text-gray-600 dark:text-gray-400">{action}</span>
-      <kbd className="rounded border border-gray-300 px-2 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-500">
+      <kbd className="rounded border border-gray-300 px-2 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-400">
         {keys}
       </kbd>
     </div>

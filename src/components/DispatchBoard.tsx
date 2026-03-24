@@ -219,7 +219,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         <p className="text-sm font-medium text-red-600 dark:text-red-400">
           Failed to load sessions
         </p>
-        <p className="mt-1 max-w-sm text-xs text-gray-500 dark:text-gray-500">{sessionsError}</p>
+        <p className="mt-1 max-w-sm text-xs text-gray-500 dark:text-gray-400">{sessionsError}</p>
         <button
           onClick={() => {
             void loadSessions();
@@ -295,7 +295,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             <SummaryPill color="blue" count={summary.completed} label="completed" />
             <SummaryPill color="gray" count={summary.failed} label="failed" />
           </div>
-          <span className="text-xs text-gray-400 dark:text-gray-600">{summary.total} total</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{summary.total} total</span>
         </div>
         <button
           onClick={onNewSession}
@@ -326,7 +326,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter sessions..."
-            className="flex-1 bg-transparent text-xs text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-600"
+            className="flex-1 bg-transparent text-xs text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-500"
           />
           {searchQuery && (
             <button
@@ -481,7 +481,7 @@ function WorkflowStep({
       </span>
       <div>
         <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{title}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-500">{description}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
       </div>
     </div>
   );
@@ -585,7 +585,7 @@ function Column({
       {/* Cards */}
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3">
         {count === 0 ? (
-          <p className="px-1 py-4 text-center text-xs text-gray-400 dark:text-gray-600">{empty}</p>
+          <p className="px-1 py-4 text-center text-xs text-gray-400 dark:text-gray-500">{empty}</p>
         ) : (
           children
         )}

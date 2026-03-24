@@ -195,7 +195,7 @@ export function GitHubSidebar({
             <>
               <div className="flex items-center gap-2">
                 <IssueIcon state={issueClosed ? "closed" : issue.state} />
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-500">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                   Issue #{issue.number}
                 </span>
                 <StateBadge state={issueClosed ? "closed" : issue.state} />
@@ -209,7 +209,7 @@ export function GitHubSidebar({
                 {issue.title}
               </p>
               {issue.body && (
-                <p className="mt-1 line-clamp-3 text-xs text-gray-500 dark:text-gray-500">
+                <p className="mt-1 line-clamp-3 text-xs text-gray-500 dark:text-gray-400">
                   {issue.body}
                 </p>
               )}
@@ -220,7 +220,7 @@ export function GitHubSidebar({
                   ))}
                 </div>
               )}
-              <div className="mt-2 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-600">
+              <div className="mt-2 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
                 <span>by {issue.user}</span>
                 {issue.comments > 0 && <span>{issue.comments} comments</span>}
               </div>
@@ -249,7 +249,7 @@ export function GitHubSidebar({
             <>
               <div className="flex items-center gap-2">
                 <PRIcon state={merged ? "merged" : pr.state} />
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-500">
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
                   PR #{pr.number}
                 </span>
                 <StateBadge state={merged ? "merged" : pr.state} />
@@ -258,7 +258,7 @@ export function GitHubSidebar({
                 {pr.title}
               </p>
               {pr.body && (
-                <p className="mt-1 line-clamp-3 text-xs text-gray-500 dark:text-gray-500">
+                <p className="mt-1 line-clamp-3 text-xs text-gray-500 dark:text-gray-400">
                   {pr.body}
                 </p>
               )}
@@ -271,7 +271,7 @@ export function GitHubSidebar({
                   {pr.baseRef}
                 </code>
               </div>
-              <div className="mt-1.5 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-600">
+              <div className="mt-1.5 flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
                 <span>by {pr.user}</span>
                 {pr.comments > 0 && <span>{pr.comments} comments</span>}
               </div>
@@ -288,11 +288,11 @@ export function GitHubSidebar({
               {/* CI Status Pills */}
               {(checkRuns.length > 0 || loadingChecks) && (
                 <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-800">
-                  <h4 className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-500">
+                  <h4 className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
                     CI Checks
                   </h4>
                   {loadingChecks && checkRuns.length === 0 && (
-                    <span className="text-xs text-gray-400 dark:text-gray-600">Loading...</span>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">Loading...</span>
                   )}
                   <div className="flex flex-wrap gap-1">
                     {checkRuns.map((check) => (
@@ -342,7 +342,7 @@ export function GitHubSidebar({
                     </button>
                   </div>
                   {checkRuns.length > 0 && !allChecksPass && !checksPending && (
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       Merge disabled until required checks pass
                     </p>
                   )}
@@ -404,7 +404,7 @@ export function GitHubSidebar({
       )}
 
       {!linkedIssueNumber && !linkedPRNumber && !hasCommittedChanges && (
-        <p className="text-xs text-gray-400 dark:text-gray-600">No GitHub context linked.</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">No GitHub context linked.</p>
       )}
     </div>
   );
@@ -455,7 +455,7 @@ function DetailSection({
 function IssueIcon({ state }: { state: string }) {
   return (
     <svg
-      className={`h-4 w-4 shrink-0 ${state === "open" ? "text-green-600" : "text-purple-600"}`}
+      className={`h-4 w-4 shrink-0 ${state === "open" ? "text-green-600 dark:text-green-500" : "text-purple-600 dark:text-purple-400"}`}
       viewBox="0 0 16 16"
       fill="currentColor"
     >
@@ -467,7 +467,11 @@ function IssueIcon({ state }: { state: string }) {
 
 function PRIcon({ state }: { state: string }) {
   const color =
-    state === "merged" ? "text-purple-600" : state === "open" ? "text-green-600" : "text-red-600";
+    state === "merged"
+      ? "text-purple-600 dark:text-purple-400"
+      : state === "open"
+        ? "text-green-600 dark:text-green-500"
+        : "text-red-600 dark:text-red-400";
   return (
     <svg className={`h-4 w-4 shrink-0 ${color}`} viewBox="0 0 16 16" fill="currentColor">
       <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />

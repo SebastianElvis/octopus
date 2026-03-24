@@ -60,7 +60,7 @@ export function RightPanel({ session, onCommitted }: RightPanelProps) {
         )}
         {effectiveTab === "files" && !session?.worktreePath && (
           <div className="flex h-full items-center justify-center">
-            <p className="text-xs text-gray-400 dark:text-gray-600">No worktree</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">No worktree</p>
           </div>
         )}
 

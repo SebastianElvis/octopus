@@ -74,14 +74,14 @@ export function SessionCard({
                 </span>
               )}
             </div>
-            <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-500">
+            <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
               {session.repo}
               {session.branch && (
-                <span className="ml-1 text-gray-400 dark:text-gray-600">· {session.branch}</span>
+                <span className="ml-1 text-gray-400 dark:text-gray-500">· {session.branch}</span>
               )}
             </p>
           </div>
-          <span className="shrink-0 text-xs text-gray-400 dark:text-gray-600">
+          <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
             {timeAgo(session.stateChangedAt)}
           </span>
         </div>
@@ -152,7 +152,7 @@ export function SessionCard({
           )}
 
           {(session.linkedIssue ?? session.linkedPR) && (
-            <div className="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-gray-600">
+            <div className="ml-auto flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
               {session.linkedIssue && <span>#{session.linkedIssue.number}</span>}
               {session.linkedPR && <span>PR #{session.linkedPR.number}</span>}
             </div>

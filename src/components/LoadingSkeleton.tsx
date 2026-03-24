@@ -38,7 +38,7 @@ export function Spinner({ label, size = "md" }: SpinnerProps) {
       <span
         className={`inline-block animate-spin rounded-full border-gray-300 border-t-blue-600 dark:border-gray-600 dark:border-t-blue-400 ${sizeClass}`}
       />
-      {label && <span className="text-xs text-gray-500 dark:text-gray-500">{label}</span>}
+      {label && <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>}
     </div>
   );
 }

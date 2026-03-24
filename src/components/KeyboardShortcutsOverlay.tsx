@@ -69,14 +69,14 @@ export function KeyboardShortcutsOverlay({ open, onClose }: KeyboardShortcutsOve
         <div className="space-y-5">
           {SHORTCUTS.map((section) => (
             <div key={section.section}>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-500">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                 {section.section}
               </h3>
               <div className="space-y-1.5">
                 {section.items.map((item) => (
                   <div key={item.keys} className="flex items-center justify-between py-0.5">
                     <span className="text-sm text-gray-600 dark:text-gray-400">{item.action}</span>
-                    <kbd className="rounded border border-gray-300 px-2 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-500">
+                    <kbd className="rounded border border-gray-300 px-2 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-400">
                       {item.keys}
                     </kbd>
                   </div>

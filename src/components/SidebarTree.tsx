@@ -70,7 +70,7 @@ export function SidebarTree({
               className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
             >
               <svg
-                className={`h-3 w-3 shrink-0 text-gray-400 transition-transform dark:text-gray-600 ${isExpanded ? "rotate-90" : ""}`}
+                className={`h-3 w-3 shrink-0 text-gray-400 transition-transform dark:text-gray-500 ${isExpanded ? "rotate-90" : ""}`}
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -80,7 +80,7 @@ export function SidebarTree({
               </svg>
               <span className="truncate">{repoName}</span>
               {repoSessions.length > 0 && (
-                <span className="ml-auto text-gray-400 dark:text-gray-600">
+                <span className="ml-auto text-gray-400 dark:text-gray-500">
                   {repoSessions.length}
                 </span>
               )}
@@ -109,7 +109,7 @@ export function SidebarTree({
 
       {unlinked.length > 0 && (
         <div>
-          <div className="px-2 py-1 text-xs text-gray-400 dark:text-gray-600">Other</div>
+          <div className="px-2 py-1 text-xs text-gray-400 dark:text-gray-500">Other</div>
           {unlinked.map((s) => (
             <SessionNode
               key={s.id}
@@ -122,7 +122,7 @@ export function SidebarTree({
       )}
 
       {sessions.length === 0 && (
-        <p className="px-2 py-2 text-xs text-gray-400 dark:text-gray-600">No sessions yet.</p>
+        <p className="px-2 py-2 text-xs text-gray-400 dark:text-gray-500">No sessions yet.</p>
       )}
 
       <button
@@ -159,7 +159,7 @@ function SessionNode({
       <span className="truncate">{session.name}</span>
       {session.branch && (
         <span
-          className="ml-auto truncate font-mono text-gray-400 dark:text-gray-600"
+          className="ml-auto truncate font-mono text-gray-400 dark:text-gray-500"
           style={{ maxWidth: "80px", fontSize: "10px" }}
         >
           {session.branch}
