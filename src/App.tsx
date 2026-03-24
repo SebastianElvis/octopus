@@ -28,6 +28,7 @@ type View = "home" | "session" | "repos" | "tasks";
 function App() {
   const [view, setView] = useState<View>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [lastViewedSessionId, setLastViewedSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -256,6 +257,7 @@ function App() {
 
   function handleViewSession(id: string) {
     setActiveSessionId(id);
+    setLastViewedSessionId(id);
     setView("session");
   }
 
@@ -436,6 +438,7 @@ function App() {
               <DispatchBoard
                 onViewSession={handleViewSession}
                 onNewSession={() => setShowNewSession(true)}
+                activeSessionId={lastViewedSessionId}
               />
             </div>
           )}

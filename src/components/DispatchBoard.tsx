@@ -1,16 +1,23 @@
 import { useEffect, useCallback, useState, useMemo, type ReactNode } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { KanbanCard } from "./KanbanCard";
-import { checkStuckSessions, killSession, resumeSession, retrySession } from "../lib/tauri";
+import {
+  checkStuckSessions,
+  killSession,
+  interruptSession,
+  resumeSession,
+  retrySession,
+} from "../lib/tauri";
 import type { Session } from "../lib/types";
 import { RUNNING_PULSE } from "../lib/statusColors";
 
 interface DispatchBoardProps {
   onViewSession: (id: string) => void;
   onNewSession: () => void;
+  activeSessionId?: string | null;
 }
 
-export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProps) {
+export function DispatchBoard({ onViewSession, onNewSession, activeSessionId }: DispatchBoardProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const sessionsLoading = useSessionStore((s) => s.sessionsLoading);
   const sessionsError = useSessionStore((s) => s.sessionsError);
@@ -101,12 +108,21 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     return pruned.size === selectedIds.size ? selectedIds : pruned;
   }, [sessions, selectedIds]);
 
-  function handleInterrupt(id: string) {
-    onViewSession(id);
+  async function handleInterrupt(id: string) {
+    try {
+      await interruptSession(id);
+    } catch {
+      /* ignore */
+    }
   }
 
-  function handleResume(id: string) {
-    onViewSession(id);
+  async function handleResume(id: string) {
+    try {
+      await resumeSession(id);
+      updateSession(id, { status: "running", stateChangedAt: Date.now() });
+    } catch {
+      /* ignore */
+    }
   }
 
   async function handleRetry(id: string) {
@@ -387,9 +403,14 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
               session={s}
               selected={effectiveSelectedIds.has(s.id)}
               onToggleSelect={toggleSelect}
+              isActive={s.id === activeSessionId}
               onView={onViewSession}
               onResume={
-                s.status === "paused" || s.status === "interrupted" ? handleResume : undefined
+                s.status === "paused" || s.status === "interrupted"
+                  ? (id: string) => {
+                      void handleResume(id);
+                    }
+                  : undefined
               }
               onRetry={
                 s.status === "failed" || s.status === "stuck"
@@ -421,8 +442,11 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
               session={s}
               selected={effectiveSelectedIds.has(s.id)}
               onToggleSelect={toggleSelect}
+              isActive={s.id === activeSessionId}
               onView={onViewSession}
-              onInterrupt={handleInterrupt}
+              onInterrupt={(id: string) => {
+                void handleInterrupt(id);
+              }}
               onKill={(id: string) => {
                 void handleKill(id);
               }}
@@ -437,6 +461,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
               session={s}
               selected={effectiveSelectedIds.has(s.id)}
               onToggleSelect={toggleSelect}
+              isActive={s.id === activeSessionId}
               onView={onViewSession}
               onRetry={
                 s.status === "failed"
@@ -493,6 +518,7 @@ function SelectableCard({
   onResume?: (id: string) => void;
   onRetry?: (id: string) => void;
   onKill?: (id: string) => void;
+  isActive?: boolean;
 }) {
   return (
     <div className={`relative ${selected ? "rounded-md ring-2 ring-blue-500" : ""}`}>

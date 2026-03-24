@@ -22,7 +22,7 @@ import { ShellPanel } from "./ShellPanel";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
 import { STATUS_PILL, STATUS_DOT, RUNNING_PULSE } from "../lib/statusColors";
 
-type CenterTab = "terminal" | "editor" | "github";
+type CenterTab = "terminal" | "editor" | "github" | "log" | "recap";
 
 interface SessionDetailProps {
   sessionId: string;
@@ -47,9 +47,12 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
   const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
 
+  // Recap state
+  const [recap, setRecap] = useState<string | null>(null);
+  const [recapLoading, setRecapLoading] = useState(false);
+
   // Full log state
   const [fullLog, setFullLog] = useState<string | null>(null);
-  const [showFullLog, setShowFullLog] = useState(false);
   const [logLoading, setLogLoading] = useState(false);
 
   const hasGitHubLink = !!(session?.linkedIssue ?? session?.linkedPR);
@@ -152,17 +155,35 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
+  async function handleGenerateRecap() {
+    if (!session) return;
+    if (recap) {
+      setCenterTab(centerTab === "recap" ? "terminal" : "recap");
+      return;
+    }
+    setRecapLoading(true);
+    try {
+      const result = await generateRecap(session.id);
+      setRecap(result);
+      setCenterTab("recap");
+    } catch (err: unknown) {
+      console.error("[SessionDetail] Failed to generate recap:", err);
+    } finally {
+      setRecapLoading(false);
+    }
+  }
+
   async function handleViewLog() {
     if (!session) return;
     if (fullLog) {
-      setShowFullLog(!showFullLog);
+      setCenterTab(centerTab === "log" ? "terminal" : "log");
       return;
     }
     setLogLoading(true);
     try {
       const log = await readSessionLog(session.id);
       setFullLog(log);
-      setShowFullLog(true);
+      setCenterTab("log");
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to read log:", err);
     } finally {
@@ -193,7 +214,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             <span
               className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"} ${session.status === "running" ? RUNNING_PULSE : ""}`}
             />
-            {session.status}
+            {STATUS_LABEL[session.status] ?? session.status}
           </span>
           {session.branch && (
             <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
@@ -233,7 +254,24 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               disabled={logLoading}
               className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
             >
-              {logLoading ? "Loading..." : "View Full Log"}
+              {logLoading ? "Loading..." : centerTab === "log" ? "Hide Log" : "View Full Log"}
+            </button>
+          )}
+          {session.status === "waiting" && (
+            <button
+              onClick={() => {
+                void handleGenerateRecap();
+              }}
+              disabled={recapLoading}
+              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+            >
+              {recapLoading
+                ? "Generating..."
+                : recap
+                  ? centerTab === "recap"
+                    ? "Hide Recap"
+                    : "Show Recap"
+                  : "Generate Recap"}
             </button>
           )}
           {showKillConfirm ? (
@@ -287,21 +325,44 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         </div>
       )}
 
-      {/* Full log panel */}
-      {showFullLog && fullLog && (
-        <div className="max-h-60 shrink-0 overflow-y-auto border-b border-gray-200 bg-gray-900 px-4 py-3 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <h3 className="mb-1 text-xs font-semibold text-gray-400">Full Log</h3>
+      {/* Waiting session reply panel */}
+      {session.status === "waiting" && (
+        <div className="shrink-0 border-b border-red-200 bg-red-50/50 px-4 py-3 dark:border-red-800/40 dark:bg-red-950/10">
+          {/* Recent output context */}
+          {lastOutputLines.length > 0 && (
+            <div className="mb-2 max-h-32 overflow-y-auto rounded bg-gray-900 px-3 py-2">
+              <pre className="font-mono text-xs leading-5 text-gray-300">
+                {lastOutputLines.join("")}
+              </pre>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  void handleReply();
+                }
+              }}
+              placeholder="Reply to session... (Cmd+Enter to send)"
+              autoFocus
+              rows={2}
+              className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+            />
             <button
-              onClick={() => setShowFullLog(false)}
-              className="cursor-pointer text-xs text-gray-500 hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              onClick={() => {
+                void handleReply();
+              }}
+              disabled={replying || !replyText.trim()}
+              className="cursor-pointer self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Close
+              {replying ? "..." : "Send"}
             </button>
           </div>
-          <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-gray-300">
-            {fullLog ? stripAnsi(fullLog) : ""}
-          </pre>
+          {replyError && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{replyError}</p>
+          )}
         </div>
       )}
 
@@ -324,6 +385,12 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   ? `PR #${session.linkedPR.number}`
                   : undefined
             }
+            hasLogTab={fullLog !== null}
+            logActive={centerTab === "log"}
+            onSelectLog={() => setCenterTab("log")}
+            hasRecapTab={recap !== null}
+            recapActive={centerTab === "recap"}
+            onSelectRecap={() => setCenterTab("recap")}
           />
 
           {/* Content area — all panels use absolute positioning + visibility toggle
@@ -375,6 +442,27 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             {centerTab === "editor" && !showEditor && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0d1117]">
                 <p className="text-sm text-gray-500">No file open</p>
+              </div>
+            )}
+
+            {/* Full log panel */}
+            {centerTab === "log" && fullLog && (
+              <div className="absolute inset-0 z-10 overflow-y-auto bg-gray-900 px-4 py-3">
+                <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-gray-300">
+                  {fullLog}
+                </pre>
+              </div>
+            )}
+
+            {/* Recap panel */}
+            {centerTab === "recap" && recap && (
+              <div className="absolute inset-0 z-10 overflow-y-auto bg-white px-6 py-4 dark:bg-gray-950">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+                  Session Recap
+                </h3>
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                  {recap}
+                </p>
               </div>
             )}
           </div>

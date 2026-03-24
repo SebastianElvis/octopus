@@ -5,6 +5,7 @@ import "@xterm/xterm/css/xterm.css";
 import { isTauri } from "../lib/env";
 import { onSessionOutput, writeToSession, resizeSession, readSessionLog } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
+import { useUIStore } from "../stores/uiStore";
 import { useTauriEvent } from "../hooks/useTauriEvent";
 
 interface TerminalPanelProps {
@@ -17,13 +18,14 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const terminalFontSize = useUIStore((s) => s.terminalFontSize);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const terminal = new Terminal({
       cursorBlink: true,
-      fontSize: 13,
+      fontSize: terminalFontSize,
       fontFamily: "'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
       theme: {
         background: "#0d1117",
@@ -143,6 +145,14 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sessionStatus is intentionally read only on mount; adding it would re-create the terminal on every status change
   }, [sessionId]);
+
+  // Update font size when the setting changes
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.options.fontSize = terminalFontSize;
+      fitAddonRef.current?.fit();
+    }
+  }, [terminalFontSize]);
 
   // Refit terminal when tab becomes visible (xterm can't measure when hidden)
   useEffect(() => {
