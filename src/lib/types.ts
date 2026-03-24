@@ -154,3 +154,13 @@ export interface EditorTab {
   language: string;
   isDirty: boolean;
 }
+
+export interface CheckRun {
+  id: number;
+  name: string;
+  status: string; // queued, in_progress, completed
+  conclusion: string | null; // success, failure, neutral, cancelled, etc.
+  htmlUrl: string;
+  startedAt: string | null;
+  completedAt: string | null;
+}

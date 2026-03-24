@@ -58,6 +58,18 @@ pub struct GitHubPR {
     pub updated_at: String,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CheckRun {
+    pub id: i64,
+    pub name: String,
+    pub status: String,
+    pub conclusion: Option<String>,
+    pub html_url: String,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+}
+
 #[derive(Debug, Deserialize)]
 struct ApiLabel {
     name: String,
@@ -116,6 +128,22 @@ struct ApiReviewComment {
 #[derive(Debug, Deserialize)]
 struct ApiUser {
     login: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiCheckRun {
+    id: i64,
+    name: String,
+    status: String,
+    conclusion: Option<String>,
+    html_url: String,
+    started_at: Option<String>,
+    completed_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ApiCheckRunsResponse {
+    check_runs: Vec<ApiCheckRun>,
 }
 
 // ---------------------------------------------------------------------------
@@ -558,6 +586,50 @@ pub async fn fetch_pr_review_comments(
             user: c.user.login,
             created_at: c.created_at,
             updated_at: c.updated_at,
+        })
+        .collect())
+}
+
+/// Fetch check runs for a specific git ref (branch, tag, or SHA).
+#[tauri::command]
+pub async fn fetch_check_runs(
+    state: State<'_, AppState>,
+    repo_id: String,
+    git_ref: String,
+) -> AppResult<Vec<CheckRun>> {
+    let github_url = lookup_github_url(&state, &repo_id)?;
+    let token = get_or_refresh_token(&state)?;
+    let (owner, repo) = parse_owner_repo(&github_url)?;
+
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/commits/{}/check-runs",
+        owner, repo, git_ref
+    );
+
+    let client = &state.http_client;
+    let resp = github_request(client, || client.get(&url), &token).await?;
+
+    let api_response: ApiCheckRunsResponse = resp.json().await?;
+
+    log::info!(
+        "Fetched {} check runs for {}/{} ref {}",
+        api_response.check_runs.len(),
+        owner,
+        repo,
+        git_ref
+    );
+
+    Ok(api_response
+        .check_runs
+        .into_iter()
+        .map(|c| CheckRun {
+            id: c.id,
+            name: c.name,
+            status: c.status,
+            conclusion: c.conclusion,
+            html_url: c.html_url,
+            started_at: c.started_at,
+            completed_at: c.completed_at,
         })
         .collect())
 }

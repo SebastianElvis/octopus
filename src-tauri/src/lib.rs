@@ -9,8 +9,8 @@ use commands::git_ops::{
     git_unstage_files,
 };
 use commands::github::{
-    create_pr, create_session_from_review, fetch_issues, fetch_pr_review_comments, fetch_prs,
-    get_github_token, git_commit_and_push,
+    create_pr, create_session_from_review, fetch_check_runs, fetch_issues,
+    fetch_pr_review_comments, fetch_prs, get_github_token, git_commit_and_push,
 };
 use commands::repos::{add_repo, list_repos, remove_repo};
 use commands::sessions::{
@@ -264,6 +264,7 @@ pub fn run() {
             git_commit_and_push,
             create_pr,
             fetch_pr_review_comments,
+            fetch_check_runs,
             create_session_from_review,
             // worktree
             create_worktree,
