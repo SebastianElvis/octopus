@@ -12,7 +12,9 @@ interface DispatchBoardProps {
 export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const sessionsLoading = useSessionStore((s) => s.sessionsLoading);
+  const sessionsError = useSessionStore((s) => s.sessionsError);
   const updateSession = useSessionStore((s) => s.updateSession);
+  const loadSessions = useSessionStore((s) => s.loadSessions);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -176,18 +178,78 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     );
   }
 
+  // Error state with retry
+  if (sessionsError) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+          <svg
+            className="h-6 w-6 text-red-600 dark:text-red-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+        </div>
+        <p className="text-sm font-medium text-red-600 dark:text-red-400">
+          Failed to load sessions
+        </p>
+        <p className="mt-1 max-w-sm text-xs text-gray-500 dark:text-gray-500">{sessionsError}</p>
+        <button
+          onClick={() => {
+            void loadSessions();
+          }}
+          className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  // Empty state with workflow explanation
   if (sessions.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-        <p className="text-lg font-medium text-gray-500 dark:text-gray-400">No sessions yet</p>
-        <p className="mt-1 text-sm text-gray-400 dark:text-gray-600">
-          Create a new session to get started.
+        <h2 className="text-lg font-medium text-gray-700 dark:text-gray-300">
+          Welcome to TooManyTabs
+        </h2>
+        <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+          Manage multiple Claude Code sessions in parallel. Here is how it works:
         </p>
+        <div className="mt-6 flex max-w-md flex-col gap-3 text-left">
+          <WorkflowStep
+            number={1}
+            title="Add a repository"
+            description="Connect a GitHub repo from the Repos tab."
+          />
+          <WorkflowStep
+            number={2}
+            title="Create a session"
+            description="Link an issue or PR, write a prompt, and spawn a session."
+          />
+          <WorkflowStep
+            number={3}
+            title="Monitor and respond"
+            description="Watch sessions run, reply when they need input, and review changes."
+          />
+          <WorkflowStep
+            number={4}
+            title="Ship it"
+            description="Commit, push, open a PR, and merge -- all from the app."
+          />
+        </div>
         <button
           onClick={onNewSession}
-          className="mt-4 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
+          className="mt-6 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500"
         >
-          + New Session
+          Get Started
         </button>
       </div>
     );
@@ -353,6 +415,30 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             />
           ))}
         </Column>
+      </div>
+    </div>
+  );
+}
+
+/* ── Workflow step for empty state ─────────────────────────────────────────── */
+
+function WorkflowStep({
+  number,
+  title,
+  description,
+}: {
+  number: number;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
+        {number}
+      </span>
+      <div>
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{title}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-500">{description}</p>
       </div>
     </div>
   );
