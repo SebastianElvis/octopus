@@ -11,6 +11,8 @@ import { ResizeHandle } from "./components/ResizeHandle";
 import { CommandPalette } from "./components/CommandPalette";
 import { ToastContainer, type ToastItem } from "./components/Toast";
 import { OnboardingDialog, useOnboarding } from "./components/OnboardingDialog";
+import { SettingsModal } from "./components/SettingsModal";
+import { KeyboardShortcutsOverlay } from "./components/KeyboardShortcutsOverlay";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { useUIStore } from "./stores/uiStore";
@@ -28,6 +30,8 @@ function App() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
   const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
   const [prefillPR, setPrefillPR] = useState<GitHubPR | null>(null);
@@ -44,6 +48,7 @@ function App() {
 
   const sidebarWidth = useUIStore((s) => s.panelSizes.sidebarWidth);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setPanelSize = useUIStore((s) => s.setPanelSize);
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -99,7 +104,20 @@ function App() {
         setView("repos");
         return;
       }
+      if (isMeta && (e.key === "/" || e.key === "?")) {
+        e.preventDefault();
+        setShowShortcuts((v) => !v);
+        return;
+      }
       if (e.key === "Escape") {
+        if (showShortcuts) {
+          setShowShortcuts(false);
+          return;
+        }
+        if (showSettings) {
+          setShowSettings(false);
+          return;
+        }
         if (showCommandPalette) {
           setShowCommandPalette(false);
           return;
@@ -114,7 +132,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [view, showCommandPalette, sessions]);
+  }, [view, showCommandPalette, showSettings, showShortcuts, sessions]);
 
   // Request notification permission on startup
   useEffect(() => {
@@ -304,8 +322,53 @@ function App() {
                 <p className="text-xs text-gray-500 dark:text-gray-600">dispatch board</p>
               </div>
               <div className="flex items-center gap-1">
+                {/* Settings gear */}
+                <button
+                  onClick={() => setShowSettings(true)}
+                  title="Settings"
+                  className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+                    />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                    />
+                  </svg>
+                </button>
                 <SoundToggle />
                 <ThemeToggle />
+                {/* Collapse sidebar */}
+                <button
+                  onClick={toggleSidebar}
+                  title="Collapse sidebar"
+                  className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                    />
+                  </svg>
+                </button>
               </div>
             </div>
 
@@ -342,6 +405,27 @@ function App() {
           </aside>
           <ResizeHandle direction="horizontal" onResize={handleSidebarResize} />
         </>
+      )}
+
+      {/* Sidebar collapsed: show expand button */}
+      {sidebarCollapsed && (
+        <div className="flex shrink-0 flex-col items-center border-r border-gray-200 bg-white py-3 dark:border-gray-800 dark:bg-gray-950">
+          <button
+            onClick={toggleSidebar}
+            title="Expand sidebar"
+            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       )}
 
       {/* Main content — uses relative container so hidden views can be absolutely positioned */}
@@ -419,6 +503,16 @@ function App() {
         onClose={() => setShowCommandPalette(false)}
         onSelectSession={handleViewSession}
       />
+
+      {/* Settings modal */}
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        onShowShortcuts={() => setShowShortcuts(true)}
+      />
+
+      {/* Keyboard shortcuts overlay */}
+      <KeyboardShortcutsOverlay open={showShortcuts} onClose={() => setShowShortcuts(false)} />
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} onClickToast={handleToastClick} />
