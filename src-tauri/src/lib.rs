@@ -54,7 +54,7 @@ pub fn run() {
 
             // Start background WAL checkpoint task (every 5 minutes)
             let app_handle = app.handle().clone();
-            tokio::spawn(async move {
+            tauri::async_runtime::spawn(async move {
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(5 * 60));
                 loop {
                     interval.tick().await;
