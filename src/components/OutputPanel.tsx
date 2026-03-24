@@ -49,11 +49,11 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
 
       <div className="flex-1 overflow-y-auto p-2">
         {displayedLines.length === 0 ? (
-          <p className="text-xs text-gray-400 dark:text-gray-600">No output yet.</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500">No output yet.</p>
         ) : (
           <div className="space-y-0">
             {mode === "live" && lines.length > 20 && (
-              <p className="mb-2 text-xs text-gray-400 dark:text-gray-600">
+              <p className="mb-2 text-xs text-gray-400 dark:text-gray-500">
                 Showing last 20 lines. Switch to Full Log for complete output.
               </p>
             )}

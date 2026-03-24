@@ -119,17 +119,17 @@ export function KanbanCard({
           {ciDotColor && (
             <span className={`h-2 w-2 rounded-full ${ciDotColor}`} title={`CI: ${ciStatus}`} />
           )}
-          <span className="text-[10px] text-gray-400 dark:text-gray-600">
+          <span className="text-[10px] text-gray-400 dark:text-gray-500">
             {timeAgo(session.stateChangedAt)}
           </span>
         </div>
       </div>
 
       {/* Repo + branch */}
-      <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-500">
+      <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
         {session.repo}
         {session.branch && (
-          <span className="ml-1 text-gray-400 dark:text-gray-600">· {session.branch}</span>
+          <span className="ml-1 text-gray-400 dark:text-gray-500">· {session.branch}</span>
         )}
       </p>
 
@@ -168,7 +168,7 @@ export function KanbanCard({
           </span>
         )}
         {(session.linkedIssue ?? session.linkedPR) && (
-          <div className="ml-auto flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-600">
+          <div className="ml-auto flex items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
             {session.linkedIssue && <span>#{session.linkedIssue.number}</span>}
             {session.linkedPR && <span>PR #{session.linkedPR.number}</span>}
           </div>
@@ -282,7 +282,7 @@ export function KanbanCard({
             placeholder="Type reply... (Cmd+Enter to send)"
             autoFocus
             rows={3}
-            className="w-full resize-none rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-600"
+            className="w-full resize-none rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
           />
           {replyError && <p className="text-[10px] text-red-600 dark:text-red-400">{replyError}</p>}
           <button

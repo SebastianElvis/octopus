@@ -148,9 +148,9 @@ function CommandPaletteInner({
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
             placeholder="Search sessions..."
-            className="h-12 flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-600"
+            className="h-12 flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-500"
           />
-          <kbd className="hidden rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-400 sm:inline-block dark:border-gray-700 dark:text-gray-600">
+          <kbd className="hidden rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-400 sm:inline-block dark:border-gray-700 dark:text-gray-500">
             esc
           </kbd>
         </div>
@@ -158,7 +158,7 @@ function CommandPaletteInner({
         {/* Results */}
         <div ref={listRef} className="max-h-80 overflow-y-auto py-2">
           {filtered.length === 0 && (
-            <div className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-600">
+            <div className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
               No sessions found
             </div>
           )}
@@ -190,10 +190,10 @@ function CommandPaletteInner({
                     {session.status}
                   </span>
                 </div>
-                <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-500">
+                <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
                   {session.repo}
                   {session.branch && (
-                    <span className="ml-1 text-gray-400 dark:text-gray-600">
+                    <span className="ml-1 text-gray-400 dark:text-gray-500">
                       · {session.branch}
                     </span>
                   )}
@@ -201,7 +201,7 @@ function CommandPaletteInner({
               </div>
 
               {/* Time ago */}
-              <span className="shrink-0 text-xs text-gray-400 dark:text-gray-600">
+              <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
                 {timeAgo(session.stateChangedAt)}
               </span>
             </button>
@@ -211,7 +211,7 @@ function CommandPaletteInner({
         {/* Footer hint */}
         {filtered.length > 0 && (
           <div className="flex items-center gap-3 border-t border-gray-200 px-4 py-2 dark:border-gray-800">
-            <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-600">
+            <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
               <kbd className="rounded border border-gray-300 px-1 py-0.5 text-xs dark:border-gray-700">
                 &uarr;
               </kbd>
@@ -220,7 +220,7 @@ function CommandPaletteInner({
               </kbd>
               navigate
             </span>
-            <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-600">
+            <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
               <kbd className="rounded border border-gray-300 px-1 py-0.5 text-xs dark:border-gray-700">
                 &crarr;
               </kbd>

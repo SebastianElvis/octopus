@@ -65,7 +65,7 @@ export function GitChangesPanel({
   if (!worktreePath) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-xs text-gray-400 dark:text-gray-600">No worktree</p>
+        <p className="text-xs text-gray-400 dark:text-gray-500">No worktree</p>
       </div>
     );
   }
@@ -74,7 +74,7 @@ export function GitChangesPanel({
   if (isSessionDone && error?.includes("No such file or directory")) {
     return (
       <div className="flex h-full items-center justify-center px-4">
-        <p className="text-center text-xs text-gray-400 dark:text-gray-600">
+        <p className="text-center text-xs text-gray-400 dark:text-gray-500">
           Session completed. Worktree has been cleaned up.
         </p>
       </div>
@@ -136,7 +136,7 @@ export function GitChangesPanel({
           onClick={() => {
             void refreshChanges();
           }}
-          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-600 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+          className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
           title="Refresh"
         >
           <svg
@@ -157,7 +157,7 @@ export function GitChangesPanel({
 
       {loading && changedFiles.length === 0 && (
         <div className="flex h-20 items-center justify-center">
-          <span className="text-xs text-gray-400 dark:text-gray-600">Loading...</span>
+          <span className="text-xs text-gray-400 dark:text-gray-500">Loading...</span>
         </div>
       )}
 
@@ -209,7 +209,7 @@ export function GitChangesPanel({
 
         {!loading && changedFiles.length === 0 && (
           <div className="flex h-20 items-center justify-center">
-            <span className="text-xs text-gray-400 dark:text-gray-600">No changes</span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">No changes</span>
           </div>
         )}
       </div>
@@ -222,7 +222,7 @@ export function GitChangesPanel({
           onChange={(e) => setCommitMessage(e.target.value)}
           placeholder="Commit message..."
           rows={2}
-          className="mb-2 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+          className="mb-2 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
         />
         <div className="flex gap-1.5">
           <button
@@ -304,7 +304,7 @@ function FileSection({
               className={`text-xs ${
                 discardAllConfirm
                   ? "font-medium text-red-600 dark:text-red-400"
-                  : "text-gray-400 hover:text-red-600 dark:text-gray-600 dark:hover:text-red-400"
+                  : "text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
               }`}
             >
               {discardAllConfirm ? "Confirm discard all?" : "Discard all"}
@@ -312,7 +312,7 @@ function FileSection({
           )}
           <button
             onClick={onBulkAction}
-            className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400"
+            className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-400"
           >
             {bulkLabel}
           </button>
@@ -345,7 +345,7 @@ function FileSection({
               </span>
               <span className="truncate text-gray-700 dark:text-gray-300">{fileName}</span>
               {dirPath && (
-                <span className="truncate text-gray-400 dark:text-gray-600">{dirPath}</span>
+                <span className="truncate text-gray-400 dark:text-gray-500">{dirPath}</span>
               )}
             </button>
             <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100">
@@ -354,7 +354,7 @@ function FileSection({
                   e.stopPropagation();
                   onAction(f);
                 }}
-                className="rounded px-1 py-0.5 text-xs font-bold text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                className="rounded px-1 py-0.5 text-xs font-bold text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                 title={actionTitle}
               >
                 {actionLabel}
@@ -368,7 +368,7 @@ function FileSection({
                   className={`rounded px-1 py-0.5 text-xs ${
                     isConfirmingDiscard
                       ? "font-medium text-red-600 dark:text-red-400"
-                      : "text-gray-400 hover:bg-red-100 hover:text-red-600 dark:text-gray-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                      : "text-gray-400 hover:bg-red-100 hover:text-red-600 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                   }`}
                   title={isConfirmingDiscard ? "Click again to confirm" : secondActionTitle}
                 >

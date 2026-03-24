@@ -106,13 +106,13 @@ export function RepoSettings() {
                 onChange={(e) => setGithubUrl(e.target.value)}
                 disabled={adding}
                 placeholder="owner/repo"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
               />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
                 Local Path{" "}
-                <span className="font-normal text-gray-400 dark:text-gray-600">(optional)</span>
+                <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
               </label>
               <input
                 type="text"
@@ -120,7 +120,7 @@ export function RepoSettings() {
                 onChange={(e) => setLocalPath(e.target.value)}
                 disabled={adding}
                 placeholder="Default: ~/.toomanytabs/repos/owner/repo"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
+                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
               />
             </div>
           </div>
@@ -194,7 +194,7 @@ export function RepoSettings() {
           ))}
         </div>
       ) : repos.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-600">No repositories connected yet.</p>
+        <p className="text-sm text-gray-400 dark:text-gray-500">No repositories connected yet.</p>
       ) : (
         <div className="space-y-2">
           {repos.map((repo) => (
@@ -206,8 +206,8 @@ export function RepoSettings() {
                 <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
                   {repo.githubUrl}
                 </p>
-                <p className="truncate text-xs text-gray-500">{repo.localPath}</p>
-                <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-600">
+                <p className="truncate text-xs text-gray-500 dark:text-gray-400">{repo.localPath}</p>
+                <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
                   Default branch: {repo.defaultBranch}
                 </p>
               </div>

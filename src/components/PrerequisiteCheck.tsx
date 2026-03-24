@@ -45,7 +45,7 @@ export function PrerequisiteCheck({ onAllPassed }: PrerequisiteCheckProps) {
   if (loading) {
     return (
       <div className="flex items-center gap-2">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
+        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 dark:border-gray-600 dark:border-t-blue-400" />
         <span className="text-sm text-gray-500">Checking prerequisites...</span>
       </div>
     );
@@ -84,7 +84,7 @@ export function PrerequisiteCheck({ onAllPassed }: PrerequisiteCheckProps) {
             </span>
             <div>
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{tool.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-500">{tool.description}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{tool.description}</p>
               {!available && (
                 <a
                   href={tool.installUrl}

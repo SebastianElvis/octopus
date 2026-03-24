@@ -261,7 +261,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               {session.branch}
             </span>
           )}
-          <span className="text-xs text-gray-400 dark:text-gray-600">
+          <span className="text-xs text-gray-400 dark:text-gray-500">
             {timeAgo(session.stateChangedAt)}
           </span>
         </div>
@@ -420,7 +420,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               }}
               placeholder="Reply to session... (Cmd+Enter to send)"
               rows={2}
-              className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-600"
+              className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
             />
             <button
               onClick={() => {

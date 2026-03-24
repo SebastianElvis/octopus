@@ -87,7 +87,7 @@ export function OnboardingDialog({
             <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
               Step 1: Check Prerequisites
             </h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-500">
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               TooManyTabs needs these CLI tools installed on your system.
             </p>
             <PrerequisiteCheck onAllPassed={handlePrereqsPassed} />
@@ -108,7 +108,7 @@ export function OnboardingDialog({
             <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
               Step 2: Connect a Repository
             </h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-500">
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               Add a GitHub repository to start creating sessions. You can add repos from the Repos
               settings page.
             </p>
@@ -137,7 +137,7 @@ export function OnboardingDialog({
             <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
               Step 3: Create Your First Session
             </h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-500">
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               A session runs Claude Code in its own git worktree. Link an issue, provide a prompt,
               and let Claude work.
             </p>
@@ -166,7 +166,7 @@ export function OnboardingDialog({
             <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
               Step 4: The Dispatch Board
             </h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-500">
+            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               The board shows all your sessions organized by status. Sessions needing your input
               appear in the &quot;Needs Attention&quot; column. Use keyboard shortcuts for quick
               navigation:
@@ -197,7 +197,7 @@ function ShortcutRow({ keys, action }: { keys: string; action: string }) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-xs text-gray-600 dark:text-gray-400">{action}</span>
-      <kbd className="rounded border border-gray-300 px-1.5 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-500">
+      <kbd className="rounded border border-gray-300 px-1.5 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-400">
         {keys}
       </kbd>
     </div>
