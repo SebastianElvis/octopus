@@ -6,7 +6,9 @@ import {
   generateRecap,
   fetchIssues,
   fetchPRs,
+  replyToSession,
 } from "../lib/tauri";
+import { formatError } from "../lib/errors";
 import { useSessionStore } from "../stores/sessionStore";
 import { useEditorStore } from "../stores/editorStore";
 import { useUIStore } from "../stores/uiStore";
@@ -46,6 +48,7 @@ interface SessionDetailProps {
 export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const updateSession = useSessionStore((s) => s.updateSession);
+  const outputBuffer = useSessionStore((s) => s.outputBuffers[sessionId] ?? []);
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const contents = useEditorStore((s) => s.contents);
@@ -67,6 +70,11 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const [recapLoading, setRecapLoading] = useState(false);
   const [recapError, setRecapError] = useState<string | null>(null);
   const [showRecap, setShowRecap] = useState(false);
+
+  // Reply state for waiting sessions
+  const [replyText, setReplyText] = useState("");
+  const [replying, setReplying] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
 
   const hasGitHubLink = !!(session?.linkedIssue ?? session?.linkedPR);
 
@@ -178,9 +186,26 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
+  async function handleReply() {
+    if (!session || !replyText.trim()) return;
+    setReplying(true);
+    setReplyError(null);
+    try {
+      await replyToSession(session.id, replyText.trim());
+      setReplyText("");
+    } catch (err: unknown) {
+      setReplyError(formatError(err));
+    } finally {
+      setReplying(false);
+    }
+  }
+
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeContent = activeTabId ? contents[activeTabId] : null;
   const showEditor = centerTab === "editor" && activeTab != null && activeContent != null;
+
+  // Last few lines of output for waiting sessions
+  const lastOutputLines = outputBuffer.slice(-10);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -302,6 +327,53 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       {recapError && (
         <div className="shrink-0 border-b border-red-200 bg-red-50 px-4 py-2 dark:border-red-800/60 dark:bg-red-950/20">
           <p className="text-xs text-red-600 dark:text-red-400">{recapError}</p>
+        </div>
+      )}
+
+      {/* lastMessage display */}
+      {session.lastMessage && (
+        <div className="shrink-0 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/50">
+          <p className="text-xs text-gray-600 dark:text-gray-400">
+            <span className="font-medium">Last message:</span> {session.lastMessage}
+          </p>
+        </div>
+      )}
+
+      {/* Waiting session reply panel */}
+      {session.status === "waiting" && (
+        <div className="shrink-0 border-b border-red-200 bg-red-50/50 px-4 py-3 dark:border-red-800/40 dark:bg-red-950/10">
+          {/* Recent output context */}
+          {lastOutputLines.length > 0 && (
+            <div className="mb-2 max-h-32 overflow-y-auto rounded bg-gray-900 px-3 py-2">
+              <pre className="font-mono text-xs text-gray-300">{lastOutputLines.join("")}</pre>
+            </div>
+          )}
+          <div className="flex gap-2">
+            <textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  void handleReply();
+                }
+              }}
+              placeholder="Reply to session... (Cmd+Enter to send)"
+              rows={2}
+              className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-600"
+            />
+            <button
+              onClick={() => {
+                void handleReply();
+              }}
+              disabled={replying || !replyText.trim()}
+              className="self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+            >
+              {replying ? "..." : "Send"}
+            </button>
+          </div>
+          {replyError && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{replyError}</p>
+          )}
         </div>
       )}
 
