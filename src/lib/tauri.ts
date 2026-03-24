@@ -134,10 +134,9 @@ export async function readSessionLog(id: string): Promise<string> {
   return tauriInvoke<string>("read_session_log", { id });
 }
 
-export async function retrySession(sessionId: string): Promise<Session> {
-  requireTauri("retry_session");
-  const raw = await tauriInvoke<BackendSession>("resume_session", { id: sessionId });
-  return mapBackendSession(raw);
+export async function retrySession(sessionId: string): Promise<void> {
+  requireTauri("resume_session");
+  return tauriInvoke<void>("resume_session", { id: sessionId });
 }
 
 export async function fetchPrReviewComments(
