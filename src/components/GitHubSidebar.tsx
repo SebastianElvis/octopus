@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { GitHubIssue, GitHubPR, CheckRun } from "../lib/types";
-import { fetchIssues, fetchPRs, createPR, fetchCheckRuns, mergePR, deleteRemoteBranch } from "../lib/tauri";
+import { fetchIssues, fetchPRs, createPR, fetchCheckRuns, mergePR, closeIssue } from "../lib/tauri";
 import { formatError } from "../lib/errors";
 import { isTauri } from "../lib/env";
 
@@ -51,8 +51,10 @@ export function GitHubSidebar({
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [merged, setMerged] = useState(false);
-  const [deletingBranch, setDeletingBranch] = useState(false);
-  const [branchDeleted, setBranchDeleted] = useState(false);
+
+  // Close issue
+  const [closingIssue, setClosingIssue] = useState(false);
+  const [issueClosed, setIssueClosed] = useState(false);
 
   useEffect(() => {
     if (!repoId || !linkedIssueNumber) return;
@@ -137,6 +139,10 @@ export function GitHubSidebar({
         mergeMethod,
       });
       setMerged(true);
+      // Auto-close linked issue if present
+      if (issue?.state === "open" && linkedIssueNumber) {
+        await handleCloseIssue();
+      }
     } catch (err: unknown) {
       setMergeError(formatError(err));
     } finally {
@@ -144,16 +150,16 @@ export function GitHubSidebar({
     }
   }
 
-  async function handleDeleteBranch() {
-    if (!repoId || !pr) return;
-    setDeletingBranch(true);
+  async function handleCloseIssue() {
+    if (!repoId || !linkedIssueNumber) return;
+    setClosingIssue(true);
     try {
-      await deleteRemoteBranch(repoId, pr.headRef);
-      setBranchDeleted(true);
+      await closeIssue(repoId, linkedIssueNumber);
+      setIssueClosed(true);
     } catch {
-      // silently ignore branch delete failures
+      // silently ignore
     } finally {
-      setDeletingBranch(false);
+      setClosingIssue(false);
     }
   }
 
@@ -188,12 +194,17 @@ export function GitHubSidebar({
           {issue && (
             <>
               <div className="flex items-center gap-2">
-                <IssueIcon state={issue.state} />
+                <IssueIcon state={issueClosed ? "closed" : issue.state} />
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-500">
                   Issue #{issue.number}
                 </span>
-                <StateBadge state={issue.state} />
+                <StateBadge state={issueClosed ? "closed" : issue.state} />
               </div>
+              {issueClosed && (
+                <p className="mt-1 text-xs font-medium text-green-600 dark:text-green-400">
+                  Issue #{issue.number} closed
+                </p>
+              )}
               <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
                 {issue.title}
               </p>
@@ -344,23 +355,23 @@ export function GitHubSidebar({
                   <p className="text-xs font-medium text-green-700 dark:text-green-400">
                     PR #{pr.number} merged successfully
                   </p>
-                  {!branchDeleted && !deletingBranch && (
+                  {linkedIssueNumber && issueClosed && (
+                    <p className="mt-0.5 text-xs text-green-600 dark:text-green-500">
+                      Issue #{linkedIssueNumber} closed
+                    </p>
+                  )}
+                  {linkedIssueNumber && !issueClosed && !closingIssue && (
                     <button
                       onClick={() => {
-                        void handleDeleteBranch();
+                        void handleCloseIssue();
                       }}
                       className="mt-1 text-xs text-blue-600 hover:underline dark:text-blue-500"
                     >
-                      Delete branch {pr.headRef}
+                      Close Issue #{linkedIssueNumber}
                     </button>
                   )}
-                  {deletingBranch && (
-                    <span className="mt-1 text-xs text-gray-500">Deleting branch...</span>
-                  )}
-                  {branchDeleted && (
-                    <p className="mt-0.5 text-xs text-green-600 dark:text-green-500">
-                      Branch {pr.headRef} deleted
-                    </p>
+                  {closingIssue && (
+                    <span className="mt-1 text-xs text-gray-500">Closing issue...</span>
                   )}
                 </div>
               )}

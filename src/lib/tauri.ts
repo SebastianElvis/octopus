@@ -235,6 +235,11 @@ export async function deleteRemoteBranch(repoId: string, branch: string): Promis
   return tauriInvoke<void>("delete_remote_branch", { repoId, branch });
 }
 
+export async function closeIssue(repoId: string, issueNumber: number): Promise<void> {
+  requireTauri("close_issue");
+  return tauriInvoke<void>("close_issue", { repoId, issueNumber });
+}
+
 // ── Git commands ─────────────────────────────────────────────────────────────
 
 export async function gitCommitAndPush(params: {

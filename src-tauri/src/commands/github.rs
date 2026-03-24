@@ -733,6 +733,42 @@ pub async fn delete_remote_branch(
     Ok(())
 }
 
+/// Close a GitHub issue via the REST API.
+#[tauri::command]
+pub async fn close_issue(
+    state: State<'_, AppState>,
+    repo_id: String,
+    issue_number: u64,
+) -> AppResult<()> {
+    let github_url = lookup_github_url(&state, &repo_id)?;
+    let token = get_or_refresh_token(&state)?;
+    let (owner, repo) = parse_owner_repo(&github_url)?;
+
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/issues/{}",
+        owner, repo, issue_number
+    );
+
+    #[derive(Serialize)]
+    struct CloseIssueBody {
+        state: String,
+    }
+
+    let payload = CloseIssueBody {
+        state: "closed".to_string(),
+    };
+
+    let client = &state.http_client;
+    let payload_json = serde_json::to_value(&payload)?;
+    let resp = github_request(client, || client.patch(&url).json(&payload_json), &token).await?;
+
+    // Consume the response body
+    let _: serde_json::Value = resp.json().await?;
+
+    log::info!("Closed issue #{} in {}/{}", issue_number, owner, repo);
+    Ok(())
+}
+
 /// Create a session from PR review comments.
 #[tauri::command]
 pub async fn create_session_from_review(
