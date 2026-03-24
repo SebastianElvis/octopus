@@ -253,6 +253,16 @@ export async function gitCommitAndPush(params: {
   });
 }
 
+export async function gitCommit(worktreePath: string, message: string): Promise<void> {
+  requireTauri("git_commit");
+  return tauriInvoke<void>("git_commit", { worktreePath, commitMessage: message });
+}
+
+export async function gitPush(worktreePath: string): Promise<void> {
+  requireTauri("git_push");
+  return tauriInvoke<void>("git_push", { worktreePath });
+}
+
 export async function createPR(params: {
   repoId: string;
   headBranch: string;

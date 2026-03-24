@@ -6,6 +6,8 @@ import {
   gitDiscardFiles,
   getFileDiff,
   gitCommitAndPush,
+  gitCommit,
+  gitPush,
 } from "../lib/tauri";
 import type { ChangedFile } from "../lib/types";
 
@@ -18,6 +20,7 @@ interface GitState {
   loading: boolean;
   commitMessage: string;
   pushing: boolean;
+  committing: boolean;
   error: string | null;
 
   setWorktreePath: (path: string | null) => void;
@@ -29,6 +32,8 @@ interface GitState {
   clearSelection: () => void;
   setCommitMessage: (msg: string) => void;
   commitAndPush: () => Promise<void>;
+  commit: () => Promise<void>;
+  push: () => Promise<void>;
 }
 
 export const useGitStore = create<GitState>((set, get) => ({
@@ -40,6 +45,7 @@ export const useGitStore = create<GitState>((set, get) => ({
   loading: false,
   commitMessage: "",
   pushing: false,
+  committing: false,
   error: null,
 
   setWorktreePath: (path: string | null) => {
@@ -130,6 +136,31 @@ export const useGitStore = create<GitState>((set, get) => ({
       await gitCommitAndPush({ worktreePath, message: commitMessage });
       set({ commitMessage: "", pushing: false });
       await get().refreshChanges();
+    } catch (err) {
+      set({ pushing: false, error: String(err) });
+    }
+  },
+
+  commit: async () => {
+    const { worktreePath, commitMessage } = get();
+    if (!worktreePath || !commitMessage.trim()) return;
+    set({ committing: true, error: null });
+    try {
+      await gitCommit(worktreePath, commitMessage);
+      set({ commitMessage: "", committing: false });
+      await get().refreshChanges();
+    } catch (err) {
+      set({ committing: false, error: String(err) });
+    }
+  },
+
+  push: async () => {
+    const { worktreePath } = get();
+    if (!worktreePath) return;
+    set({ pushing: true, error: null });
+    try {
+      await gitPush(worktreePath);
+      set({ pushing: false });
     } catch (err) {
       set({ pushing: false, error: String(err) });
     }
