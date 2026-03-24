@@ -103,7 +103,7 @@ describe("ToastContainer", () => {
     expect(container.innerHTML).toContain("bg-green-600");
 
     rerender(<ToastContainer toasts={[makeToast({ type: "warning" })]} onDismiss={() => {}} />);
-    expect(container.innerHTML).toContain("bg-orange-500");
+    expect(container.innerHTML).toContain("bg-amber-500");
 
     rerender(<ToastContainer toasts={[makeToast({ type: "info" })]} onDismiss={() => {}} />);
     expect(container.innerHTML).toContain("bg-blue-600");

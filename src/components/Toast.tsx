@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 export interface ToastItem {
   id: string;
   message: string;
-  type: "info" | "warning" | "success";
+  type: "info" | "warning" | "success" | "error";
   sessionId?: string;
   /** Auto-dismiss after ms (0 = manual dismiss only) */
   duration?: number;
@@ -58,8 +58,9 @@ function ToastCard({
 
   const bgColor = {
     info: "bg-blue-600",
-    warning: "bg-orange-500",
+    warning: "bg-amber-500",
     success: "bg-green-600",
+    error: "bg-red-600",
   }[toast.type];
 
   return (

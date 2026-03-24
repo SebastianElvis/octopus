@@ -1,32 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { timeAgo } from "../lib/utils";
-
-const STATUS_DOT: Record<string, string> = {
-  waiting: "bg-red-500",
-  running: "bg-green-500",
-  idle: "bg-gray-500",
-  done: "bg-gray-600",
-  completed: "bg-green-600",
-  failed: "bg-red-600",
-  paused: "bg-gray-400",
-  stuck: "bg-orange-500",
-  interrupted: "bg-yellow-500",
-  killed: "bg-red-700",
-};
-
-const STATUS_PILL: Record<string, string> = {
-  waiting: "bg-red-500/20 text-red-600 dark:text-red-400",
-  running: "bg-green-500/20 text-green-600 dark:text-green-400",
-  idle: "bg-gray-500/20 text-gray-500 dark:text-gray-400",
-  done: "bg-gray-200/60 text-gray-500 dark:bg-gray-700/40 dark:text-gray-500",
-  completed: "bg-green-200/60 text-green-600 dark:bg-green-900/30 dark:text-green-400",
-  failed: "bg-red-200/60 text-red-600 dark:bg-red-900/30 dark:text-red-400",
-  paused: "bg-gray-400/20 text-gray-500 dark:text-gray-400",
-  stuck: "bg-orange-500/20 text-orange-600 dark:text-orange-400",
-  interrupted: "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400",
-  killed: "bg-red-200/60 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-};
+import { STATUS_DOT, STATUS_PILL, RUNNING_PULSE } from "../lib/statusColors";
 
 interface CommandPaletteProps {
   open: boolean;
@@ -175,7 +150,7 @@ function CommandPaletteInner({
             >
               {/* Status dot */}
               <span
-                className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"}`}
+                className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"} ${session.status === "running" ? RUNNING_PULSE : ""}`}
               />
 
               {/* Session info */}
@@ -185,7 +160,7 @@ function CommandPaletteInner({
                     {session.name}
                   </span>
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_PILL[session.status] ?? ""}`}
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status] ?? ""}`}
                   >
                     {session.status}
                   </span>

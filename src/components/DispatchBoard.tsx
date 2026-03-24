@@ -3,6 +3,7 @@ import { useSessionStore } from "../stores/sessionStore";
 import { KanbanCard } from "./KanbanCard";
 import { checkStuckSessions, killSession, resumeSession, retrySession } from "../lib/tauri";
 import type { Session } from "../lib/types";
+import { RUNNING_PULSE } from "../lib/statusColors";
 
 interface DispatchBoardProps {
   onViewSession: (id: string) => void;
@@ -290,10 +291,10 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         <div className="flex items-center gap-4">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Fleet</span>
           <div className="flex items-center gap-3">
-            <SummaryPill color="red" count={summary.attention} label="attention" />
-            <SummaryPill color="green" count={summary.running} label="running" />
-            <SummaryPill color="blue" count={summary.completed} label="completed" />
-            <SummaryPill color="gray" count={summary.failed} label="failed" />
+            <SummaryPill color="amber" count={summary.attention} label="attention" />
+            <SummaryPill color="blue" count={summary.running} label="running" pulse />
+            <SummaryPill color="green" count={summary.completed} label="completed" />
+            <SummaryPill color="red" count={summary.failed} label="failed" />
           </div>
           <span className="text-xs text-gray-400 dark:text-gray-500">{summary.total} total</span>
         </div>
@@ -387,7 +388,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         <Column
           title="Needs Attention"
           count={needsAttention.length}
-          accentColor="red"
+          accentColor="amber"
           empty="No sessions need attention."
         >
           {needsAttention.map((s) => (
@@ -422,7 +423,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         <Column
           title="Running"
           count={running.length}
-          accentColor="green"
+          accentColor="blue"
           empty="No sessions running."
         >
           {running.map((s) => (
@@ -522,17 +523,30 @@ function SelectableCard({
 
 /* ── Summary pill ────────────────────────────────────────────────────────── */
 
-function SummaryPill({ color, count, label }: { color: string; count: number; label: string }) {
+function SummaryPill({
+  color,
+  count,
+  label,
+  pulse,
+}: {
+  color: string;
+  count: number;
+  label: string;
+  pulse?: boolean;
+}) {
   const dotColors: Record<string, string> = {
     red: "bg-red-500",
     green: "bg-green-500",
     blue: "bg-blue-500",
+    amber: "bg-amber-500",
     gray: "bg-gray-500",
   };
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className={`h-1.5 w-1.5 rounded-full ${dotColors[color] ?? "bg-gray-500"}`} />
+      <span
+        className={`h-1.5 w-1.5 rounded-full ${dotColors[color] ?? "bg-gray-500"} ${pulse && count > 0 ? RUNNING_PULSE : ""}`}
+      />
       <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">{count}</span>
       <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
     </div>
@@ -550,20 +564,20 @@ function Column({
 }: {
   title: string;
   count: number;
-  accentColor: "red" | "green" | "gray" | "orange";
+  accentColor: "amber" | "blue" | "gray" | "orange";
   empty: string;
   children: ReactNode;
 }) {
   const dotColors = {
-    red: "bg-red-500",
-    green: "bg-green-500",
+    amber: "bg-amber-500",
+    blue: "bg-blue-500",
     gray: "bg-gray-500",
     orange: "bg-orange-500",
   };
 
   const headerBorder = {
-    red: "border-red-500",
-    green: "border-green-500",
+    amber: "border-amber-500",
+    blue: "border-blue-500",
     gray: "border-gray-300 dark:border-gray-700",
     orange: "border-orange-500",
   };
