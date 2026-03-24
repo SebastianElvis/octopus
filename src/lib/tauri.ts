@@ -296,6 +296,19 @@ export async function getFileAtHead(worktreePath: string, filePath: string): Pro
   return tauriInvoke<string>("get_file_at_head", { worktreePath, filePath });
 }
 
+// ── Prerequisites commands ───────────────────────────────────────────────────
+
+export type PrerequisiteStatus = {
+  claude: boolean;
+  git: boolean;
+  gh: boolean;
+};
+
+export async function checkPrerequisites(): Promise<PrerequisiteStatus> {
+  if (!isTauri()) return { claude: true, git: true, gh: true };
+  return tauriInvoke<PrerequisiteStatus>("check_prerequisites");
+}
+
 // ── Shell commands (plain shell PTY, not Claude sessions) ────────────────────
 
 export async function spawnShell(cwd: string): Promise<string> {
