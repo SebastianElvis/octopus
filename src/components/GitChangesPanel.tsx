@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useGitStore } from "../stores/gitStore";
 import type { ChangedFile } from "../lib/types";
 
@@ -31,6 +31,7 @@ export function GitChangesPanel({
     loading,
     commitMessage,
     pushing,
+    committing,
     error,
     selectedFile,
     setWorktreePath,
@@ -41,7 +42,12 @@ export function GitChangesPanel({
     selectFile,
     setCommitMessage,
     commitAndPush,
+    commit,
+    push,
   } = useGitStore();
+
+  const [discardConfirmPath, setDiscardConfirmPath] = useState<string | null>(null);
+  const [discardAllConfirm, setDiscardAllConfirm] = useState(false);
 
   useEffect(() => {
     setWorktreePath(worktreePath ?? null);
@@ -83,6 +89,15 @@ export function GitChangesPanel({
     onCommitted?.();
   }
 
+  async function handleCommit() {
+    await commit();
+    onCommitted?.();
+  }
+
+  async function handlePush() {
+    await push();
+  }
+
   function handleStageAll() {
     const paths = unstaged.map((f) => f.path);
     if (paths.length > 0) void stageFiles(paths);
@@ -91,6 +106,25 @@ export function GitChangesPanel({
   function handleUnstageAll() {
     const paths = staged.map((f) => f.path);
     if (paths.length > 0) void unstageFiles(paths);
+  }
+
+  function handleDiscard(path: string) {
+    if (discardConfirmPath === path) {
+      void discardFiles([path]);
+      setDiscardConfirmPath(null);
+    } else {
+      setDiscardConfirmPath(path);
+    }
+  }
+
+  function handleDiscardAll() {
+    if (discardAllConfirm) {
+      const paths = unstaged.map((f) => f.path);
+      if (paths.length > 0) void discardFiles(paths);
+      setDiscardAllConfirm(false);
+    } else {
+      setDiscardAllConfirm(true);
+    }
   }
 
   return (
@@ -123,7 +157,7 @@ export function GitChangesPanel({
 
       {loading && changedFiles.length === 0 && (
         <div className="flex h-20 items-center justify-center">
-          <span className="text-xs text-gray-400 dark:text-gray-600">Loading…</span>
+          <span className="text-xs text-gray-400 dark:text-gray-600">Loading...</span>
         </div>
       )}
 
@@ -162,13 +196,14 @@ export function GitChangesPanel({
             onAction={(f) => {
               void stageFiles([f.path]);
             }}
-            secondActionLabel="⟲"
-            secondActionTitle="Discard"
-            onSecondAction={(f) => {
-              void discardFiles([f.path]);
-            }}
+            secondActionLabel="Discard"
+            secondActionTitle="Discard changes"
+            onSecondAction={(f) => handleDiscard(f.path)}
+            discardConfirmPath={discardConfirmPath}
             onBulkAction={handleStageAll}
             bulkLabel="Stage all"
+            onDiscardAll={handleDiscardAll}
+            discardAllConfirm={discardAllConfirm}
           />
         )}
 
@@ -185,19 +220,39 @@ export function GitChangesPanel({
         <textarea
           value={commitMessage}
           onChange={(e) => setCommitMessage(e.target.value)}
-          placeholder="Commit message…"
+          placeholder="Commit message..."
           rows={2}
           className="mb-2 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-600"
         />
-        <button
-          onClick={() => {
-            void handleCommitAndPush();
-          }}
-          disabled={pushing || !commitMessage.trim() || staged.length === 0}
-          className="w-full rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-40"
-        >
-          {pushing ? "Pushing…" : "Commit & Push"}
-        </button>
+        <div className="flex gap-1.5">
+          <button
+            onClick={() => {
+              void handleCommit();
+            }}
+            disabled={committing || pushing || !commitMessage.trim() || staged.length === 0}
+            className="flex-1 rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+          >
+            {committing ? "Committing..." : "Commit"}
+          </button>
+          <button
+            onClick={() => {
+              void handlePush();
+            }}
+            disabled={pushing || committing}
+            className="rounded border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:border-blue-500 dark:text-blue-400 dark:hover:bg-blue-950/30"
+          >
+            {pushing ? "Pushing..." : "Push"}
+          </button>
+          <button
+            onClick={() => {
+              void handleCommitAndPush();
+            }}
+            disabled={pushing || committing || !commitMessage.trim() || staged.length === 0}
+            className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-40 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
+          >
+            {pushing ? "..." : "Commit & Push"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -214,8 +269,11 @@ function FileSection({
   secondActionLabel,
   secondActionTitle,
   onSecondAction,
+  discardConfirmPath,
   onBulkAction,
   bulkLabel,
+  onDiscardAll,
+  discardAllConfirm,
 }: {
   title: string;
   files: ChangedFile[];
@@ -227,8 +285,11 @@ function FileSection({
   secondActionLabel?: string;
   secondActionTitle?: string;
   onSecondAction?: (f: ChangedFile) => void;
+  discardConfirmPath?: string | null;
   onBulkAction: () => void;
   bulkLabel: string;
+  onDiscardAll?: () => void;
+  discardAllConfirm?: boolean;
 }) {
   return (
     <div>
@@ -236,18 +297,33 @@ function FileSection({
         <span className="text-xs font-medium text-gray-500 dark:text-gray-500">
           {title} ({files.length})
         </span>
-        <button
-          onClick={onBulkAction}
-          className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400"
-        >
-          {bulkLabel}
-        </button>
+        <div className="flex items-center gap-2">
+          {onDiscardAll && (
+            <button
+              onClick={onDiscardAll}
+              className={`text-xs ${
+                discardAllConfirm
+                  ? "font-medium text-red-600 dark:text-red-400"
+                  : "text-gray-400 hover:text-red-600 dark:text-gray-600 dark:hover:text-red-400"
+              }`}
+            >
+              {discardAllConfirm ? "Confirm discard all?" : "Discard all"}
+            </button>
+          )}
+          <button
+            onClick={onBulkAction}
+            className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-600 dark:hover:text-gray-400"
+          >
+            {bulkLabel}
+          </button>
+        </div>
       </div>
       {files.map((f) => {
         const badge = STATUS_BADGE[f.status] ?? STATUS_BADGE.modified;
         const isSelected = f.path === selectedFile;
         const fileName = f.path.split("/").pop() ?? f.path;
         const dirPath = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
+        const isConfirmingDiscard = discardConfirmPath === f.path;
 
         return (
           <div
@@ -289,10 +365,14 @@ function FileSection({
                     e.stopPropagation();
                     onSecondAction(f);
                   }}
-                  className="rounded px-1 py-0.5 text-xs text-gray-400 hover:bg-red-100 hover:text-red-600 dark:text-gray-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                  title={secondActionTitle}
+                  className={`rounded px-1 py-0.5 text-xs ${
+                    isConfirmingDiscard
+                      ? "font-medium text-red-600 dark:text-red-400"
+                      : "text-gray-400 hover:bg-red-100 hover:text-red-600 dark:text-gray-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                  }`}
+                  title={isConfirmingDiscard ? "Click again to confirm" : secondActionTitle}
                 >
-                  {secondActionLabel}
+                  {isConfirmingDiscard ? "Confirm?" : secondActionLabel}
                 </button>
               )}
             </div>

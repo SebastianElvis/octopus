@@ -21,6 +21,7 @@ function resetStore(overrides: Record<string, unknown> = {}) {
     loading: false,
     commitMessage: "",
     pushing: false,
+    committing: false,
     error: null,
     ...overrides,
   });
@@ -50,7 +51,7 @@ describe("GitChangesPanel", () => {
     act(() => {
       useGitStore.setState({ loading: true, changedFiles: [] });
     });
-    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    expect(screen.getByText("Loading...")).toBeInTheDocument();
   });
 
   it("renders unstaged files", async () => {
@@ -103,7 +104,7 @@ describe("GitChangesPanel", () => {
 
   it("renders commit message textarea", () => {
     render(<GitChangesPanel worktreePath="/tmp/wt" />);
-    expect(screen.getByPlaceholderText("Commit message…")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Commit message...")).toBeInTheDocument();
   });
 
   it("disables commit button when no staged files", async () => {
@@ -129,7 +130,7 @@ describe("GitChangesPanel", () => {
     expect(button).toBeDisabled();
   });
 
-  it("shows 'Pushing…' while pushing", async () => {
+  it("shows 'Pushing...' while pushing", async () => {
     render(<GitChangesPanel worktreePath="/tmp/wt" />);
     await act(async () => {});
     act(() => {
@@ -139,7 +140,7 @@ describe("GitChangesPanel", () => {
         pushing: true,
       });
     });
-    expect(screen.getByText("Pushing…")).toBeInTheDocument();
+    expect(screen.getByText("Pushing...")).toBeInTheDocument();
   });
 
   it("pre-populates commit message with session name", async () => {
@@ -150,7 +151,7 @@ describe("GitChangesPanel", () => {
 
   it("updates commit message on input", () => {
     render(<GitChangesPanel worktreePath="/tmp/wt" />);
-    const textarea = screen.getByPlaceholderText("Commit message…");
+    const textarea = screen.getByPlaceholderText("Commit message...");
     fireEvent.change(textarea, { target: { value: "new message" } });
     expect(useGitStore.getState().commitMessage).toBe("new message");
   });
