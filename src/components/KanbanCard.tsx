@@ -17,7 +17,6 @@ export type CIStatus = "success" | "failure" | "pending" | null;
 interface KanbanCardProps {
   session: Session;
   onView: (id: string) => void;
-  onReply?: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
   onRetry?: (id: string) => void;
@@ -28,7 +27,6 @@ interface KanbanCardProps {
 export function KanbanCard({
   session,
   onView,
-  onReply,
   onInterrupt,
   onResume,
   onRetry,
@@ -98,13 +96,6 @@ export function KanbanCard({
         )}
       </p>
 
-      {/* Last message preview */}
-      {session.lastMessage && (
-        <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-gray-400 dark:text-gray-500">
-          {session.lastMessage}
-        </p>
-      )}
-
       {/* Pills row */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <span
@@ -145,21 +136,20 @@ export function KanbanCard({
 
       {/* Action buttons */}
       <div className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+        {/* View is always first */}
+        <button
+          onClick={() => onView(session.id)}
+          className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200 dark:active:bg-gray-800"
+        >
+          View
+        </button>
         {session.status === "waiting" && (
-          <>
-            <button
-              onClick={() => setShowQuickReply((v) => !v)}
-              className="cursor-pointer rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
-            >
-              Quick Reply
-            </button>
-            <button
-              onClick={() => onReply?.(session.id)}
-              className="cursor-pointer rounded border border-red-300 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 active:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:active:bg-red-950/50"
-            >
-              Full View
-            </button>
-          </>
+          <button
+            onClick={() => setShowQuickReply((v) => !v)}
+            className="cursor-pointer rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+          >
+            Quick Reply
+          </button>
         )}
         {session.status === "running" && (
           <button
@@ -187,7 +177,7 @@ export function KanbanCard({
             Retry
           </button>
         )}
-        {/* Kill with confirmation */}
+        {/* Kill with confirmation — always last */}
         {(session.status === "running" ||
           session.status === "waiting" ||
           session.status === "stuck") &&
@@ -222,12 +212,6 @@ export function KanbanCard({
             </button>
           </>
         )}
-        <button
-          onClick={() => onView(session.id)}
-          className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200 dark:active:bg-gray-800"
-        >
-          View
-        </button>
       </div>
 
       {/* Inline quick reply - textarea for multi-line */}

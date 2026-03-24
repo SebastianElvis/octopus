@@ -35,7 +35,6 @@ interface SessionDetailProps {
 export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const updateSession = useSessionStore((s) => s.updateSession);
-  const addSession = useSessionStore((s) => s.addSession);
   const outputBuffer = useSessionStore((s) => s.outputBuffers[sessionId] ?? []);
 
   const activeTabId = useEditorStore((s) => s.activeTabId);
@@ -160,8 +159,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   async function handleRetry() {
     if (!session) return;
     try {
-      const newSession = await retrySession(session.id);
-      addSession(newSession);
+      await retrySession(session.id);
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to retry session:", err);
     }
@@ -350,15 +348,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             Session interrupted -- the app was restarted while this session was active. Click Resume
             to continue.
           </span>
-        </div>
-      )}
-
-      {/* lastMessage display */}
-      {session.lastMessage && (
-        <div className="shrink-0 border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/50">
-          <p className="text-xs leading-relaxed text-gray-600 dark:text-gray-400">
-            <span className="font-medium">Last message:</span> {session.lastMessage}
-          </p>
         </div>
       )}
 

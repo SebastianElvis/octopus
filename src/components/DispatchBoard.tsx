@@ -15,7 +15,6 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   const sessionsLoading = useSessionStore((s) => s.sessionsLoading);
   const sessionsError = useSessionStore((s) => s.sessionsError);
   const updateSession = useSessionStore((s) => s.updateSession);
-  const addSession = useSessionStore((s) => s.addSession);
   const loadSessions = useSessionStore((s) => s.loadSessions);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -120,8 +119,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
 
   async function handleRetry(id: string) {
     try {
-      const newSession = await retrySession(id);
-      addSession(newSession);
+      await retrySession(id);
     } catch {
       /* ignore */
     }
@@ -398,7 +396,6 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
               selected={selectedIds.has(s.id)}
               onToggleSelect={toggleSelect}
               onView={onViewSession}
-              onReply={s.status === "waiting" ? handleReply : undefined}
               onResume={
                 s.status === "paused" || s.status === "interrupted" ? handleResume : undefined
               }
