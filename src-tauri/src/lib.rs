@@ -316,7 +316,10 @@ mod tests {
         let prereqs = check_prerequisites();
         // git should be available in most CI/dev environments
         // We just verify the struct is constructed without panicking
-        assert!(prereqs.git || !prereqs.git); // tautology — tests the struct exists
+        // Verify the struct is constructed without panicking
+        let _ = prereqs.git;
+        let _ = prereqs.claude;
+        let _ = prereqs.gh;
     }
 
     #[test]
