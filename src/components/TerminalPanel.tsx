@@ -1,7 +1,6 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { isTauri } from "../lib/env";
 import { onSessionOutput, writeToSession, resizeSession, readSessionLog } from "../lib/tauri";
@@ -55,18 +54,6 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
     terminal.loadAddon(fitAddon);
     terminal.open(containerRef.current);
     fitAddon.fit();
-
-    // Use WebGL renderer for smoother rendering and fewer overlap artifacts
-    try {
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => {
-        webglAddon.dispose();
-      });
-      terminal.loadAddon(webglAddon);
-    } catch {
-      // WebGL not available — falls back to DOM renderer automatically
-      console.warn("[TerminalPanel] WebGL addon failed to load, using DOM renderer");
-    }
 
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
@@ -135,13 +122,18 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
       });
     }
 
-    // Resize terminal when container size changes
+    // Resize terminal when container size changes (debounced to avoid rapid redraws)
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     const observer = new ResizeObserver(() => {
-      fitAddonRef.current?.fit();
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        fitAddonRef.current?.fit();
+      }, 50);
     });
     observer.observe(containerRef.current);
 
     return () => {
+      clearTimeout(resizeTimer);
       onDataDispose.dispose();
       onResizeDispose.dispose();
       observer.disconnect();
@@ -154,14 +146,14 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
 
   // Refit terminal when tab becomes visible (xterm can't measure when hidden)
   useEffect(() => {
-    if (visible && fitAddonRef.current && terminalRef.current) {
+    if (visible && fitAddonRef.current) {
       // Use double-rAF to ensure the DOM has fully laid out after visibility change
       let cancelled = false;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          if (cancelled) return;
-          fitAddonRef.current?.fit();
-          terminalRef.current?.refresh(0, terminalRef.current.rows - 1);
+          if (!cancelled) {
+            fitAddonRef.current?.fit();
+          }
         });
       });
       return () => {

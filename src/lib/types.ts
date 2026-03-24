@@ -9,7 +9,7 @@ export type SessionStatus =
   | "paused"
   | "stuck"
   | "interrupted";
-export type BlockType = "decision" | "review" | "confirm";
+export type BlockType = "permission" | "confirmation" | "question" | "input";
 
 /** Raw session shape returned by the Tauri backend (camelCase of Rust fields). */
 export interface BackendSession {

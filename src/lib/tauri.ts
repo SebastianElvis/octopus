@@ -77,11 +77,6 @@ export async function spawnSession(params: {
   return mapBackendSession(raw);
 }
 
-export async function replyToSession(id: string, message: string): Promise<void> {
-  requireTauri("reply_to_session");
-  return tauriInvoke<void>("reply_to_session", { id, message });
-}
-
 export async function writeToSession(id: string, data: string): Promise<void> {
   requireTauri("write_to_session");
   return tauriInvoke<void>("write_to_session", { id, data });
@@ -346,13 +341,6 @@ export async function getSetting(key: string): Promise<string | null> {
 export async function setSetting(key: string, value: string): Promise<void> {
   requireTauri("set_setting");
   return tauriInvoke<void>("set_setting", { key, value });
-}
-
-// ── Recap commands ───────────────────────────────────────────────────────────
-
-export async function generateRecap(sessionId: string): Promise<string> {
-  requireTauri("generate_recap");
-  return tauriInvoke<string>("generate_recap", { sessionId });
 }
 
 // ── Prerequisites commands ───────────────────────────────────────────────────

@@ -1,8 +1,6 @@
 import { useState } from "react";
 import type { Session } from "../lib/types";
 import { timeAgo } from "../lib/utils";
-import { replyToSession } from "../lib/tauri";
-import { formatError } from "../lib/errors";
 import {
   STATUS_PILL,
   STATUS_LABEL,
@@ -35,28 +33,7 @@ export function KanbanCard({
 }: KanbanCardProps) {
   const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
-  const [quickReply, setQuickReply] = useState("");
-  const [showQuickReply, setShowQuickReply] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
   const [showKillConfirm, setShowKillConfirm] = useState(false);
-
-  async function handleQuickReply(e: React.SyntheticEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!quickReply.trim() || sending) return;
-    setSending(true);
-    setReplyError(null);
-    try {
-      await replyToSession(session.id, quickReply.trim());
-      setQuickReply("");
-      setShowQuickReply(false);
-    } catch (err) {
-      setReplyError(formatError(err));
-    } finally {
-      setSending(false);
-    }
-  }
 
   const ciDotColor =
     ciStatus === "success"
@@ -143,14 +120,6 @@ export function KanbanCard({
         >
           View
         </button>
-        {session.status === "waiting" && (
-          <button
-            onClick={() => setShowQuickReply((v) => !v)}
-            className="cursor-pointer rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
-          >
-            Quick Reply
-          </button>
-        )}
         {session.status === "running" && (
           <button
             onClick={() => onInterrupt?.(session.id)}
@@ -161,14 +130,15 @@ export function KanbanCard({
         )}
         {(session.status === "idle" ||
           session.status === "paused" ||
-          session.status === "interrupted") && (
-          <button
-            onClick={() => onResume?.(session.id)}
-            className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-          >
-            Resume
-          </button>
-        )}
+          session.status === "interrupted") &&
+          onResume && (
+            <button
+              onClick={() => onResume(session.id)}
+              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            >
+              Resume
+            </button>
+          )}
         {(session.status === "failed" || session.status === "stuck") && onRetry && (
           <button
             onClick={() => onRetry(session.id)}
@@ -214,38 +184,6 @@ export function KanbanCard({
         )}
       </div>
 
-      {/* Inline quick reply - textarea for multi-line */}
-      {showQuickReply && session.status === "waiting" && (
-        <form
-          onSubmit={(e) => {
-            void handleQuickReply(e);
-          }}
-          className="mt-2 flex flex-col gap-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <textarea
-            value={quickReply}
-            onChange={(e) => setQuickReply(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                void handleQuickReply(e);
-              }
-            }}
-            placeholder="Type reply... (Cmd+Enter to send)"
-            autoFocus
-            rows={3}
-            className="w-full resize-none rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-          />
-          {replyError && <p className="text-[11px] text-red-600 dark:text-red-400">{replyError}</p>}
-          <button
-            type="submit"
-            disabled={sending || !quickReply.trim()}
-            className="cursor-pointer self-end rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {sending ? "..." : "Send"}
-          </button>
-        </form>
-      )}
     </div>
   );
 }

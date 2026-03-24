@@ -82,9 +82,10 @@ export const STATUS_LABEL: Record<string, string> = {
 
 /** Block type pill classes (for waiting sessions). */
 export const BLOCK_TYPE_PILL: Record<string, string> = {
-  decision: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
-  review: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
-  confirm: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
+  permission: "bg-orange-500/20 text-orange-600 ring-1 ring-orange-500/30 dark:text-orange-400",
+  confirmation: "bg-yellow-500/20 text-yellow-600 ring-1 ring-yellow-500/30 dark:text-yellow-400",
+  question: "bg-purple-500/20 text-purple-600 ring-1 ring-purple-500/30 dark:text-purple-400",
+  input: "bg-blue-500/20 text-blue-600 ring-1 ring-blue-500/30 dark:text-blue-400",
 };
 
 /**

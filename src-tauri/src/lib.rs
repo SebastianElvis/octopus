@@ -3,7 +3,7 @@ mod db;
 mod error;
 mod state;
 
-use commands::ai::{generate_recap, get_setting, set_setting};
+use commands::ai::{get_setting, set_setting};
 use commands::filesystem::{list_dir, read_file};
 use commands::git_ops::{
     get_changed_files, get_file_at_head, get_file_diff, git_discard_files, git_stage_files,
@@ -17,7 +17,7 @@ use commands::github::{
 use commands::repos::{add_repo, list_repos, remove_repo};
 use commands::sessions::{
     check_stuck_sessions, get_session, interrupt_session, kill_session, list_sessions,
-    pause_session, read_session_log, reply_to_session, resize_session, resume_session,
+    pause_session, read_session_log, resize_session, resume_session,
     spawn_session, write_to_session,
 };
 use commands::shell::{kill_shell, resize_shell, spawn_shell, write_to_shell};
@@ -244,7 +244,6 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // sessions
             spawn_session,
-            reply_to_session,
             write_to_session,
             resize_session,
             interrupt_session,
@@ -293,7 +292,6 @@ pub fn run() {
             // ai & settings
             get_setting,
             set_setting,
-            generate_recap,
             // system
             check_prerequisites,
         ])

@@ -60,10 +60,6 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
     });
   }
 
-  function handleReply(id: string) {
-    onViewSession(id);
-  }
-
   function handleInterrupt(id: string) {
     updateSession(id, { status: "idle", stateChangedAt: Date.now() });
   }
@@ -167,7 +163,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                         key={s.id}
                         session={s}
                         onView={onViewSession}
-                        onReply={s.status === "waiting" ? handleReply : undefined}
+
                         onInterrupt={s.status === "running" ? handleInterrupt : undefined}
                         onResume={
                           s.status === "idle" || s.status === "paused" ? handleResume : undefined
@@ -197,7 +193,6 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                   key={s.id}
                   session={s}
                   onView={onViewSession}
-                  onReply={s.status === "waiting" ? handleReply : undefined}
                   onInterrupt={s.status === "running" ? handleInterrupt : undefined}
                   onResume={s.status === "idle" || s.status === "paused" ? handleResume : undefined}
                 />

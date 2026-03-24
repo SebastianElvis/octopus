@@ -94,20 +94,12 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     return () => clearInterval(interval);
   }, [markStuck]);
 
-  // Clear selection when sessions change
-  const [prevSessions, setPrevSessions] = useState(sessions);
-  if (sessions !== prevSessions) {
-    setPrevSessions(sessions);
+  // Derive effective selection — prune IDs that no longer exist
+  const effectiveSelectedIds = useMemo(() => {
     const validIds = new Set(sessions.map((s) => s.id));
-    setSelectedIds((prev) => {
-      const next = new Set([...prev].filter((id) => validIds.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-  }
-
-  function handleReply(id: string) {
-    onViewSession(id);
-  }
+    const pruned = new Set([...selectedIds].filter((id) => validIds.has(id)));
+    return pruned.size === selectedIds.size ? selectedIds : pruned;
+  }, [sessions, selectedIds]);
 
   function handleInterrupt(id: string) {
     onViewSession(id);
@@ -144,7 +136,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   }
 
   async function handleBulkKill() {
-    for (const id of selectedIds) {
+    for (const id of effectiveSelectedIds) {
       try {
         await killSession(id);
         updateSession(id, { status: "killed", stateChangedAt: Date.now() });
@@ -156,7 +148,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   }
 
   async function handleBulkResume() {
-    for (const id of selectedIds) {
+    for (const id of effectiveSelectedIds) {
       try {
         await resumeSession(id);
         updateSession(id, { status: "running", stateChangedAt: Date.now() });
@@ -255,7 +247,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
           <WorkflowStep
             number={3}
             title="Monitor and respond"
-            description="Watch sessions run, reply when they need input, and review changes."
+            description="Watch sessions run, monitor progress, and review changes."
           />
           <WorkflowStep
             number={4}
@@ -273,8 +265,8 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     );
   }
 
-  const hasSelection = selectedIds.size > 0;
-  const selectedSessions = sessions.filter((s) => selectedIds.has(s.id));
+  const hasSelection = effectiveSelectedIds.size > 0;
+  const selectedSessions = sessions.filter((s) => effectiveSelectedIds.has(s.id));
   const canResumeSelected = selectedSessions.some(
     (s) => s.status === "paused" || s.status === "interrupted" || s.status === "idle",
   );
@@ -350,7 +342,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
       {hasSelection && (
         <div className="flex shrink-0 items-center gap-3 border-b border-blue-200 bg-blue-50 px-6 py-2 dark:border-blue-900/50 dark:bg-blue-950/30">
           <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
-            {selectedIds.size} selected
+            {effectiveSelectedIds.size} selected
           </span>
           {canKillSelected && (
             <button
@@ -393,7 +385,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             <SelectableCard
               key={s.id}
               session={s}
-              selected={selectedIds.has(s.id)}
+              selected={effectiveSelectedIds.has(s.id)}
               onToggleSelect={toggleSelect}
               onView={onViewSession}
               onResume={
@@ -427,7 +419,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             <SelectableCard
               key={s.id}
               session={s}
-              selected={selectedIds.has(s.id)}
+              selected={effectiveSelectedIds.has(s.id)}
               onToggleSelect={toggleSelect}
               onView={onViewSession}
               onInterrupt={handleInterrupt}
@@ -443,7 +435,7 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             <SelectableCard
               key={s.id}
               session={s}
-              selected={selectedIds.has(s.id)}
+              selected={effectiveSelectedIds.has(s.id)}
               onToggleSelect={toggleSelect}
               onView={onViewSession}
               onRetry={
@@ -497,7 +489,6 @@ function SelectableCard({
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onView: (id: string) => void;
-  onReply?: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
   onRetry?: (id: string) => void;

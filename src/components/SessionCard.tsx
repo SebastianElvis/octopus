@@ -11,7 +11,6 @@ import {
 interface SessionCardProps {
   session: Session;
   onView: (id: string) => void;
-  onReply?: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
   onKill?: (id: string) => void;
@@ -20,7 +19,6 @@ interface SessionCardProps {
 export function SessionCard({
   session,
   onView,
-  onReply,
   onInterrupt,
   onResume,
   onKill,
@@ -71,14 +69,6 @@ export function SessionCard({
         )}
 
         <div className="flex items-center gap-2">
-          {session.status === "waiting" && (
-            <button
-              onClick={() => onReply?.(session.id)}
-              className="cursor-pointer rounded-md bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
-            >
-              Reply
-            </button>
-          )}
           {session.status === "running" && (
             <button
               onClick={() => onInterrupt?.(session.id)}

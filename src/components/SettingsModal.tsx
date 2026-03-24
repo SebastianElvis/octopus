@@ -194,7 +194,7 @@ function SettingsModalInner({
                   Claude API Key
                 </label>
                 <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
-                  Used for generating session recaps. Optional if you have Claude CLI configured.
+                  Claude API key. Optional if you have Claude CLI configured.
                 </p>
                 <input
                   type="password"
