@@ -221,6 +221,20 @@ export async function fetchCheckRuns(repoId: string, gitRef: string): Promise<Ch
   return tauriInvoke<CheckRun[]>("fetch_check_runs", { repoId, gitRef });
 }
 
+export async function mergePR(params: {
+  repoId: string;
+  prNumber: number;
+  mergeMethod: "merge" | "squash" | "rebase";
+}): Promise<void> {
+  requireTauri("merge_pr");
+  return tauriInvoke<void>("merge_pr", params);
+}
+
+export async function deleteRemoteBranch(repoId: string, branch: string): Promise<void> {
+  requireTauri("delete_remote_branch");
+  return tauriInvoke<void>("delete_remote_branch", { repoId, branch });
+}
+
 // ── Git commands ─────────────────────────────────────────────────────────────
 
 export async function gitCommitAndPush(params: {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { GitHubIssue, GitHubPR, CheckRun } from "../lib/types";
-import { fetchIssues, fetchPRs, createPR, fetchCheckRuns } from "../lib/tauri";
+import { fetchIssues, fetchPRs, createPR, fetchCheckRuns, mergePR, deleteRemoteBranch } from "../lib/tauri";
 import { formatError } from "../lib/errors";
 import { isTauri } from "../lib/env";
 
@@ -45,6 +45,14 @@ export function GitHubSidebar({
   const [checkRuns, setCheckRuns] = useState<CheckRun[]>([]);
   const [loadingChecks, setLoadingChecks] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Merge
+  const [mergeMethod, setMergeMethod] = useState<"merge" | "squash" | "rebase">("squash");
+  const [merging, setMerging] = useState(false);
+  const [mergeError, setMergeError] = useState<string | null>(null);
+  const [merged, setMerged] = useState(false);
+  const [deletingBranch, setDeletingBranch] = useState(false);
+  const [branchDeleted, setBranchDeleted] = useState(false);
 
   useEffect(() => {
     if (!repoId || !linkedIssueNumber) return;
@@ -113,8 +121,41 @@ export function GitHubSidebar({
     };
   }, [pr, checkRuns, fetchChecks]);
 
+  const allChecksPass = checkRuns.length > 0 && checkRuns.every((c) => c.conclusion === "success");
   const anyChecksFailing =
     checkRuns.length > 0 && checkRuns.some((c) => c.conclusion === "failure");
+  const checksPending = checkRuns.length > 0 && checkRuns.some((c) => c.status !== "completed");
+
+  async function handleMerge() {
+    if (!repoId || !pr) return;
+    setMerging(true);
+    setMergeError(null);
+    try {
+      await mergePR({
+        repoId,
+        prNumber: pr.number,
+        mergeMethod,
+      });
+      setMerged(true);
+    } catch (err: unknown) {
+      setMergeError(formatError(err));
+    } finally {
+      setMerging(false);
+    }
+  }
+
+  async function handleDeleteBranch() {
+    if (!repoId || !pr) return;
+    setDeletingBranch(true);
+    try {
+      await deleteRemoteBranch(repoId, pr.headRef);
+      setBranchDeleted(true);
+    } catch {
+      // silently ignore branch delete failures
+    } finally {
+      setDeletingBranch(false);
+    }
+  }
 
   async function handleOpenPR() {
     if (!repoId || !branch) return;
@@ -196,11 +237,11 @@ export function GitHubSidebar({
           {pr && (
             <>
               <div className="flex items-center gap-2">
-                <PRIcon state={pr.state} />
+                <PRIcon state={merged ? "merged" : pr.state} />
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-500">
                   PR #{pr.number}
                 </span>
-                <StateBadge state={pr.state} />
+                <StateBadge state={merged ? "merged" : pr.state} />
               </div>
               <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
                 {pr.title}
@@ -254,6 +295,71 @@ export function GitHubSidebar({
                         .filter((c) => c.conclusion === "failure")
                         .map((c) => c.name)
                         .join(", ")}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Merge PR section */}
+              {pr.state === "open" && !merged && (
+                <div className="mt-3 border-t border-gray-200 pt-2 dark:border-gray-800">
+                  {mergeError && (
+                    <p className="mb-1 text-xs text-red-600 dark:text-red-400">{mergeError}</p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={mergeMethod}
+                      onChange={(e) =>
+                        setMergeMethod(e.target.value as "merge" | "squash" | "rebase")
+                      }
+                      className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                    >
+                      <option value="squash">Squash</option>
+                      <option value="merge">Merge</option>
+                      <option value="rebase">Rebase</option>
+                    </select>
+                    <button
+                      onClick={() => {
+                        void handleMerge();
+                      }}
+                      disabled={
+                        merging || (checkRuns.length > 0 && !allChecksPass && !checksPending)
+                      }
+                      className="flex-1 rounded bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-500 disabled:opacity-40"
+                    >
+                      {merging ? "Merging..." : "Merge PR"}
+                    </button>
+                  </div>
+                  {checkRuns.length > 0 && !allChecksPass && !checksPending && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+                      Merge disabled until required checks pass
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Merged success state */}
+              {merged && (
+                <div className="mt-3 rounded-md border border-green-200 bg-green-50 p-2 dark:border-green-800/60 dark:bg-green-950/20">
+                  <p className="text-xs font-medium text-green-700 dark:text-green-400">
+                    PR #{pr.number} merged successfully
+                  </p>
+                  {!branchDeleted && !deletingBranch && (
+                    <button
+                      onClick={() => {
+                        void handleDeleteBranch();
+                      }}
+                      className="mt-1 text-xs text-blue-600 hover:underline dark:text-blue-500"
+                    >
+                      Delete branch {pr.headRef}
+                    </button>
+                  )}
+                  {deletingBranch && (
+                    <span className="mt-1 text-xs text-gray-500">Deleting branch...</span>
+                  )}
+                  {branchDeleted && (
+                    <p className="mt-0.5 text-xs text-green-600 dark:text-green-500">
+                      Branch {pr.headRef} deleted
                     </p>
                   )}
                 </div>
