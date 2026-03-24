@@ -321,6 +321,25 @@ export async function getFileAtHead(worktreePath: string, filePath: string): Pro
   return tauriInvoke<string>("get_file_at_head", { worktreePath, filePath });
 }
 
+// ── Settings commands ────────────────────────────────────────────────────────
+
+export async function getSetting(key: string): Promise<string | null> {
+  if (!isTauri()) return null;
+  return tauriInvoke<string | null>("get_setting", { key });
+}
+
+export async function setSetting(key: string, value: string): Promise<void> {
+  requireTauri("set_setting");
+  return tauriInvoke<void>("set_setting", { key, value });
+}
+
+// ── Recap commands ───────────────────────────────────────────────────────────
+
+export async function generateRecap(sessionId: string): Promise<string> {
+  requireTauri("generate_recap");
+  return tauriInvoke<string>("generate_recap", { sessionId });
+}
+
 // ── Prerequisites commands ───────────────────────────────────────────────────
 
 export type PrerequisiteStatus = {
