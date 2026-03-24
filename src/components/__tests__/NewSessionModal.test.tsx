@@ -42,10 +42,10 @@ describe("NewSessionModal", () => {
     expect(screen.getByText("No repositories added yet.")).toBeInTheDocument();
   });
 
-  it("shows error when submitting without prompt", () => {
+  it("disables Create Session button when prompt is empty", () => {
     render(<NewSessionModal repos={[mockRepo]} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByText("Create Session"));
-    expect(screen.getByText(/Please select a repository and provide a prompt/)).toBeInTheDocument();
+    const button = screen.getByText("Create Session");
+    expect(button).toBeDisabled();
   });
 
   it("calls onClose when Cancel is clicked", () => {

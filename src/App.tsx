@@ -67,6 +67,22 @@ function App() {
         setShowCommandPalette((v) => !v);
         return;
       }
+      if (isMeta && e.key === "n") {
+        e.preventDefault();
+        setShowNewSession(true);
+        return;
+      }
+      if (isMeta && e.key === "j") {
+        e.preventDefault();
+        // Jump to next waiting session
+        const waitingSessions = sessions.filter((s) => s.status === "waiting");
+        if (waitingSessions.length > 0) {
+          const sorted = [...waitingSessions].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
+          setActiveSessionId(sorted[0].id);
+          setView("session");
+        }
+        return;
+      }
       if (isMeta && e.key === "1") {
         e.preventDefault();
         setView("home");
@@ -98,7 +114,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [view, showCommandPalette]);
+  }, [view, showCommandPalette, sessions]);
 
   // Request notification permission on startup
   useEffect(() => {
