@@ -1,6 +1,6 @@
 # TooManyTabs — Product Roadmap
 
-**Last updated:** 2026-03-23
+**Last updated:** 2026-03-24
 
 ---
 
@@ -25,20 +25,19 @@ Horizon 3    Scale to 50 sessions        → Stop wasting time on cognitive over
 Horizon 4    Automate the routine        → Stop wasting time on decisions machines can make
 ```
 
-### Current state (v0.1)
+### Current state (v0.2 — H1 complete)
 
-The foundation exists. Dispatch board with kanban columns. Sessions spawned from GitHub issues/PRs or ad-hoc prompts. PTY terminal, code editor, file browser, git staging. Pause/resume/interrupt/kill. Stuck detection. Basic notifications. Commit, push, open PR.
+The full session lifecycle runs inside the app. Dispatch board with kanban columns. Sessions spawned from GitHub issues/PRs or ad-hoc prompts. PTY terminal with throttled output and prompt detection. Code editor, file browser, git staging with separate commit/push. CI status polling, PR merge (squash/merge/rebase), auto-close linked issues. Session recaps via Claude API. Crash recovery with sentinel files and orphaned session cleanup. First-run onboarding with prerequisite validation. Settings modal, keyboard shortcuts, command palette with status indicators. WCAG-compliant dark mode.
 
 **Where developer time is wasted today:**
-- Every session ends with "now go to GitHub" — no merge, no CI status, no issue close
-- When a session is waiting, the developer reads raw terminal output to understand what it needs
-- `blockType` and `lastMessage` fields exist but are not reliably populated — the board is a list, not a decision queue
 - Every session is independent — no grouping, no chaining, no batch operations
 - Every action is manual — no automation for routine tasks
+- Decisions require full context loading — no structured prompts or one-click actions
+- No smart notifications to prioritize attention across many sessions
 
 ---
 
-### Horizon 1 — Complete the workflow
+### Horizon 1 — Complete the workflow ✅ SHIPPED (2026-03-24)
 
 **Wasted time:** The developer leaves the app 3-4 times per session to check CI, merge PRs, and close issues on GitHub. At 20 sessions, that's 60-80 context switches per day.
 
@@ -46,7 +45,7 @@ The foundation exists. Dispatch board with kanban columns. Sessions spawned from
 
 **Exit criteria:** Zero visits to github.com required for the standard session lifecycle.
 
-**Competitive distance:** This is the first divergence from Nimbalyst. They stop at "review diff." We stop at "merged and closed." Every competitor except GitHub Copilot (which IS GitHub) has this gap. Shipping H1 creates the one-line pitch: "TooManyTabs ships your code." Ship within 4-6 weeks — Nimbalyst ships fast and could close this gap if they choose to.
+**Competitive distance:** This is the first divergence from Nimbalyst. They stop at "review diff." We stop at "merged and closed." Every competitor except GitHub Copilot (which IS GitHub) has this gap. Shipping H1 creates the one-line pitch: "TooManyTabs ships your code."
 
 #### H1.1 — CI status in-app
 
