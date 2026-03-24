@@ -8,6 +8,12 @@ interface EditorTabsProps {
   githubActive?: boolean;
   onSelectGitHub?: () => void;
   githubLabel?: string;
+  hasLogTab?: boolean;
+  logActive?: boolean;
+  onSelectLog?: () => void;
+  hasRecapTab?: boolean;
+  recapActive?: boolean;
+  onSelectRecap?: () => void;
 }
 
 export function EditorTabs({
@@ -18,6 +24,12 @@ export function EditorTabs({
   githubActive,
   onSelectGitHub,
   githubLabel,
+  hasLogTab,
+  logActive,
+  onSelectLog,
+  hasRecapTab,
+  recapActive,
+  onSelectRecap,
 }: EditorTabsProps) {
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
@@ -60,9 +72,37 @@ export function EditorTabs({
         </button>
       )}
 
+      {/* Log tab */}
+      {hasLogTab && onSelectLog && (
+        <button
+          onClick={onSelectLog}
+          className={`flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
+            logActive
+              ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
+              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+          }`}
+        >
+          <span className="font-medium">Log</span>
+        </button>
+      )}
+
+      {/* Recap tab */}
+      {hasRecapTab && onSelectRecap && (
+        <button
+          onClick={onSelectRecap}
+          className={`flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
+            recapActive
+              ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
+              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+          }`}
+        >
+          <span className="font-medium">Recap</span>
+        </button>
+      )}
+
       {/* File tabs */}
       {tabs.map((tab) => {
-        const isActive = !terminalActive && !githubActive && tab.id === activeTabId;
+        const isActive = !terminalActive && !githubActive && !logActive && !recapActive && tab.id === activeTabId;
         return (
           <div
             key={tab.id}
@@ -76,6 +116,7 @@ export function EditorTabs({
               onClick={() => setActiveTab(tab.id)}
               className="truncate"
               style={{ maxWidth: "140px" }}
+              title={tab.filePath}
             >
               {tab.fileName}
             </button>

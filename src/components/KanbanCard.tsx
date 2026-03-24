@@ -20,6 +20,7 @@ interface KanbanCardProps {
   onRetry?: (id: string) => void;
   onKill?: (id: string) => void;
   ciStatus?: CIStatus;
+  isActive?: boolean;
 }
 
 export function KanbanCard({
@@ -30,6 +31,7 @@ export function KanbanCard({
   onRetry,
   onKill,
   ciStatus,
+  isActive,
 }: KanbanCardProps) {
   const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
@@ -47,7 +49,7 @@ export function KanbanCard({
   return (
     <div
       onClick={() => onView(session.id)}
-      className={`cursor-pointer rounded-md border border-gray-200 bg-white px-3 py-2.5 pl-7 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700 ${closedBorder} ${isClosed ? "opacity-75" : ""}`}
+      className={`cursor-pointer rounded-md border bg-white px-3 py-2.5 pl-7 transition-all hover:shadow-sm dark:bg-gray-950 ${closedBorder} ${isClosed ? "opacity-75" : ""} ${isActive ? "border-blue-400 ring-1 ring-blue-400/50 dark:border-blue-600 dark:ring-blue-600/40" : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"}`}
     >
       {/* Title + time */}
       <div className="flex items-start justify-between gap-2">
