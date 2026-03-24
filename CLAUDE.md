@@ -52,19 +52,22 @@ npm run tauri build  # production build
 Each store in `src/stores/` manages a domain: `sessionStore` (sessions + output buffers), `uiStore` (panel sizes, persisted to localStorage), `editorStore` (open tabs), `gitStore` (staging/diffs), `fileBrowserStore`, `repoStore`, `themeStore`.
 
 ### Rust Backend (`src-tauri/src/`)
-- `state.rs`: `AppState` holds `Mutex<Connection>` (SQLite), process maps for sessions and shells
-- `commands/sessions.rs`: PTY-based session spawning, output reading via background tokio tasks, signal handling (SIGINT/SIGSTOP/SIGCONT/SIGKILL)
-- `commands/shell.rs`: Separate shell terminal management
+- `state.rs`: `AppState` holds `parking_lot::Mutex<Connection>` (SQLite), process maps, shared `reqwest::Client`, cached GitHub token
+- `commands/sessions.rs`: PTY-based session spawning, throttled output (16ms batching via mpsc channel), prompt detection (`detect_prompt_pattern`), process group signals, graceful shutdown (SIGINT→SIGTERM→SIGKILL), 10MB output cap
+- `commands/shell.rs`: Separate shell terminal management with process group signals
 - `commands/git_ops.rs` + `github.rs` + `worktree.rs`: Git and GitHub operations
-- `db.rs`: SQLite with WAL mode, schema migrations
-- `error.rs`: `AppError` type using `thiserror`
+- `commands/github.rs`: GitHub API with shared HTTP client, token caching (5min), retry with exponential backoff, rate limit handling, CI checks, PR merge, issue close
+- `commands/ai.rs`: Claude API integration for session recaps, key-value settings store
+- `db.rs`: SQLite with WAL mode, versioned migrations (`schema_version` table), `PRAGMA busy_timeout = 5000`, periodic WAL checkpoint
+- `error.rs`: `AppError` with structured error codes (`DB_ERROR`, `IO_ERROR`, `HTTP_ERROR`, `NOT_FOUND`, `AUTH_FAILED`, `RATE_LIMITED`)
+- `lib.rs`: Crash recovery (sentinel file, session recovery, orphaned worktree scan), prerequisites check, WAL checkpoint background task
 
 ### Session Status Flow
 `idle` → `running` → `waiting` (needs user input) / `completed` / `failed`
 Special states: `stuck` (no output 20+ min), `interrupted` (process died), `paused`, `killed`
 
 ### Database (SQLite)
-Stored at `~/.toomanytabs/toomanytabs.db`. Two tables: `repos` (GitHub URL, local path) and `sessions` (linked to repo, tracks status, worktree path, linked issue/PR numbers).
+Stored at `~/.toomanytabs/toomanytabs.db`. Tables: `repos` (GitHub URL, local path), `sessions` (linked to repo, tracks status, worktree path, linked issue/PR numbers, last_message), `settings` (key-value store for API keys etc.), `schema_version` (migration tracking). Versioned migrations run on startup via `db::run_migrations()`.
 
 ## Key Patterns
 
@@ -72,6 +75,9 @@ Stored at `~/.toomanytabs/toomanytabs.db`. Two tables: `repos` (GitHub URL, loca
 - **`useAsync(factory, deps)`**: Returns `{ data, loading, error, reload }` with stale request cancellation
 - **ResizeHandle**: Uses refs (not closures) in mouse event handlers to avoid stale state during drag operations
 - **Tauri lazy imports**: `src/lib/env.ts` detects Tauri environment; frontend can render in browser without Tauri for development
+- **Status colors**: Centralized in `src/lib/statusColors.ts` — single source of truth for status→color mapping across all components
+- **Structured errors**: Backend returns `{ code, message }` objects; frontend uses `isStructuredError()` / `getErrorCode()` in `src/lib/errors.ts`
+- **IPC timeout**: All `tauriInvoke` calls have a 30s timeout wrapper to prevent hung UI on backend deadlocks
 
 ## Testing
 
