@@ -22,7 +22,7 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-[#0d1117]">
       <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-3 py-1.5 dark:border-gray-800/60">
-        <h3 className="text-xs font-medium text-gray-700 dark:text-green-400/80">Output</h3>
+        <h3 className="text-xs font-semibold text-gray-700 dark:text-green-400/80">Output</h3>
         <div className="flex rounded-md border border-gray-300 text-xs dark:border-gray-700">
           <button
             onClick={() => setMode("live")}
@@ -62,7 +62,7 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
               // <pre> preserves whitespace without bypassing React's escaping.
               <pre
                 key={i}
-                className="whitespace-pre-wrap break-all font-mono text-xs leading-4 text-gray-700 dark:text-green-400/90"
+                className="whitespace-pre-wrap break-all font-mono text-xs leading-5 text-gray-700 dark:text-green-400/90"
               >
                 {line}
               </pre>

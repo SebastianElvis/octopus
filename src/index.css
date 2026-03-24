@@ -1,3 +1,16 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/* Base typography: ensure monospace font is consistent for code/terminal content */
+@layer base {
+  code,
+  kbd,
+  pre,
+  samp,
+  .font-mono {
+    font-family:
+      "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", ui-monospace, SFMono-Regular,
+      Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+}

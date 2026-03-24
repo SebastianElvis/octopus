@@ -67,7 +67,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
   if (loading) {
     return (
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900">
-        <h3 className="mb-3 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Review Comments
         </h3>
         <div className="space-y-3">
@@ -95,7 +95,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
   if (comments.length === 0) {
     return (
       <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900">
-        <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Review Comments
         </h3>
         <p className="text-xs text-gray-400 dark:text-gray-500">No review comments on this PR.</p>
@@ -106,7 +106,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
   return (
     <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900">
       <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
           Review Comments ({comments.length})
         </h3>
         {selectedIds.size > 0 && (
@@ -156,7 +156,9 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
                 </div>
               </div>
             </div>
-            <p className="ml-6 text-sm text-gray-700 dark:text-gray-300">{comment.body}</p>
+            <p className="ml-6 text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+              {comment.body}
+            </p>
           </div>
         ))}
       </div>

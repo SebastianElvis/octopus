@@ -73,7 +73,7 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
   return (
     <div className="flex flex-col gap-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-800">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Diff</h3>
+        <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">Diff</h3>
         {!loading && (
           <span className="text-xs text-gray-400 dark:text-gray-500">
             {files.length} file{files.length !== 1 ? "s" : ""} changed
@@ -136,7 +136,7 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
 
               {expandedFiles.has(file.newPath) && (
                 <div className="overflow-x-auto bg-white dark:bg-gray-950">
-                  <table className="w-full border-collapse font-mono text-xs">
+                  <table className="w-full border-collapse font-mono text-xs leading-5">
                     <tbody>
                       {file.lines.map((line, i) => {
                         if (line.type === "header") {

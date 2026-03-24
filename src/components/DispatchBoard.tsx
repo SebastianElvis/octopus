@@ -572,9 +572,9 @@ function Column({
     <section className="flex w-72 shrink-0 flex-col rounded-lg bg-gray-50 dark:bg-gray-900/50">
       {/* Column header */}
       <div className={`border-t-2 ${headerBorder[accentColor]} rounded-t-lg`} />
-      <div className="flex items-center gap-2 px-4 py-3">
+      <div className="flex items-center gap-2 px-4 py-2.5">
         <span className={`inline-block h-2 w-2 rounded-full ${dotColors[accentColor]}`} />
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
           {title}
         </h2>
         <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
@@ -583,7 +583,7 @@ function Column({
       </div>
 
       {/* Cards */}
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3">
+      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
         {count === 0 ? (
           <p className="px-1 py-4 text-center text-xs text-gray-400 dark:text-gray-500">{empty}</p>
         ) : (
