@@ -2,10 +2,6 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { KanbanCard } from "../KanbanCard";
 import type { Session } from "../../lib/types";
 
-vi.mock("../../lib/tauri", () => ({
-  replyToSession: vi.fn(() => Promise.resolve()),
-}));
-
 function makeSession(overrides: Partial<Session> = {}): Session {
   return {
     id: "s1",
@@ -37,18 +33,6 @@ describe("KanbanCard", () => {
     render(<KanbanCard session={makeSession()} onView={onView} />);
     fireEvent.click(screen.getByText("Fix bug #42"));
     expect(onView).toHaveBeenCalledWith("s1");
-  });
-
-  it("shows Quick Reply and Full View buttons for waiting status", () => {
-    render(
-      <KanbanCard
-        session={makeSession({ status: "waiting" })}
-        onView={() => {}}
-        onReply={() => {}}
-      />,
-    );
-    expect(screen.getByText("Quick Reply")).toBeInTheDocument();
-    expect(screen.getByText("Full View")).toBeInTheDocument();
   });
 
   it("shows Interrupt button for running status", () => {
@@ -89,27 +73,16 @@ describe("KanbanCard", () => {
     expect(screen.getByText("View")).toBeInTheDocument();
   });
 
-  it("calls onReply when Full View is clicked", () => {
-    const onReply = vi.fn();
+  it("calls onView when View button is clicked for waiting session", () => {
+    const onView = vi.fn();
     render(
       <KanbanCard
         session={makeSession({ status: "waiting" })}
-        onView={() => {}}
-        onReply={onReply}
+        onView={onView}
       />,
     );
-    fireEvent.click(screen.getByText("Full View"));
-    expect(onReply).toHaveBeenCalledWith("s1");
-  });
-
-  it("shows last message preview when present", () => {
-    render(
-      <KanbanCard
-        session={makeSession({ lastMessage: "Working on tests..." })}
-        onView={() => {}}
-      />,
-    );
-    expect(screen.getByText("Working on tests...")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("View"));
+    expect(onView).toHaveBeenCalledWith("s1");
   });
 
   it("shows linked issue number", () => {
@@ -135,11 +108,11 @@ describe("KanbanCard", () => {
   it("shows block type pill for waiting+blockType", () => {
     render(
       <KanbanCard
-        session={makeSession({ status: "waiting", blockType: "decision" })}
+        session={makeSession({ status: "waiting", blockType: "permission" })}
         onView={() => {}}
       />,
     );
-    expect(screen.getByText("decision")).toBeInTheDocument();
+    expect(screen.getByText("permission")).toBeInTheDocument();
   });
 
   it("applies reduced opacity for closed sessions", () => {
@@ -183,19 +156,6 @@ describe("KanbanCard", () => {
       <KanbanCard session={makeSession()} onView={() => {}} ciStatus={null} />,
     );
     expect(container.querySelector('[title^="CI:"]')).not.toBeInTheDocument();
-  });
-
-  it("shows textarea for quick reply (multi-line)", () => {
-    render(
-      <KanbanCard
-        session={makeSession({ status: "waiting" })}
-        onView={() => {}}
-        onReply={() => {}}
-      />,
-    );
-    fireEvent.click(screen.getByText("Quick Reply"));
-    const textarea = screen.getByPlaceholderText("Type reply... (Cmd+Enter to send)");
-    expect(textarea.tagName).toBe("TEXTAREA");
   });
 
   it("shows Retry button for failed sessions when onRetry is provided", () => {

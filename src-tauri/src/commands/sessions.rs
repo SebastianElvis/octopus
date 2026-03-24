@@ -550,30 +550,6 @@ pub async fn resize_session(
     Ok(())
 }
 
-/// Write a message (with newline) to the session's PTY stdin.
-#[tauri::command]
-pub async fn reply_to_session(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    id: String,
-    message: String,
-) -> AppResult<()> {
-    {
-        let mut map = state.processes.lock();
-        let pty_session = map
-            .get_mut(&id)
-            .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
-        pty_session
-            .writer
-            .write_all(format!("{}\n", message).as_bytes())?;
-        pty_session.writer.flush()?;
-    }
-    log::info!("Sent reply to session {}", id);
-    update_session_status(&app, &id, "running")?;
-    emit_session_changed(&app, &id);
-    Ok(())
-}
-
 /// Send SIGINT to the running session's process group.
 #[tauri::command]
 pub async fn interrupt_session(

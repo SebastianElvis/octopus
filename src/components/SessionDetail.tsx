@@ -1,16 +1,13 @@
-import { useState, useCallback, useEffect } from "react";
-import { timeAgo } from "../lib/utils";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { timeAgo, stripAnsi } from "../lib/utils";
 import {
   killSession as tauriKillSession,
   resumeSession as tauriResumeSession,
   retrySession,
   readSessionLog,
-  generateRecap,
   fetchIssues,
   fetchPRs,
-  replyToSession,
 } from "../lib/tauri";
-import { formatError } from "../lib/errors";
 import { useSessionStore } from "../stores/sessionStore";
 import { useEditorStore } from "../stores/editorStore";
 import { useUIStore } from "../stores/uiStore";
@@ -35,8 +32,6 @@ interface SessionDetailProps {
 export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const updateSession = useSessionStore((s) => s.updateSession);
-  const outputBuffer = useSessionStore((s) => s.outputBuffers[sessionId] ?? []);
-
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const contents = useEditorStore((s) => s.contents);
   const tabs = useEditorStore((s) => s.tabs);
@@ -52,20 +47,10 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
   const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
 
-  // Recap state
-  const [recap, setRecap] = useState<string | null>(null);
-  const [recapLoading, setRecapLoading] = useState(false);
-  const [showRecap, setShowRecap] = useState(false);
-
   // Full log state
   const [fullLog, setFullLog] = useState<string | null>(null);
   const [showFullLog, setShowFullLog] = useState(false);
   const [logLoading, setLogLoading] = useState(false);
-
-  // Reply state for waiting sessions
-  const [replyText, setReplyText] = useState("");
-  const [replying, setReplying] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
 
   const hasGitHubLink = !!(session?.linkedIssue ?? session?.linkedPR);
 
@@ -97,16 +82,18 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   }, [session?.repoId, session?.linkedIssue, session?.linkedPR]);
 
   // When a file tab is clicked, switch to editor mode
-  const [prevTabId, setPrevTabId] = useState(activeTabId);
-  if (activeTabId !== prevTabId) {
-    setPrevTabId(activeTabId);
-    if (activeTabId) {
-      setCenterTab("editor");
+  const prevTabIdRef = useRef(activeTabId);
+  useEffect(() => {
+    if (activeTabId !== prevTabIdRef.current) {
+      prevTabIdRef.current = activeTabId;
+      if (activeTabId) {
+        setCenterTab("editor");
+      }
+      if (!activeTabId && tabs.length === 0 && centerTab === "editor") {
+        setCenterTab("terminal");
+      }
     }
-    if (!activeTabId && tabs.length === 0 && centerTab === "editor") {
-      setCenterTab("terminal");
-    }
-  }
+  }, [activeTabId, tabs.length, centerTab, setCenterTab]);
 
   const handleRightResize = useCallback(
     (delta: number) => {
@@ -165,23 +152,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
-  async function handleGenerateRecap() {
-    if (!session || recap) {
-      setShowRecap(!showRecap);
-      return;
-    }
-    setRecapLoading(true);
-    try {
-      const result = await generateRecap(session.id);
-      setRecap(result);
-      setShowRecap(true);
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to generate recap:", err);
-    } finally {
-      setRecapLoading(false);
-    }
-  }
-
   async function handleViewLog() {
     if (!session) return;
     if (fullLog) {
@@ -200,26 +170,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
-  async function handleReply() {
-    if (!session || !replyText.trim()) return;
-    setReplying(true);
-    setReplyError(null);
-    try {
-      await replyToSession(session.id, replyText.trim());
-      setReplyText("");
-    } catch (err: unknown) {
-      setReplyError(formatError(err));
-    } finally {
-      setReplying(false);
-    }
-  }
-
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeContent = activeTabId ? contents[activeTabId] : null;
   const showEditor = centerTab === "editor" && activeTab != null && activeContent != null;
-
-  // Last few lines of output for waiting sessions
-  const lastOutputLines = outputBuffer.slice(-10);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -283,23 +236,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               {logLoading ? "Loading..." : "View Full Log"}
             </button>
           )}
-          {session.status === "waiting" && (
-            <button
-              onClick={() => {
-                void handleGenerateRecap();
-              }}
-              disabled={recapLoading}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
-            >
-              {recapLoading
-                ? "Generating..."
-                : recap
-                  ? showRecap
-                    ? "Hide Recap"
-                    : "Show Recap"
-                  : "Generate Recap"}
-            </button>
-          )}
           {showKillConfirm ? (
             <>
               <span className="text-xs text-red-600 dark:text-red-400">
@@ -351,18 +287,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         </div>
       )}
 
-      {/* Recap panel */}
-      {showRecap && recap && (
-        <div className="shrink-0 border-b border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800/60 dark:bg-blue-950/20">
-          <h3 className="mb-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
-            Session Recap
-          </h3>
-          <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-700 dark:text-gray-300">
-            {recap}
-          </p>
-        </div>
-      )}
-
       {/* Full log panel */}
       {showFullLog && fullLog && (
         <div className="max-h-60 shrink-0 overflow-y-auto border-b border-gray-200 bg-gray-900 px-4 py-3 dark:border-gray-700">
@@ -376,48 +300,8 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             </button>
           </div>
           <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-gray-300">
-            {fullLog}
+            {fullLog ? stripAnsi(fullLog) : ""}
           </pre>
-        </div>
-      )}
-
-      {/* Waiting session reply panel */}
-      {session.status === "waiting" && (
-        <div className="shrink-0 border-b border-red-200 bg-red-50/50 px-4 py-3 dark:border-red-800/40 dark:bg-red-950/10">
-          {/* Recent output context */}
-          {lastOutputLines.length > 0 && (
-            <div className="mb-2 max-h-32 overflow-y-auto rounded bg-gray-900 px-3 py-2">
-              <pre className="font-mono text-xs leading-5 text-gray-300">
-                {lastOutputLines.join("")}
-              </pre>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  void handleReply();
-                }
-              }}
-              placeholder="Reply to session... (Cmd+Enter to send)"
-              rows={2}
-              className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-            />
-            <button
-              onClick={() => {
-                void handleReply();
-              }}
-              disabled={replying || !replyText.trim()}
-              className="cursor-pointer self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {replying ? "..." : "Send"}
-            </button>
-          </div>
-          {replyError && (
-            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{replyError}</p>
-          )}
         </div>
       )}
 

@@ -83,15 +83,6 @@ describe("tauri.ts ↔ Rust command parameter contracts", () => {
     expect(params).toHaveProperty("prompt");
   });
 
-  // ── reply_to_session ─────────────────────────────────────────────────
-  // Rust: reply_to_session(id: String, message: String)
-  it("replyToSession sends { id, message }", async () => {
-    const { replyToSession } = await import("../tauri");
-    await replyToSession("s1", "yes");
-    expect(invokedCmd).toBe("reply_to_session");
-    expect(invokedArgs).toEqual({ id: "s1", message: "yes" });
-  });
-
   // ── write_to_session ─────────────────────────────────────────────────
   // Rust: write_to_session(id: String, data: String)
   it("writeToSession sends { id, data }", async () => {

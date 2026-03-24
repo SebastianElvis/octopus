@@ -118,10 +118,9 @@ describe("TerminalPanel", () => {
     expect(onResizeFn).toHaveBeenCalledTimes(1);
   });
 
-  it("loads the FitAddon and WebglAddon", () => {
+  it("loads the FitAddon", () => {
     render(<TerminalPanel sessionId="s1" sessionStatus="running" />);
-    // FitAddon + WebglAddon = 2 calls
-    expect(loadAddonFn).toHaveBeenCalledTimes(2);
+    expect(loadAddonFn).toHaveBeenCalledTimes(1);
   });
 
   it("renders with overflow-hidden wrapper", () => {
