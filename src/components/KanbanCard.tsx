@@ -186,7 +186,6 @@ export function KanbanCard({
           </>
         )}
       </div>
-
     </div>
   );
 }

@@ -94,5 +94,4 @@ mod tests {
             .expect("query setting after update");
         assert_eq!(value, "new_value");
     }
-
 }

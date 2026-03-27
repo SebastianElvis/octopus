@@ -16,13 +16,7 @@ interface SessionCardProps {
   onKill?: (id: string) => void;
 }
 
-export function SessionCard({
-  session,
-  onView,
-  onInterrupt,
-  onResume,
-  onKill,
-}: SessionCardProps) {
+export function SessionCard({ session, onView, onInterrupt, onResume, onKill }: SessionCardProps) {
   return (
     <div className="flex overflow-hidden rounded-lg border border-gray-200 bg-white transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700">
       {/* Accent bar */}

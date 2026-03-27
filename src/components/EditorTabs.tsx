@@ -102,7 +102,8 @@ export function EditorTabs({
 
       {/* File tabs */}
       {tabs.map((tab) => {
-        const isActive = !terminalActive && !githubActive && !logActive && !recapActive && tab.id === activeTabId;
+        const isActive =
+          !terminalActive && !githubActive && !logActive && !recapActive && tab.id === activeTabId;
         return (
           <div
             key={tab.id}

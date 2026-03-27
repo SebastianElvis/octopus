@@ -75,12 +75,7 @@ describe("KanbanCard", () => {
 
   it("calls onView when View button is clicked for waiting session", () => {
     const onView = vi.fn();
-    render(
-      <KanbanCard
-        session={makeSession({ status: "waiting" })}
-        onView={onView}
-      />,
-    );
+    render(<KanbanCard session={makeSession({ status: "waiting" })} onView={onView} />);
     fireEvent.click(screen.getByText("View"));
     expect(onView).toHaveBeenCalledWith("s1");
   });
