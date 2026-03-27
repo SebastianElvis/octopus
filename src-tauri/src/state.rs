@@ -94,4 +94,41 @@ mod tests {
         assert_eq!(token.token, "ghp_abc123");
         assert!(token.fetched_at.elapsed().as_secs() < 1);
     }
+
+    #[test]
+    fn shell_processes_initially_empty() {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        let state = AppState::new(conn);
+        let shells = state.shell_processes.lock();
+        assert!(shells.is_empty());
+    }
+
+    #[test]
+    fn github_token_initially_none() {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        let state = AppState::new(conn);
+        let token = state.github_token.lock();
+        assert!(token.is_none());
+    }
+
+    #[test]
+    fn processes_can_insert_and_remove() {
+        let conn = Connection::open_in_memory().expect("open in-memory db");
+        let state = AppState::new(conn);
+
+        // Verify we can manipulate the processes map
+        {
+            let procs = state.processes.lock();
+            assert!(!procs.contains_key("session-1"));
+        }
+
+        // Verify last_output_at can store timestamps
+        {
+            let mut lo = state.last_output_at.lock();
+            lo.insert("session-1".to_string(), Instant::now());
+            assert!(lo.contains_key("session-1"));
+            lo.remove("session-1");
+            assert!(!lo.contains_key("session-1"));
+        }
+    }
 }

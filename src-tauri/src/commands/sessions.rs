@@ -997,4 +997,280 @@ mod tests {
         assert_eq!(session.last_message, Some("What file?".to_string()));
         assert_eq!(session.block_type, Some("question".to_string()));
     }
+
+    // -- Prompt detection edge cases --
+
+    #[test]
+    fn detect_prompt_with_allow_deny_inline() {
+        let result = detect_prompt_pattern("Do you Allow this? Or Deny?");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().0, "permission");
+    }
+
+    #[test]
+    fn detect_no_prompt_on_regular_text() {
+        assert!(detect_prompt_pattern("Compiling module...").is_none());
+        assert!(detect_prompt_pattern("Build successful").is_none());
+        assert!(detect_prompt_pattern("100% done").is_none());
+    }
+
+    #[test]
+    fn detect_no_prompt_on_http_url_colon() {
+        // URLs with ":" at the end should not be detected as input prompts
+        assert!(detect_prompt_pattern("http://example.com:").is_none());
+        assert!(detect_prompt_pattern("Visit https://docs.rs:").is_none());
+    }
+
+    #[test]
+    fn detect_input_prompt_without_url() {
+        let result = detect_prompt_pattern("Enter password:");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().0, "input");
+    }
+
+    #[test]
+    fn detect_question_long_enough() {
+        // Exactly 6 chars ending with ? should be detected
+        let result = detect_prompt_pattern("Ready?");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().0, "question");
+    }
+
+    #[test]
+    fn detect_prompt_trims_whitespace() {
+        let result = detect_prompt_pattern("   Allow  |  Deny   ");
+        assert!(result.is_some());
+        assert_eq!(result.unwrap().0, "permission");
+    }
+
+    #[test]
+    fn detect_confirmation_needs_all_three() {
+        // Has Yes and No but no "?"
+        assert!(
+            detect_prompt_pattern("Yes or No").is_none()
+                || detect_prompt_pattern("Yes or No").unwrap().0 != "confirmation"
+        );
+    }
+
+    // -- Session serialization --
+
+    #[test]
+    fn session_serializes_to_camel_case() {
+        let session = Session {
+            id: "s1".to_string(),
+            repo_id: Some("r1".to_string()),
+            name: Some("test".to_string()),
+            branch: Some("main".to_string()),
+            status: Some("running".to_string()),
+            block_type: None,
+            worktree_path: Some("/tmp/wt".to_string()),
+            log_path: Some("/tmp/log".to_string()),
+            linked_issue_number: Some(42),
+            linked_pr_number: Some(7),
+            prompt: Some("fix bug".to_string()),
+            dangerously_skip_permissions: Some(false),
+            created_at: Some("2024-01-01".to_string()),
+            state_changed_at: Some("2024-01-01".to_string()),
+            last_message: None,
+        };
+
+        let json = serde_json::to_value(&session).unwrap();
+        // Verify camelCase keys
+        assert!(json.get("repoId").is_some());
+        assert!(json.get("worktreePath").is_some());
+        assert!(json.get("logPath").is_some());
+        assert!(json.get("linkedIssueNumber").is_some());
+        assert!(json.get("linkedPrNumber").is_some());
+        assert!(json.get("dangerouslySkipPermissions").is_some());
+        assert!(json.get("stateChangedAt").is_some());
+        assert!(json.get("lastMessage").is_some());
+        assert!(json.get("blockType").is_some());
+        // Verify snake_case keys are NOT present
+        assert!(json.get("repo_id").is_none());
+        assert!(json.get("worktree_path").is_none());
+    }
+
+    #[test]
+    fn spawn_session_params_deserializes_from_camel_case() {
+        let json = r#"{
+            "repoId": "r1",
+            "branch": "main",
+            "prompt": "fix bug",
+            "name": "test session",
+            "issueNumber": 42,
+            "prNumber": 7,
+            "force": true,
+            "dangerouslySkipPermissions": true
+        }"#;
+        let params: SpawnSessionParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.repo_id, "r1");
+        assert_eq!(params.branch, "main");
+        assert_eq!(params.prompt, "fix bug");
+        assert_eq!(params.name, Some("test session".to_string()));
+        assert_eq!(params.issue_number, Some(42));
+        assert_eq!(params.pr_number, Some(7));
+        assert_eq!(params.force, Some(true));
+        assert_eq!(params.dangerously_skip_permissions, Some(true));
+    }
+
+    #[test]
+    fn spawn_session_params_minimal() {
+        let json = r#"{"repoId": "r1", "branch": "main", "prompt": "hello"}"#;
+        let params: SpawnSessionParams = serde_json::from_str(json).unwrap();
+        assert_eq!(params.repo_id, "r1");
+        assert!(params.name.is_none());
+        assert!(params.issue_number.is_none());
+        assert!(params.force.is_none());
+        assert!(params.dangerously_skip_permissions.is_none());
+    }
+
+    // -- DB query helpers --
+
+    fn setup_db() -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().expect("open in-memory db");
+        conn.execute_batch("PRAGMA foreign_keys=ON;")
+            .expect("enable FK");
+        crate::db::create_schema(&conn).expect("create schema");
+        conn
+    }
+
+    fn insert_test_repo(conn: &rusqlite::Connection) {
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/a/b",
+                "/tmp/b",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert repo");
+    }
+
+    #[test]
+    fn query_session_by_id_found() {
+        let conn = setup_db();
+        insert_test_repo(&conn);
+
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, branch, status, created_at, state_changed_at, dangerously_skip_permissions)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            rusqlite::params!["s1", "r1", "Test", "main", "running", "2024-01-01", "2024-01-01", 0],
+        )
+        .expect("insert session");
+
+        let session = query_session_by_id(&conn, "s1").unwrap();
+        assert_eq!(session.id, "s1");
+        assert_eq!(session.name, Some("Test".to_string()));
+        assert_eq!(session.status, Some("running".to_string()));
+        assert_eq!(session.dangerously_skip_permissions, Some(false));
+    }
+
+    #[test]
+    fn query_session_by_id_not_found() {
+        let conn = setup_db();
+        let result = query_session_by_id(&conn, "nonexistent");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("not found"));
+    }
+
+    #[test]
+    fn query_sessions_returns_multiple() {
+        let conn = setup_db();
+        insert_test_repo(&conn);
+
+        for (sid, name) in &[("s1", "First"), ("s2", "Second"), ("s3", "Third")] {
+            conn.execute(
+                "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at, dangerously_skip_permissions)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                rusqlite::params![sid, "r1", name, "idle", "2024-01-01", "2024-01-01", 0],
+            )
+            .expect("insert session");
+        }
+
+        let sessions = query_sessions(
+            &conn,
+            "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
+             linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
+             dangerously_skip_permissions, last_message \
+             FROM sessions ORDER BY name",
+            &[],
+        )
+        .unwrap();
+
+        assert_eq!(sessions.len(), 3);
+        assert_eq!(sessions[0].name, Some("First".to_string()));
+        assert_eq!(sessions[1].name, Some("Second".to_string()));
+        assert_eq!(sessions[2].name, Some("Third".to_string()));
+    }
+
+    #[test]
+    fn query_sessions_empty_table() {
+        let conn = setup_db();
+        let sessions = query_sessions(
+            &conn,
+            "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
+             linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
+             dangerously_skip_permissions, last_message \
+             FROM sessions",
+            &[],
+        )
+        .unwrap();
+        assert!(sessions.is_empty());
+    }
+
+    #[test]
+    fn lookup_repo_local_path_found() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/a/b",
+                "/home/user/repo",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert");
+
+        let state = crate::state::AppState::new(conn);
+        let path = lookup_repo_local_path(&state, "r1").unwrap();
+        assert_eq!(path, "/home/user/repo");
+    }
+
+    #[test]
+    fn lookup_repo_local_path_not_found() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+
+        let state = crate::state::AppState::new(conn);
+        let result = lookup_repo_local_path(&state, "nonexistent");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("repo not found"));
+    }
+
+    #[test]
+    fn dangerously_skip_permissions_int_to_bool() {
+        let conn = setup_db();
+        insert_test_repo(&conn);
+
+        // Insert with dsp = 1
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at, dangerously_skip_permissions)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params!["s1", "r1", "test", "idle", "2024-01-01", "2024-01-01", 1],
+        )
+        .expect("insert");
+
+        let session = query_session_by_id(&conn, "s1").unwrap();
+        assert_eq!(session.dangerously_skip_permissions, Some(true));
+    }
 }
