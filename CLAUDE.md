@@ -10,20 +10,23 @@ TooManyTabs is a Tauri 2 desktop app (React 19 + Rust) that serves as a dispatch
 
 ### Frontend (from repo root)
 ```bash
-npm run dev          # Vite dev server
-npm run build        # tsc --noEmit + vite build
-npm run test         # vitest run (once)
-npm run test:watch   # vitest watch mode
-npm run lint         # eslint
-npm run lint:fix     # eslint --fix
-npm run format       # prettier --write
-npm run format:check # prettier --check
-npm run check        # full CI check (lint + format + test + typecheck)
+npm run dev              # Vite dev server
+npm run build            # tsc --noEmit + vite build
+npm run test             # vitest unit tests (once)
+npm run test:watch       # vitest watch mode
+npm run test:integration # vitest integration tests (mockIPC)
+npm run test:all         # unit + integration tests
+npm run lint             # eslint
+npm run lint:fix         # eslint --fix
+npm run format           # prettier --write
+npm run format:check     # prettier --check
+npm run check            # full CI check (lint + format + test:all + typecheck)
 ```
 
 Run a single test file:
 ```bash
 npx vitest run src/hooks/__tests__/useAsync.test.ts
+npx vitest run --config vitest.integration.config.ts src/__tests__/integration/app-navigation.test.tsx
 ```
 
 ### Backend (from repo root, Cargo workspace is configured)
@@ -81,16 +84,24 @@ Stored at `~/.toomanytabs/toomanytabs.db`. Tables: `repos` (GitHub URL, local pa
 
 ## Testing
 
+### Unit tests (`npm test`)
 - **Framework**: Vitest + jsdom + React Testing Library
+- **Setup**: `src/test/setup.ts` — globally mocks `@tauri-apps/api/core`, `@tauri-apps/api/event`, and `src/lib/env`
+- **Config**: `vitest.config.ts`
+- **Pattern**: Mock `src/lib/tauri.ts` at the module level, set Zustand store state directly
 - **Globals**: `describe`, `it`, `expect`, `vi` are available without imports
-- **Setup**: `src/test/setup.ts`
-- **Pattern for components with async effects**: Use `await act(async () => {})` to let effects settle, then `act(() => store.setState(...))` to set test state
-- **jsdom limitations**: `scrollIntoView` and `AudioContext` need mocking; use `Element.prototype.scrollIntoView = vi.fn()`
-- **Tauri mocking**: Mock `src/lib/tauri.ts` module with `vi.mock()` since Tauri APIs aren't available in test environment
+- **jsdom limitations**: `scrollIntoView` and `AudioContext` need mocking
+
+### Integration tests (`npm run test:integration`)
+- **Setup**: `src/test/integration-setup.ts` — uses `@tauri-apps/api/mocks` (`mockIPC`, `mockWindows`)
+- **Config**: `vitest.integration.config.ts`
+- **Location**: `src/__tests__/integration/`
+- **Pattern**: Render the full `<App />` with IPC mocked at the Tauri internals level. This exercises the real `tauriInvoke` wrapper, `isTauri()` detection, and store hydration
+- **IPC mocking**: `mockIPC((cmd, args) => { ... })` intercepts `window.__TAURI_INTERNALS__.invoke`. Each test's `beforeEach` calls `mockIPC`/`mockWindows` to set up mock responses. Do NOT use `clearMocks()` in `afterEach` — React's async effect cleanup races with it
 
 ## CI (GitHub Actions)
 
-Frontend job: `tsc --noEmit` → `eslint` → `prettier --check` → `vitest run`
+Frontend job: `tsc --noEmit` → `eslint` → `prettier --check` → `vitest run` → `vitest run --config vitest.integration.config.ts`
 Backend job: `cargo fmt -- --check` → `cargo clippy -- -D warnings` → `cargo test`
 
 ## Lint Rules to Know
