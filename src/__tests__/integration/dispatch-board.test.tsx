@@ -215,7 +215,7 @@ describe("Dispatch board", () => {
     });
 
     await act(async () => {
-      fireEvent.change(screen.getByPlaceholderText("Filter sessions..."), {
+      fireEvent.change(screen.getByPlaceholderText("Filter sessions... (press / to focus)"), {
         target: { value: "API" },
       });
     });
@@ -238,7 +238,7 @@ describe("Dispatch board", () => {
 
     await act(async () => {
       // s.repo is the repoId, so search by that
-      fireEvent.change(screen.getByPlaceholderText("Filter sessions..."), {
+      fireEvent.change(screen.getByPlaceholderText("Filter sessions... (press / to focus)"), {
         target: { value: "repo-2" },
       });
     });
@@ -261,7 +261,7 @@ describe("Dispatch board", () => {
     });
 
     await act(async () => {
-      fireEvent.change(screen.getByPlaceholderText("Filter sessions..."), {
+      fireEvent.change(screen.getByPlaceholderText("Filter sessions... (press / to focus)"), {
         target: { value: "dark-mode" },
       });
     });

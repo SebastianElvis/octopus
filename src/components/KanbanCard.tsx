@@ -35,6 +35,7 @@ export function KanbanCard({
 }: KanbanCardProps) {
   const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
+  const isStuck = session.status === "stuck";
   const [showKillConfirm, setShowKillConfirm] = useState(false);
 
   const ciDotColor =
@@ -46,35 +47,68 @@ export function KanbanCard({
           ? "bg-yellow-500"
           : null;
 
+  // Extract short repo name (last segment)
+  const repoShort = session.repo.split("/").pop() ?? session.repo;
+
   return (
     <div
       data-testid={`session-card-${session.id}`}
       onClick={() => onView(session.id)}
-      className={`cursor-pointer rounded-md border bg-white px-3 py-2.5 pl-7 transition-all hover:shadow-sm dark:bg-gray-950 ${closedBorder} ${isClosed ? "opacity-75" : ""} ${isActive ? "border-blue-400 ring-1 ring-blue-400/50 dark:border-blue-600 dark:ring-blue-600/40" : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"}`}
+      className={`cursor-pointer rounded-md border bg-white px-3 py-2.5 pl-7 shadow-sm transition-all hover:shadow-md dark:bg-gray-950 ${closedBorder} ${isClosed ? "opacity-75" : ""} ${
+        isStuck
+          ? "border-orange-300 ring-1 ring-orange-200 dark:border-orange-700 dark:ring-orange-900/30"
+          : isActive
+            ? "border-blue-400 ring-1 ring-blue-400/50 dark:border-blue-600 dark:ring-blue-600/40"
+            : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
+      }`}
     >
-      {/* Title + time */}
-      <div className="flex items-start justify-between gap-2">
-        <span className="line-clamp-2 text-sm font-medium leading-snug text-gray-900 dark:text-gray-100">
-          {session.name}
-        </span>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/* CI indicator dot */}
-          {ciDotColor && (
-            <span className={`h-2 w-2 rounded-full ${ciDotColor}`} title={`CI: ${ciStatus}`} />
-          )}
-          <span className="text-[11px] text-gray-400 dark:text-gray-500">
-            {timeAgo(session.stateChangedAt)}
-          </span>
-        </div>
+      {/* Title */}
+      <span className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100">
+        {session.name}
+      </span>
+
+      {/* Metadata line: repo, branch, issue, time */}
+      <div className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+        <span className="truncate">{repoShort}</span>
+        {session.branch && (
+          <>
+            <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+            <span className="truncate font-mono text-[11px] text-gray-400 dark:text-gray-500">
+              {session.branch}
+            </span>
+          </>
+        )}
+        {(session.linkedIssue ?? session.linkedPR) && (
+          <>
+            <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+            <span className="text-[11px] text-gray-400 dark:text-gray-500">
+              {session.linkedIssue
+                ? `#${String(session.linkedIssue.number)}`
+                : session.linkedPR
+                  ? `PR #${String(session.linkedPR.number)}`
+                  : ""}
+            </span>
+          </>
+        )}
+        {/* CI indicator dot */}
+        {ciDotColor && (
+          <span className={`ml-0.5 h-2 w-2 shrink-0 rounded-full ${ciDotColor}`} title={`CI: ${ciStatus}`} />
+        )}
       </div>
 
-      {/* Repo + branch */}
-      <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-        {session.repo}
-        {session.branch && (
-          <span className="ml-1 text-gray-400 dark:text-gray-500">· {session.branch}</span>
-        )}
+      {/* Last active */}
+      <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+        Active {timeAgo(session.stateChangedAt)}
       </p>
+
+      {/* Inline blocking prompt for waiting sessions */}
+      {session.status === "waiting" && session.lastMessage && (
+        <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 dark:border-amber-800/50 dark:bg-amber-950/20">
+          <p className="line-clamp-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+            {session.lastMessage}
+          </p>
+        </div>
+      )}
 
       {/* Pills row */}
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -93,8 +127,8 @@ export function KanbanCard({
             {session.blockType}
           </span>
         )}
-        {session.status === "stuck" && (
-          <span className="flex items-center gap-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400">
+        {isStuck && (
+          <span className="flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[11px] font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -103,14 +137,8 @@ export function KanbanCard({
                 d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            stuck
+            stuck 20+ min
           </span>
-        )}
-        {(session.linkedIssue ?? session.linkedPR) && (
-          <div className="ml-auto flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {session.linkedIssue && <span>#{session.linkedIssue.number}</span>}
-            {session.linkedPR && <span>PR #{session.linkedPR.number}</span>}
-          </div>
         )}
       </div>
 
@@ -131,13 +159,14 @@ export function KanbanCard({
             Interrupt
           </button>
         )}
+        {/* For "Needs Attention" sessions, make Resume more prominent */}
         {(session.status === "idle" ||
           session.status === "paused" ||
           session.status === "interrupted") &&
           onResume && (
             <button
               onClick={() => onResume(session.id)}
-              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              className="cursor-pointer rounded bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
               Resume
             </button>
@@ -145,7 +174,7 @@ export function KanbanCard({
         {(session.status === "failed" || session.status === "stuck") && onRetry && (
           <button
             onClick={() => onRetry(session.id)}
-            className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            className="cursor-pointer rounded bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           >
             Retry
           </button>

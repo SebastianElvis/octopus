@@ -8,8 +8,19 @@ import {
   resumeSession,
   retrySession,
 } from "../lib/tauri";
-import type { Session } from "../lib/types";
+import type { Session, SessionStatus } from "../lib/types";
 import { RUNNING_PULSE } from "../lib/statusColors";
+
+type StatusFilter = "attention" | "running" | "completed" | "failed" | null;
+type SortKey = "recent" | "created" | "name" | "status";
+
+/** Priority order for "Needs Attention" column — higher severity first. */
+const ATTENTION_PRIORITY: Record<string, number> = {
+  stuck: 0,
+  waiting: 1,
+  interrupted: 2,
+  paused: 3,
+};
 
 interface DispatchBoardProps {
   onViewSession: (id: string) => void;
@@ -30,10 +41,26 @@ export function DispatchBoard({
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("recent");
+
+  // Keyboard shortcut for search focus
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "/" && !(e.target as HTMLElement).matches("input,textarea,select")) {
+        e.preventDefault();
+        document.getElementById("dispatch-search")?.focus();
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   // Filter sessions
   const filteredSessions = useMemo(() => {
     let result = sessions;
+
+    // Text search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -43,26 +70,79 @@ export function DispatchBoard({
           s.branch.toLowerCase().includes(q),
       );
     }
-    return result;
-  }, [sessions, searchQuery]);
 
-  const needsAttention = [
-    ...filteredSessions.filter(
+    // Status filter
+    if (statusFilter) {
+      const statusGroups: Record<StatusFilter & string, SessionStatus[]> = {
+        attention: ["waiting", "paused", "stuck", "interrupted"],
+        running: ["running"],
+        completed: ["completed", "done"],
+        failed: ["failed"],
+      };
+      const allowed = statusGroups[statusFilter];
+      result = result.filter((s) => allowed.includes(s.status));
+    }
+
+    return result;
+  }, [sessions, searchQuery, statusFilter]);
+
+  // Sort helper
+  const sortSessions = useCallback(
+    (list: Session[]) => {
+      const sorted = [...list];
+      switch (sortKey) {
+        case "recent":
+          sorted.sort((a, b) => b.stateChangedAt - a.stateChangedAt);
+          break;
+        case "created":
+          sorted.sort((a, b) => a.stateChangedAt - b.stateChangedAt);
+          break;
+        case "name":
+          sorted.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case "status":
+          sorted.sort((a, b) => a.status.localeCompare(b.status));
+          break;
+      }
+      return sorted;
+    },
+    [sortKey],
+  );
+
+  const needsAttention = useMemo(() => {
+    const items = filteredSessions.filter(
       (s) =>
         s.status === "waiting" ||
         s.status === "paused" ||
         s.status === "stuck" ||
         s.status === "interrupted",
-    ),
-  ].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
-  const running = filteredSessions.filter((s) => s.status === "running");
-  const closed = filteredSessions.filter(
-    (s) =>
-      s.status === "idle" ||
-      s.status === "done" ||
-      s.status === "completed" ||
-      s.status === "failed" ||
-      s.status === "killed",
+    );
+    // Priority sort: stuck > waiting > interrupted > paused, then by recency within same priority
+    return items.sort((a, b) => {
+      const pa = ATTENTION_PRIORITY[a.status] ?? 99;
+      const pb = ATTENTION_PRIORITY[b.status] ?? 99;
+      if (pa !== pb) return pa - pb;
+      return b.stateChangedAt - a.stateChangedAt;
+    });
+  }, [filteredSessions]);
+
+  const running = useMemo(
+    () => sortSessions(filteredSessions.filter((s) => s.status === "running")),
+    [filteredSessions, sortSessions],
+  );
+  const closed = useMemo(
+    () =>
+      sortSessions(
+        filteredSessions.filter(
+          (s) =>
+            s.status === "idle" ||
+            s.status === "done" ||
+            s.status === "completed" ||
+            s.status === "failed" ||
+            s.status === "killed",
+        ),
+      ),
+    [filteredSessions, sortSessions],
   );
 
   // Fleet summary counts (always from unfiltered sessions)
@@ -82,6 +162,27 @@ export function DispatchBoard({
     }
     return counts;
   }, [sessions]);
+
+  // Natural-language summary
+  const statusSentence = useMemo(() => {
+    const parts: string[] = [];
+    if (summary.attention > 0) {
+      parts.push(
+        `${String(summary.attention)} session${summary.attention === 1 ? "" : "s"} need${summary.attention === 1 ? "s" : ""} your input`,
+      );
+    }
+    if (summary.running > 0) {
+      parts.push(
+        `${String(summary.running)} actively running`,
+      );
+    }
+    if (parts.length === 0) {
+      if (summary.total === 0) return null;
+      if (summary.completed + summary.failed === summary.total) return "All sessions finished.";
+      return null;
+    }
+    return parts.join(". ") + ".";
+  }, [summary]);
 
   const markStuck = useCallback(async () => {
     try {
@@ -179,13 +280,17 @@ export function DispatchBoard({
     setSelectedIds(new Set());
   }
 
+  function toggleStatusFilter(filter: StatusFilter) {
+    setStatusFilter((prev) => (prev === filter ? null : filter));
+  }
+
   if (sessionsLoading) {
     return (
       <div className="flex flex-1 gap-4 overflow-x-auto p-6">
         {[1, 2, 3].map((n) => (
           <div
             key={n}
-            className="flex w-72 shrink-0 animate-pulse flex-col rounded-lg bg-gray-50 dark:bg-gray-900"
+            className="flex min-w-[280px] flex-1 animate-pulse flex-col rounded-lg bg-gray-50 dark:bg-gray-900"
           >
             <div className="flex items-center gap-2 px-4 py-3">
               <div className="h-2 w-2 rounded-full bg-gray-200 dark:bg-gray-700" />
@@ -299,14 +404,41 @@ export function DispatchBoard({
       {/* Fleet summary bar */}
       <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-3 dark:border-gray-800 dark:bg-gray-900/50">
         <div className="flex items-center gap-4">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Fleet</span>
-          <div className="flex items-center gap-3">
-            <SummaryPill color="amber" count={summary.attention} label="attention" />
-            <SummaryPill color="blue" count={summary.running} label="running" pulse />
-            <SummaryPill color="green" count={summary.completed} label="completed" />
-            <SummaryPill color="red" count={summary.failed} label="failed" />
+          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Fleet</span>
+          <div className="flex items-center gap-1.5">
+            <SummaryPill
+              color="amber"
+              count={summary.attention}
+              label="attention"
+              active={statusFilter === "attention"}
+              onClick={() => toggleStatusFilter("attention")}
+            />
+            <SummaryPill
+              color="blue"
+              count={summary.running}
+              label="running"
+              pulse
+              active={statusFilter === "running"}
+              onClick={() => toggleStatusFilter("running")}
+            />
+            <SummaryPill
+              color="green"
+              count={summary.completed}
+              label="completed"
+              active={statusFilter === "completed"}
+              onClick={() => toggleStatusFilter("completed")}
+            />
+            <SummaryPill
+              color="red"
+              count={summary.failed}
+              label="failed"
+              active={statusFilter === "failed"}
+              onClick={() => toggleStatusFilter("failed")}
+            />
           </div>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{summary.total} total</span>
+          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+            {summary.total} total
+          </span>
         </div>
         <button
           onClick={onNewSession}
@@ -316,7 +448,14 @@ export function DispatchBoard({
         </button>
       </div>
 
-      {/* Search & filter bar */}
+      {/* Status sentence */}
+      {statusSentence && (
+        <div className="shrink-0 border-b border-gray-100 bg-gray-50/50 px-6 py-1.5 dark:border-gray-800/50 dark:bg-gray-900/30">
+          <p className="text-xs text-gray-500 dark:text-gray-400">{statusSentence}</p>
+        </div>
+      )}
+
+      {/* Search, filter & sort bar */}
       <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-2 dark:border-gray-800">
         <div className="flex flex-1 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
           <svg
@@ -333,10 +472,11 @@ export function DispatchBoard({
             />
           </svg>
           <input
+            id="dispatch-search"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter sessions..."
+            placeholder="Filter sessions... (press / to focus)"
             className="flex-1 bg-transparent text-xs text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-500"
           />
           {searchQuery && (
@@ -356,7 +496,34 @@ export function DispatchBoard({
             </button>
           )}
         </div>
+
+        {/* Sort dropdown */}
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-600 outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+        >
+          <option value="recent">Most recent</option>
+          <option value="created">Oldest first</option>
+          <option value="name">Name A-Z</option>
+          <option value="status">Status</option>
+        </select>
       </div>
+
+      {/* Active filter indicator */}
+      {statusFilter && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 bg-blue-50/50 px-6 py-1.5 dark:border-gray-800 dark:bg-blue-950/20">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            Showing: <span className="font-medium text-gray-700 dark:text-gray-300">{statusFilter}</span>
+          </span>
+          <button
+            onClick={() => setStatusFilter(null)}
+            className="cursor-pointer text-xs text-blue-600 hover:text-blue-700 focus:outline-none dark:text-blue-400 dark:hover:text-blue-300"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {/* Bulk actions bar */}
       {hasSelection && (
@@ -399,7 +566,9 @@ export function DispatchBoard({
           title="Needs Attention"
           count={needsAttention.length}
           accentColor="amber"
-          empty="No sessions need attention."
+          emptyIcon="check"
+          emptyTitle="All clear"
+          emptyDescription="No sessions need your attention right now."
         >
           {needsAttention.map((s) => (
             <SelectableCard
@@ -438,7 +607,9 @@ export function DispatchBoard({
           title="Running"
           count={running.length}
           accentColor="blue"
-          empty="No sessions running."
+          emptyIcon="pause"
+          emptyTitle="No active sessions"
+          emptyDescription="All sessions are paused or waiting. Resume one to continue."
         >
           {running.map((s) => (
             <SelectableCard
@@ -458,7 +629,14 @@ export function DispatchBoard({
           ))}
         </Column>
 
-        <Column title="Closed" count={closed.length} accentColor="gray" empty="No closed sessions.">
+        <Column
+          title="Closed"
+          count={closed.length}
+          accentColor="gray"
+          emptyIcon="inbox"
+          emptyTitle="Nothing here yet"
+          emptyDescription="Completed, failed, and idle sessions will appear here."
+        >
           {closed.map((s) => (
             <SelectableCard
               key={s.id}
@@ -539,18 +717,22 @@ function SelectableCard({
   );
 }
 
-/* ── Summary pill ────────────────────────────────────────────────────────── */
+/* ── Summary pill (clickable filter) ────────────────────────────────────── */
 
 function SummaryPill({
   color,
   count,
   label,
   pulse,
+  active,
+  onClick,
 }: {
   color: string;
   count: number;
   label: string;
   pulse?: boolean;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const dotColors: Record<string, string> = {
     red: "bg-red-500",
@@ -561,13 +743,20 @@ function SummaryPill({
   };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <button
+      onClick={onClick}
+      className={`flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+        active
+          ? "bg-gray-200 ring-1 ring-gray-300 dark:bg-gray-700 dark:ring-gray-600"
+          : "hover:bg-gray-100 dark:hover:bg-gray-800"
+      }`}
+    >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${dotColors[color] ?? "bg-gray-500"} ${pulse && count > 0 ? RUNNING_PULSE : ""}`}
+        className={`h-2 w-2 rounded-full ${dotColors[color] ?? "bg-gray-500"} ${pulse && count > 0 ? RUNNING_PULSE : ""}`}
       />
       <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">{count}</span>
       <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
-    </div>
+    </button>
   );
 }
 
@@ -577,13 +766,17 @@ function Column({
   title,
   count,
   accentColor,
-  empty,
+  emptyIcon,
+  emptyTitle,
+  emptyDescription,
   children,
 }: {
   title: string;
   count: number;
   accentColor: "amber" | "blue" | "gray" | "orange";
-  empty: string;
+  emptyIcon: "check" | "pause" | "inbox";
+  emptyTitle: string;
+  emptyDescription: string;
   children: ReactNode;
 }) {
   const dotColors = {
@@ -603,13 +796,13 @@ function Column({
   return (
     <section
       data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
-      className="flex w-72 shrink-0 flex-col rounded-lg bg-gray-50 dark:bg-gray-900/50"
+      className="flex min-w-[280px] flex-1 flex-col rounded-lg bg-gray-50/80 dark:bg-gray-900/60"
     >
       {/* Column header */}
       <div className={`border-t-2 ${headerBorder[accentColor]} rounded-t-lg`} />
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className={`inline-block h-2 w-2 rounded-full ${dotColors[accentColor]}`} />
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <span className={`inline-block h-2.5 w-2.5 rounded-full ${dotColors[accentColor]}`} />
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
           {title}
         </h2>
         <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
@@ -620,11 +813,42 @@ function Column({
       {/* Cards */}
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
         {count === 0 ? (
-          <p className="px-1 py-4 text-center text-xs text-gray-400 dark:text-gray-500">{empty}</p>
+          <div className="flex flex-col items-center px-2 py-6 text-center">
+            <EmptyIcon type={emptyIcon} />
+            <p className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
+              {emptyDescription}
+            </p>
+          </div>
         ) : (
           children
         )}
       </div>
     </section>
+  );
+}
+
+/* ── Empty state icons ──────────────────────────────────────────────────── */
+
+function EmptyIcon({ type }: { type: "check" | "pause" | "inbox" }) {
+  const cls = "h-5 w-5 text-gray-300 dark:text-gray-600";
+  if (type === "check") {
+    return (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+    );
+  }
+  if (type === "pause") {
+    return (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    );
+  }
+  return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+    </svg>
   );
 }

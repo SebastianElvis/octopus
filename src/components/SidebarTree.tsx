@@ -1,16 +1,34 @@
 import { useState } from "react";
 import type { Session, Repo } from "../lib/types";
+import { STATUS_DOT } from "../lib/statusColors";
 
-const STATUS_DOT: Record<string, string> = {
-  waiting: "bg-red-500",
-  running: "bg-green-500 animate-pulse",
-  idle: "bg-gray-400",
-  done: "bg-gray-300 dark:bg-gray-600",
-  completed: "bg-green-400 dark:bg-green-600",
-  failed: "bg-red-400 dark:bg-red-600",
-  killed: "bg-gray-400 dark:bg-gray-600",
-  paused: "bg-gray-400",
-  stuck: "bg-orange-500",
+/** Sidebar status dots use the centralized STATUS_DOT from statusColors.ts,
+ *  with running animation appended. */
+const SIDEBAR_DOT: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(STATUS_DOT).map(([k, v]) => [k, v])),
+  running: `${STATUS_DOT.running} animate-pulse`,
+};
+
+/** Subtle row background tint to indicate status at a glance. */
+const STATUS_ROW_TINT: Record<string, string> = {
+  waiting: "bg-amber-50/50 dark:bg-amber-950/10",
+  stuck: "bg-orange-50/50 dark:bg-orange-950/10",
+  running: "",
+  failed: "bg-red-50/30 dark:bg-red-950/10",
+};
+
+/** Status label for accessibility (shown alongside the dot). */
+const STATUS_ICON_LABEL: Record<string, string> = {
+  waiting: "Waiting",
+  stuck: "Stuck",
+  running: "Running",
+  completed: "Done",
+  failed: "Failed",
+  killed: "Killed",
+  paused: "Paused",
+  interrupted: "Interrupted",
+  idle: "Idle",
+  done: "Done",
 };
 
 interface SidebarTreeProps {
@@ -144,24 +162,30 @@ function SessionNode({
   isActive: boolean;
   onClick: () => void;
 }) {
+  const statusTint = STATUS_ROW_TINT[session.status] ?? "";
+  const statusLabel = STATUS_ICON_LABEL[session.status] ?? session.status;
+
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded px-2 py-1 text-left text-xs transition-colors ${
+      title={statusLabel}
+      className={`flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left transition-colors ${statusTint} ${
         isActive
           ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
           : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
       }`}
     >
-      <span
-        className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-400"}`}
-      />
-      <span className="truncate">{session.name}</span>
-      {session.branch && (
+      {/* First line: status dot + session name */}
+      <div className="flex items-center gap-2">
         <span
-          className="ml-auto truncate font-mono text-gray-400 dark:text-gray-500"
-          style={{ maxWidth: "80px", fontSize: "10px" }}
-        >
+          className={`h-2 w-2 shrink-0 rounded-full ${SIDEBAR_DOT[session.status] ?? "bg-gray-400"}`}
+          aria-label={statusLabel}
+        />
+        <span className="line-clamp-2 text-xs leading-snug">{session.name}</span>
+      </div>
+      {/* Second line: branch name below */}
+      {session.branch && (
+        <span className="ml-4 truncate font-mono text-[10px] text-gray-400 dark:text-gray-500">
           {session.branch}
         </span>
       )}

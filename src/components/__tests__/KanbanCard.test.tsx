@@ -20,7 +20,7 @@ describe("KanbanCard", () => {
     render(<KanbanCard session={makeSession()} onView={() => {}} />);
     expect(screen.getByText("Fix bug #42")).toBeInTheDocument();
     expect(screen.getByText("my-repo")).toBeInTheDocument();
-    expect(screen.getByText("· fix/bug-42")).toBeInTheDocument();
+    expect(screen.getByText("fix/bug-42")).toBeInTheDocument();
   });
 
   it("renders status pill", () => {

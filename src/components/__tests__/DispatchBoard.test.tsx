@@ -146,7 +146,7 @@ describe("DispatchBoard", () => {
     });
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Filter sessions..."), {
+    fireEvent.change(screen.getByPlaceholderText("Filter sessions... (press / to focus)"), {
       target: { value: "auth" },
     });
 
@@ -163,7 +163,7 @@ describe("DispatchBoard", () => {
     });
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Filter sessions..."), {
+    fireEvent.change(screen.getByPlaceholderText("Filter sessions... (press / to focus)"), {
       target: { value: "frontend" },
     });
 
@@ -177,7 +177,7 @@ describe("DispatchBoard", () => {
     });
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
-    expect(screen.getByText("No sessions need attention.")).toBeInTheDocument();
-    expect(screen.getByText("No closed sessions.")).toBeInTheDocument();
+    expect(screen.getByText("No sessions need your attention right now.")).toBeInTheDocument();
+    expect(screen.getByText("Completed, failed, and idle sessions will appear here.")).toBeInTheDocument();
   });
 });
