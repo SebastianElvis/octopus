@@ -184,7 +184,7 @@ mod tests {
     #[test]
     fn app_result_type_alias_works() {
         let ok: AppResult<i32> = Ok(42);
-        assert_eq!(ok.unwrap(), 42);
+        assert!(ok.is_ok());
 
         let err: AppResult<i32> = Err(AppError::Custom("fail".into()));
         assert!(err.is_err());

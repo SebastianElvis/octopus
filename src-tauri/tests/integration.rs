@@ -749,43 +749,34 @@ fn session_all_nullable_fields() {
     }
 
     let db = state.db.lock();
-    let (branch, block_type, worktree, log, issue, pr, prompt, msg): (
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<String>,
-        Option<i64>,
-        Option<i64>,
-        Option<String>,
-        Option<String>,
-    ) = db
-        .query_row(
-            "SELECT branch, block_type, worktree_path, log_path, linked_issue_number, \
-             linked_pr_number, prompt, last_message FROM sessions WHERE id = 's1'",
-            [],
-            |row| {
-                Ok((
-                    row.get(0)?,
-                    row.get(1)?,
-                    row.get(2)?,
-                    row.get(3)?,
-                    row.get(4)?,
-                    row.get(5)?,
-                    row.get(6)?,
-                    row.get(7)?,
-                ))
-            },
-        )
-        .unwrap();
-
-    assert!(branch.is_none());
-    assert!(block_type.is_none());
-    assert!(worktree.is_none());
-    assert!(log.is_none());
-    assert!(issue.is_none());
-    assert!(pr.is_none());
-    assert!(prompt.is_none());
-    assert!(msg.is_none());
+    // Verify each nullable column individually to avoid complex tuple type
+    for (col, label) in &[
+        ("branch", "branch"),
+        ("block_type", "block_type"),
+        ("worktree_path", "worktree_path"),
+        ("log_path", "log_path"),
+        ("prompt", "prompt"),
+        ("last_message", "last_message"),
+    ] {
+        let val: Option<String> = db
+            .query_row(
+                &format!("SELECT {} FROM sessions WHERE id = 's1'", col),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(val.is_none(), "{} should be NULL", label);
+    }
+    for col in &["linked_issue_number", "linked_pr_number"] {
+        let val: Option<i64> = db
+            .query_row(
+                &format!("SELECT {} FROM sessions WHERE id = 's1'", col),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(val.is_none(), "{} should be NULL", col);
+    }
 }
 
 // ---------------------------------------------------------------------------
