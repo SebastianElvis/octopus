@@ -40,7 +40,14 @@ fn insert_session(state: &AppState, id: &str, repo_id: &str, name: &str, status:
     db.execute(
         "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        rusqlite::params![id, repo_id, name, status, "2025-01-01T00:00:00Z", "2025-01-01T00:00:00Z"],
+        rusqlite::params![
+            id,
+            repo_id,
+            name,
+            status,
+            "2025-01-01T00:00:00Z",
+            "2025-01-01T00:00:00Z"
+        ],
     )
     .expect("insert session");
 }
@@ -111,7 +118,13 @@ fn repo_duplicate_id_uses_replace() {
         db.execute(
             "INSERT OR REPLACE INTO repos (id, github_url, local_path, default_branch, added_at) \
              VALUES (?1, ?2, ?3, ?4, ?5)",
-            rusqlite::params!["r1", "https://github.com/owner/new", "/tmp/new", "main", "2025-06-01"],
+            rusqlite::params![
+                "r1",
+                "https://github.com/owner/new",
+                "/tmp/new",
+                "main",
+                "2025-06-01"
+            ],
         )
         .unwrap();
     }
@@ -159,8 +172,22 @@ fn insert_and_query_sessions() {
         .collect();
 
     assert_eq!(sessions.len(), 2);
-    assert_eq!(sessions[0], ("s2".to_string(), "Add feature".to_string(), "completed".to_string()));
-    assert_eq!(sessions[1], ("s1".to_string(), "Fix bug".to_string(), "running".to_string()));
+    assert_eq!(
+        sessions[0],
+        (
+            "s2".to_string(),
+            "Add feature".to_string(),
+            "completed".to_string()
+        )
+    );
+    assert_eq!(
+        sessions[1],
+        (
+            "s1".to_string(),
+            "Fix bug".to_string(),
+            "running".to_string()
+        )
+    );
 }
 
 #[test]
@@ -231,7 +258,10 @@ fn session_foreign_key_constraint() {
             "2025-01-01"
         ],
     );
-    assert!(result.is_err(), "FK constraint should prevent orphan sessions");
+    assert!(
+        result.is_err(),
+        "FK constraint should prevent orphan sessions"
+    );
 }
 
 #[test]
@@ -286,9 +316,11 @@ fn settings_roundtrip() {
     .unwrap();
 
     let val: String = db
-        .query_row("SELECT value FROM settings WHERE key = ?1", ["api_key"], |row| {
-            row.get(0)
-        })
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["api_key"],
+            |row| row.get(0),
+        )
         .unwrap();
     assert_eq!(val, "sk-123");
 
@@ -300,9 +332,11 @@ fn settings_roundtrip() {
     .unwrap();
 
     let val: String = db
-        .query_row("SELECT value FROM settings WHERE key = ?1", ["api_key"], |row| {
-            row.get(0)
-        })
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            ["api_key"],
+            |row| row.get(0),
+        )
         .unwrap();
     assert_eq!(val, "sk-456");
 }
@@ -357,13 +391,15 @@ fn reap_orphaned_sessions() {
     // Others should be interrupted
     for sid in &["s1", "s2", "s4"] {
         let status: String = db
-            .query_row(
-                "SELECT status FROM sessions WHERE id = ?1",
-                [sid],
-                |row| row.get(0),
-            )
+            .query_row("SELECT status FROM sessions WHERE id = ?1", [sid], |row| {
+                row.get(0)
+            })
             .unwrap();
-        assert_eq!(status, "interrupted", "session {} should be interrupted", sid);
+        assert_eq!(
+            status, "interrupted",
+            "session {} should be interrupted",
+            sid
+        );
     }
 }
 
@@ -389,7 +425,11 @@ async fn list_dir_integration() {
     assert!(entries[0].is_dir);
     assert_eq!(entries[0].name, "subdir");
 
-    let file_names: Vec<&str> = entries.iter().filter(|e| !e.is_dir).map(|e| e.name.as_str()).collect();
+    let file_names: Vec<&str> = entries
+        .iter()
+        .filter(|e| !e.is_dir)
+        .map(|e| e.name.as_str())
+        .collect();
     assert!(file_names.contains(&"a.txt"));
     assert!(file_names.contains(&"b.rs"));
 }
