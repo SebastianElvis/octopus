@@ -318,10 +318,10 @@ function App() {
             {/* Brand */}
             <div className="flex shrink-0 items-center justify-between px-4 py-3">
               <div>
-                <h1 className="text-sm font-semibold tracking-tight text-gray-900 dark:text-gray-100">
+                <h1 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">
                   TooManyTabs
                 </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-500">dispatch board</p>
+                <p className="text-[11px] text-gray-400 dark:text-gray-500">dispatch board</p>
               </div>
               <div className="flex items-center gap-1">
                 {/* Settings gear */}
