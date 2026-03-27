@@ -346,4 +346,120 @@ mod tests {
         // Should not panic when worktrees directory doesn't exist
         scan_orphaned_worktrees(&conn);
     }
+
+    #[test]
+    fn recover_sessions_marks_running_as_interrupted() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        db::create_schema(&conn).expect("schema");
+
+        // Insert repo and session
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/a/b",
+                "/tmp/b",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert repo");
+
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params!["s1", "r1", "Active", "running", "2024-01-01", "2024-01-01"],
+        )
+        .expect("insert session");
+
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params!["s2", "r1", "Done", "completed", "2024-01-01", "2024-01-01"],
+        )
+        .expect("insert session");
+
+        recover_sessions(&conn);
+
+        let s1_status: String = conn
+            .query_row("SELECT status FROM sessions WHERE id = 's1'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(s1_status, "interrupted");
+
+        let s2_status: String = conn
+            .query_row("SELECT status FROM sessions WHERE id = 's2'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(s2_status, "completed");
+    }
+
+    #[test]
+    fn recover_sessions_marks_waiting_and_paused() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        db::create_schema(&conn).expect("schema");
+
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/a/b",
+                "/tmp/b",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert repo");
+
+        for (sid, status) in &[("s1", "waiting"), ("s2", "paused"), ("s3", "stuck")] {
+            conn.execute(
+                "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![sid, "r1", "Session", status, "2024-01-01", "2024-01-01"],
+            )
+            .expect("insert session");
+        }
+
+        recover_sessions(&conn);
+
+        for sid in &["s1", "s2", "s3"] {
+            let status: String = conn
+                .query_row("SELECT status FROM sessions WHERE id = ?1", [sid], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(status, "interrupted", "{} should be interrupted", sid);
+        }
+    }
+
+    #[test]
+    fn prerequisites_has_bool_fields() {
+        let p = Prerequisites {
+            claude: true,
+            git: false,
+            gh: true,
+        };
+        assert!(p.claude);
+        assert!(!p.git);
+        assert!(p.gh);
+    }
+
+    #[test]
+    fn prerequisites_serializes_to_camel_case() {
+        let p = Prerequisites {
+            claude: true,
+            git: true,
+            gh: false,
+        };
+        let json = serde_json::to_value(&p).unwrap();
+        assert_eq!(json["claude"], true);
+        assert_eq!(json["git"], true);
+        assert_eq!(json["gh"], false);
+    }
 }

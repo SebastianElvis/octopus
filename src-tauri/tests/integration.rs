@@ -528,6 +528,261 @@ fn wal_checkpoint_on_in_memory_db() {
 // Concurrent access patterns
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Git operations integration tests (real git repos)
+// ---------------------------------------------------------------------------
+
+fn init_git_repo() -> tempfile::TempDir {
+    use std::process::Command;
+    let dir = tempfile::tempdir().unwrap();
+    Command::new("git")
+        .args(["init"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "user.name", "test"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "core.hooksPath", "/dev/null"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args(["config", "commit.gpgSign", "false"])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    std::fs::write(dir.path().join(".gitignore"), ".DS_Store\n").unwrap();
+    std::fs::write(dir.path().join("README.md"), "# Test Repo\n").unwrap();
+    Command::new("git")
+        .args(["add", "."])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    Command::new("git")
+        .args([
+            "commit",
+            "--no-gpg-sign",
+            "--no-verify",
+            "-m",
+            "initial commit",
+        ])
+        .current_dir(dir.path())
+        .output()
+        .unwrap();
+    dir
+}
+
+#[tokio::test]
+async fn git_ops_full_workflow() {
+    use toomanytabs_lib::commands::git_ops::*;
+
+    let repo = init_git_repo();
+    let path = repo.path().to_string_lossy().to_string();
+
+    // Start clean
+    let files = get_changed_files(path.clone()).await.unwrap();
+    let real_files: Vec<_> = files
+        .iter()
+        .filter(|f| !f.path.contains(".DS_Store"))
+        .collect();
+    assert!(
+        real_files.is_empty(),
+        "should start clean: {:?}",
+        real_files
+    );
+
+    // Create, stage, check diff, unstage, discard
+    std::fs::write(repo.path().join("new.txt"), "new content").unwrap();
+    std::fs::write(repo.path().join("README.md"), "# Updated\n").unwrap();
+
+    let files = get_changed_files(path.clone()).await.unwrap();
+    assert!(files.len() >= 2);
+
+    // Stage both
+    git_stage_files(
+        path.clone(),
+        vec!["new.txt".to_string(), "README.md".to_string()],
+    )
+    .await
+    .unwrap();
+
+    let files = get_changed_files(path.clone()).await.unwrap();
+    let staged: Vec<_> = files.iter().filter(|f| f.staged).collect();
+    assert_eq!(staged.len(), 2);
+
+    // Check staged diff
+    let diff = get_file_diff(path.clone(), "new.txt".to_string(), true)
+        .await
+        .unwrap();
+    assert!(diff.contains("new content"));
+
+    // Unstage one
+    git_unstage_files(path.clone(), vec!["new.txt".to_string()])
+        .await
+        .unwrap();
+
+    let files = get_changed_files(path.clone()).await.unwrap();
+    let staged: Vec<_> = files.iter().filter(|f| f.staged).collect();
+    assert_eq!(staged.len(), 1);
+    assert_eq!(staged[0].path, "README.md");
+}
+
+#[tokio::test]
+async fn git_ops_get_file_at_head_integration() {
+    use toomanytabs_lib::commands::git_ops::get_file_at_head;
+
+    let repo = init_git_repo();
+    let path = repo.path().to_string_lossy().to_string();
+
+    let content = get_file_at_head(path.clone(), "README.md".to_string())
+        .await
+        .unwrap();
+    assert!(content.contains("# Test Repo"));
+
+    // Nonexistent file returns empty
+    let content = get_file_at_head(path, "doesnt_exist.txt".to_string())
+        .await
+        .unwrap();
+    assert!(content.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// Filesystem integration tests with gitignore
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn list_dir_respects_gitignore() {
+    use toomanytabs_lib::commands::filesystem::list_dir;
+
+    let repo = init_git_repo();
+    // Create a gitignore and an ignored file
+    std::fs::write(repo.path().join(".gitignore"), "*.log\n.DS_Store\n").unwrap();
+    std::fs::write(repo.path().join("output.log"), "log data").unwrap();
+    std::fs::write(repo.path().join("keep.txt"), "keep this").unwrap();
+
+    let entries = list_dir(repo.path().to_string_lossy().to_string())
+        .await
+        .unwrap();
+
+    let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+    assert!(names.contains(&"keep.txt"), "should include keep.txt");
+    assert!(
+        !names.contains(&"output.log"),
+        "should exclude output.log per gitignore"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Session query and reap integration
+// ---------------------------------------------------------------------------
+
+#[test]
+fn reap_sets_state_changed_at() {
+    let state = setup();
+    insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
+    insert_session(&state, "s1", "r1", "Session", "running");
+
+    let db = state.db.lock();
+    toomanytabs_lib::db::reap_orphaned_sessions(&db);
+
+    let state_changed_at: String = db
+        .query_row(
+            "SELECT state_changed_at FROM sessions WHERE id = 's1'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    // Should be updated to a recent timestamp (not the original)
+    assert_ne!(state_changed_at, "2025-01-01T00:00:00Z");
+}
+
+#[test]
+fn session_dangerously_skip_permissions_roundtrip() {
+    let state = setup();
+    insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
+
+    {
+        let db = state.db.lock();
+        db.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, dangerously_skip_permissions, created_at, state_changed_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params!["s1", "r1", "Dangerous", "idle", 1, "2025-01-01", "2025-01-01"],
+        )
+        .unwrap();
+    }
+
+    let db = state.db.lock();
+    let dsp: i64 = db
+        .query_row(
+            "SELECT dangerously_skip_permissions FROM sessions WHERE id = 's1'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(dsp, 1);
+}
+
+#[test]
+fn session_all_nullable_fields() {
+    let state = setup();
+    insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
+
+    // Insert session with all nullable fields set to NULL
+    {
+        let db = state.db.lock();
+        db.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params!["s1", "r1", "Minimal", "idle", "2025-01-01", "2025-01-01"],
+        )
+        .unwrap();
+    }
+
+    let db = state.db.lock();
+    // Verify each nullable column individually to avoid complex tuple type
+    for (col, label) in &[
+        ("branch", "branch"),
+        ("block_type", "block_type"),
+        ("worktree_path", "worktree_path"),
+        ("log_path", "log_path"),
+        ("prompt", "prompt"),
+        ("last_message", "last_message"),
+    ] {
+        let val: Option<String> = db
+            .query_row(
+                &format!("SELECT {} FROM sessions WHERE id = 's1'", col),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(val.is_none(), "{} should be NULL", label);
+    }
+    for col in &["linked_issue_number", "linked_pr_number"] {
+        let val: Option<i64> = db
+            .query_row(
+                &format!("SELECT {} FROM sessions WHERE id = 's1'", col),
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(val.is_none(), "{} should be NULL", col);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Concurrent access patterns
+// ---------------------------------------------------------------------------
+
 #[test]
 fn concurrent_db_access() {
     let state = std::sync::Arc::new(setup());
@@ -564,4 +819,156 @@ fn concurrent_db_access() {
         .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
         .unwrap();
     assert_eq!(count, 10);
+}
+
+#[test]
+fn concurrent_settings_access() {
+    let state = std::sync::Arc::new(setup());
+
+    let handles: Vec<_> = (0..10)
+        .map(|i| {
+            let state = state.clone();
+            std::thread::spawn(move || {
+                let db = state.db.lock();
+                db.execute(
+                    "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+                    rusqlite::params![format!("key_{}", i), format!("value_{}", i)],
+                )
+                .unwrap();
+            })
+        })
+        .collect();
+
+    for h in handles {
+        h.join().unwrap();
+    }
+
+    let db = state.db.lock();
+    let count: i64 = db
+        .query_row("SELECT COUNT(*) FROM settings", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 10);
+}
+
+// ---------------------------------------------------------------------------
+// Delete cascade behavior
+// ---------------------------------------------------------------------------
+
+#[test]
+fn deleting_repo_with_sessions_blocked_by_fk() {
+    // SQLite FK constraint prevents deleting a repo that still has sessions
+    let state = setup();
+    insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
+    insert_session(&state, "s1", "r1", "Session", "idle");
+
+    let db = state.db.lock();
+    let result = db.execute("DELETE FROM repos WHERE id = 'r1'", []);
+    assert!(
+        result.is_err(),
+        "FK constraint should prevent deleting repo with sessions"
+    );
+}
+
+#[test]
+fn deleting_sessions_then_repo_succeeds() {
+    let state = setup();
+    insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
+    insert_session(&state, "s1", "r1", "Session", "idle");
+
+    {
+        let db = state.db.lock();
+        db.execute("DELETE FROM sessions WHERE repo_id = 'r1'", [])
+            .unwrap();
+        db.execute("DELETE FROM repos WHERE id = 'r1'", []).unwrap();
+    }
+
+    let db = state.db.lock();
+    let repo_count: i64 = db
+        .query_row("SELECT COUNT(*) FROM repos", [], |row| row.get(0))
+        .unwrap();
+    let session_count: i64 = db
+        .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(repo_count, 0);
+    assert_eq!(session_count, 0);
+}
+
+#[test]
+fn delete_session_directly() {
+    let state = setup();
+    insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
+    insert_session(&state, "s1", "r1", "Session", "idle");
+
+    {
+        let db = state.db.lock();
+        db.execute("DELETE FROM sessions WHERE id = 's1'", [])
+            .unwrap();
+    }
+
+    let db = state.db.lock();
+    let count: i64 = db
+        .query_row("SELECT COUNT(*) FROM sessions", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(count, 0);
+}
+
+// ---------------------------------------------------------------------------
+// Repo queries
+// ---------------------------------------------------------------------------
+
+#[test]
+fn repo_columns_are_all_queryable() {
+    let state = setup();
+    insert_repo(
+        &state,
+        "r1",
+        "https://github.com/owner/repo",
+        "/home/user/repo",
+    );
+
+    let db = state.db.lock();
+    let (id, url, path, branch, added_at): (String, String, String, String, String) = db
+        .query_row(
+            "SELECT id, github_url, local_path, default_branch, added_at FROM repos WHERE id = 'r1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
+        )
+        .unwrap();
+
+    assert_eq!(id, "r1");
+    assert_eq!(url, "https://github.com/owner/repo");
+    assert_eq!(path, "/home/user/repo");
+    assert_eq!(branch, "main");
+    assert_eq!(added_at, "2025-01-01T00:00:00Z");
+}
+
+// ---------------------------------------------------------------------------
+// Worktree integration (with real git repo)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn worktree_create_and_get_diff() {
+    use toomanytabs_lib::commands::worktree::create_worktree_internal;
+
+    let repo = init_git_repo();
+    let repo_path = repo.path().to_str().unwrap();
+
+    let wt_path =
+        create_worktree_internal(repo_path, "test-wt-branch", "session-test", false).unwrap();
+
+    assert!(
+        std::path::Path::new(&wt_path).is_dir(),
+        "worktree directory should exist"
+    );
+
+    // Write a change in the worktree
+    std::fs::write(
+        std::path::Path::new(&wt_path).join("new_file.txt"),
+        "worktree content",
+    )
+    .unwrap();
+
+    // Verify the file exists in worktree but not in main repo
+    assert!(std::path::Path::new(&wt_path).join("new_file.txt").exists());
+    assert!(!repo.path().join("new_file.txt").exists());
 }

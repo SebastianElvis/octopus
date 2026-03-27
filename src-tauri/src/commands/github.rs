@@ -912,4 +912,198 @@ mod tests {
         assert!(matches!(err, AppError::Custom(_)));
         assert!(err.to_string().contains("conflict"));
     }
+
+    #[test]
+    fn categorize_502_as_server_error() {
+        let err = categorize_github_error(reqwest::StatusCode::BAD_GATEWAY, "bad gateway");
+        assert!(matches!(err, AppError::Custom(_)));
+        assert!(err.to_string().contains("server error"));
+    }
+
+    #[test]
+    fn categorize_422_as_generic_api_error() {
+        let err = categorize_github_error(reqwest::StatusCode::UNPROCESSABLE_ENTITY, "validation");
+        assert!(matches!(err, AppError::Custom(_)));
+        assert!(err.to_string().contains("API error"));
+    }
+
+    #[test]
+    fn parse_ssh_url_without_git_suffix() {
+        let (owner, repo) = parse_owner_repo("git@github.com:org/repo-name").unwrap();
+        assert_eq!(owner, "org");
+        assert_eq!(repo, "repo-name");
+    }
+
+    #[test]
+    fn parse_https_url_complex_repo_name() {
+        let (owner, repo) =
+            parse_owner_repo("https://github.com/my-org/my.dotted.repo.git").unwrap();
+        assert_eq!(owner, "my-org");
+        assert_eq!(repo, "my.dotted.repo");
+    }
+
+    #[test]
+    fn lookup_github_url_found() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/owner/repo",
+                "/tmp/repo",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert");
+
+        let state = crate::state::AppState::new(conn);
+        let url = lookup_github_url(&state, "r1").unwrap();
+        assert_eq!(url, "https://github.com/owner/repo");
+    }
+
+    #[test]
+    fn lookup_github_url_not_found() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+
+        let state = crate::state::AppState::new(conn);
+        let result = lookup_github_url(&state, "nonexistent");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn lookup_default_branch_found() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/owner/repo",
+                "/tmp/repo",
+                "develop",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert");
+
+        let state = crate::state::AppState::new(conn);
+        let branch = lookup_default_branch(&state, "https://github.com/owner/repo");
+        assert_eq!(branch, "develop");
+    }
+
+    #[test]
+    fn lookup_default_branch_falls_back_to_main() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+
+        let state = crate::state::AppState::new(conn);
+        let branch = lookup_default_branch(&state, "https://github.com/unknown/repo");
+        assert_eq!(branch, "main");
+    }
+
+    #[test]
+    fn github_issue_serializes_to_camel_case() {
+        let issue = GitHubIssue {
+            number: 1,
+            title: "Bug".to_string(),
+            body: Some("details".to_string()),
+            state: "open".to_string(),
+            html_url: "https://github.com/a/b/issues/1".to_string(),
+            labels: vec![LabelInfo {
+                name: "bug".to_string(),
+                color: "d73a4a".to_string(),
+            }],
+            user: "octocat".to_string(),
+            comments: 3,
+            created_at: "2024-01-01".to_string(),
+            updated_at: "2024-01-02".to_string(),
+        };
+
+        let json = serde_json::to_value(&issue).unwrap();
+        assert!(json.get("htmlUrl").is_some());
+        assert!(json.get("createdAt").is_some());
+        assert!(json.get("updatedAt").is_some());
+        assert!(json.get("html_url").is_none());
+    }
+
+    #[test]
+    fn github_pr_serializes_to_camel_case() {
+        let pr = GitHubPR {
+            number: 42,
+            title: "Feature".to_string(),
+            body: None,
+            state: "open".to_string(),
+            html_url: "https://github.com/a/b/pull/42".to_string(),
+            head_ref: "feat-branch".to_string(),
+            base_ref: "main".to_string(),
+            user: "dev".to_string(),
+            comments: 0,
+            created_at: "2024-01-01".to_string(),
+            updated_at: "2024-01-02".to_string(),
+        };
+
+        let json = serde_json::to_value(&pr).unwrap();
+        assert!(json.get("headRef").is_some());
+        assert!(json.get("baseRef").is_some());
+        assert!(json.get("htmlUrl").is_some());
+    }
+
+    #[test]
+    fn check_run_serializes_to_camel_case() {
+        let check = CheckRun {
+            id: 1,
+            name: "CI".to_string(),
+            status: "completed".to_string(),
+            conclusion: Some("success".to_string()),
+            html_url: "https://github.com/a/b/runs/1".to_string(),
+            started_at: Some("2024-01-01".to_string()),
+            completed_at: Some("2024-01-02".to_string()),
+        };
+
+        let json = serde_json::to_value(&check).unwrap();
+        assert!(json.get("htmlUrl").is_some());
+        assert!(json.get("startedAt").is_some());
+        assert!(json.get("completedAt").is_some());
+    }
+
+    #[test]
+    fn merge_result_serialization() {
+        let result = MergeResult {
+            sha: "abc123".to_string(),
+            merged: true,
+            message: "Merged".to_string(),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["sha"], "abc123");
+        assert_eq!(parsed["merged"], true);
+        assert_eq!(parsed["message"], "Merged");
+    }
+
+    #[test]
+    fn review_comment_serializes_to_camel_case() {
+        let comment = ReviewComment {
+            id: 1,
+            body: "Fix this".to_string(),
+            path: "src/main.rs".to_string(),
+            line: Some(42),
+            user: "reviewer".to_string(),
+            created_at: "2024-01-01".to_string(),
+            updated_at: "2024-01-02".to_string(),
+        };
+
+        let json = serde_json::to_value(&comment).unwrap();
+        assert!(json.get("createdAt").is_some());
+        assert!(json.get("updatedAt").is_some());
+    }
 }

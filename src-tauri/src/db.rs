@@ -284,4 +284,202 @@ mod tests {
         // WAL checkpoint on in-memory DB is a no-op but should not panic
         run_wal_checkpoint(&conn);
     }
+
+    #[test]
+    fn reap_orphaned_sessions_updates_correct_statuses() {
+        let conn = in_memory_connection();
+
+        // Insert repo
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/a/b",
+                "/tmp/b",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert repo");
+
+        // Insert sessions with various statuses
+        for (sid, status) in &[
+            ("s1", "running"),
+            ("s2", "waiting"),
+            ("s3", "paused"),
+            ("s4", "stuck"),
+            ("s5", "completed"),
+            ("s6", "failed"),
+            ("s7", "idle"),
+        ] {
+            conn.execute(
+                "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                rusqlite::params![
+                    sid,
+                    "r1",
+                    format!("Session {}", sid),
+                    status,
+                    "2024-01-01",
+                    "2024-01-01"
+                ],
+            )
+            .expect("insert session");
+        }
+
+        let reaped = reap_orphaned_sessions(&conn);
+        assert_eq!(reaped, 4); // running, waiting, paused, stuck
+
+        // Verify each status
+        for (sid, expected) in &[
+            ("s1", "interrupted"),
+            ("s2", "interrupted"),
+            ("s3", "interrupted"),
+            ("s4", "interrupted"),
+            ("s5", "completed"),
+            ("s6", "failed"),
+            ("s7", "idle"),
+        ] {
+            let status: String = conn
+                .query_row("SELECT status FROM sessions WHERE id = ?1", [sid], |row| {
+                    row.get(0)
+                })
+                .unwrap();
+            assert_eq!(&status, expected, "session {} should be {}", sid, expected);
+        }
+    }
+
+    #[test]
+    fn reap_orphaned_sessions_returns_zero_when_none_active() {
+        let conn = in_memory_connection();
+        let reaped = reap_orphaned_sessions(&conn);
+        assert_eq!(reaped, 0);
+    }
+
+    #[test]
+    fn foreign_key_enforcement() {
+        let conn = in_memory_connection();
+        // Trying to insert a session with nonexistent repo_id should fail
+        let result = conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params![
+                "s1",
+                "nonexistent",
+                "orphan",
+                "idle",
+                "2024-01-01",
+                "2024-01-01"
+            ],
+        );
+        assert!(result.is_err(), "FK should prevent orphan session insert");
+    }
+
+    #[test]
+    fn schema_has_all_session_columns() {
+        let conn = in_memory_connection();
+
+        // Insert repo first
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params!["r1", "https://github.com/a/b", "/tmp", "main", "2024-01-01"],
+        )
+        .expect("insert repo");
+
+        // Insert session with ALL columns
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, branch, status, block_type, worktree_path,
+             log_path, linked_issue_number, linked_pr_number, prompt,
+             dangerously_skip_permissions, created_at, state_changed_at, last_message)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+            rusqlite::params![
+                "s1",
+                "r1",
+                "test",
+                "feat-1",
+                "running",
+                "question",
+                "/tmp/wt",
+                "/tmp/log",
+                42,
+                7,
+                "fix the bug",
+                1,
+                "2024-01-01",
+                "2024-01-01",
+                "What file?"
+            ],
+        )
+        .expect("insert session with all columns");
+
+        // Read back all columns
+        let (block_type, worktree_path, log_path, issue, pr, prompt, dsp, last_msg): (
+            String,
+            String,
+            String,
+            i64,
+            i64,
+            String,
+            i64,
+            String,
+        ) = conn
+            .query_row(
+                "SELECT block_type, worktree_path, log_path, linked_issue_number,
+                 linked_pr_number, prompt, dangerously_skip_permissions, last_message
+                 FROM sessions WHERE id = 's1'",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                        row.get(7)?,
+                    ))
+                },
+            )
+            .expect("query all columns");
+
+        assert_eq!(block_type, "question");
+        assert_eq!(worktree_path, "/tmp/wt");
+        assert_eq!(log_path, "/tmp/log");
+        assert_eq!(issue, 42);
+        assert_eq!(pr, 7);
+        assert_eq!(prompt, "fix the bug");
+        assert_eq!(dsp, 1);
+        assert_eq!(last_msg, "What file?");
+    }
+
+    #[test]
+    fn dangerously_skip_permissions_defaults_to_zero() {
+        let conn = in_memory_connection();
+
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params!["r1", "https://github.com/a/b", "/tmp", "main", "2024-01-01"],
+        )
+        .expect("insert repo");
+
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params!["s1", "r1", "test", "idle", "2024-01-01", "2024-01-01"],
+        )
+        .expect("insert session without dsp");
+
+        let dsp: i64 = conn
+            .query_row(
+                "SELECT dangerously_skip_permissions FROM sessions WHERE id = 's1'",
+                [],
+                |row| row.get(0),
+            )
+            .expect("query dsp");
+        assert_eq!(dsp, 0);
+    }
 }

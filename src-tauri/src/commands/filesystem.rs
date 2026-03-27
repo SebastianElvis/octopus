@@ -165,4 +165,118 @@ mod tests {
         let result = read_file(file.to_string_lossy().to_string()).await;
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn list_dir_empty_directory() {
+        let dir = tempdir().unwrap();
+        let entries = list_dir(dir.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+        assert!(entries.is_empty());
+    }
+
+    #[tokio::test]
+    async fn list_dir_sorts_dirs_before_files() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("z_file.txt"), "content").unwrap();
+        fs::create_dir(dir.path().join("a_dir")).unwrap();
+        fs::write(dir.path().join("a_file.txt"), "content").unwrap();
+
+        let entries = list_dir(dir.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+
+        // First entry should be a directory
+        assert!(entries[0].is_dir, "first entry should be directory");
+        assert_eq!(entries[0].name, "a_dir");
+
+        // Files should be sorted alphabetically after dirs
+        let file_names: Vec<&str> = entries
+            .iter()
+            .filter(|e| !e.is_dir)
+            .map(|e| e.name.as_str())
+            .collect();
+        assert_eq!(file_names, vec!["a_file.txt", "z_file.txt"]);
+    }
+
+    #[tokio::test]
+    async fn list_dir_includes_extensions() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("code.rs"), "fn main() {}").unwrap();
+        fs::write(dir.path().join("data.json"), "{}").unwrap();
+        fs::write(dir.path().join("no_ext"), "data").unwrap();
+
+        let entries = list_dir(dir.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+
+        let rs_file = entries.iter().find(|e| e.name == "code.rs").unwrap();
+        assert_eq!(rs_file.extension, Some("rs".to_string()));
+
+        let json_file = entries.iter().find(|e| e.name == "data.json").unwrap();
+        assert_eq!(json_file.extension, Some("json".to_string()));
+
+        let no_ext = entries.iter().find(|e| e.name == "no_ext").unwrap();
+        assert_eq!(no_ext.extension, None);
+    }
+
+    #[tokio::test]
+    async fn list_dir_reports_file_size() {
+        let dir = tempdir().unwrap();
+        fs::write(dir.path().join("file.txt"), "12345").unwrap();
+        fs::create_dir(dir.path().join("subdir")).unwrap();
+
+        let entries = list_dir(dir.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+
+        let file = entries.iter().find(|e| e.name == "file.txt").unwrap();
+        assert_eq!(file.size, 5);
+
+        let subdir = entries.iter().find(|e| e.name == "subdir").unwrap();
+        assert_eq!(subdir.size, 0); // dirs report size 0
+    }
+
+    #[tokio::test]
+    async fn read_file_nonexistent_returns_error() {
+        let result = read_file("/tmp/totally_nonexistent_file_xyz.txt".to_string()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn read_file_directory_returns_error() {
+        let dir = tempdir().unwrap();
+        let result = read_file(dir.path().to_string_lossy().to_string()).await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn list_dir_excludes_git_directory() {
+        let dir = tempdir().unwrap();
+        // Simulate a .git directory
+        fs::create_dir(dir.path().join(".git")).unwrap();
+        fs::write(dir.path().join("file.txt"), "content").unwrap();
+
+        let entries = list_dir(dir.path().to_string_lossy().to_string())
+            .await
+            .unwrap();
+
+        let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+        assert!(!names.contains(&".git"));
+        assert!(names.contains(&"file.txt"));
+    }
+
+    #[test]
+    fn file_entry_serializes_to_camel_case() {
+        let entry = FileEntry {
+            name: "test.rs".to_string(),
+            path: "/tmp/test.rs".to_string(),
+            is_dir: false,
+            size: 100,
+            extension: Some("rs".to_string()),
+        };
+        let json = serde_json::to_value(&entry).unwrap();
+        assert!(json.get("isDir").is_some());
+        assert!(json.get("is_dir").is_none());
+    }
 }

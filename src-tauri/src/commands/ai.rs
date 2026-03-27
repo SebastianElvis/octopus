@@ -94,4 +94,90 @@ mod tests {
             .expect("query setting after update");
         assert_eq!(value, "new_value");
     }
+
+    #[test]
+    fn get_missing_setting_returns_no_rows_error() {
+        let state = setup_state();
+        let db = state.db.lock();
+
+        let result: Result<String, _> = db.query_row(
+            "SELECT value FROM settings WHERE key = ?1",
+            rusqlite::params!["nonexistent_key"],
+            |row| row.get(0),
+        );
+
+        assert!(matches!(result, Err(rusqlite::Error::QueryReturnedNoRows)));
+    }
+
+    #[test]
+    fn multiple_settings_independent() {
+        let state = setup_state();
+        let db = state.db.lock();
+
+        db.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            rusqlite::params!["api_key", "sk-123"],
+        )
+        .expect("insert api_key");
+        db.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            rusqlite::params!["theme", "dark"],
+        )
+        .expect("insert theme");
+
+        let api: String = db
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                rusqlite::params!["api_key"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        let theme: String = db
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                rusqlite::params!["theme"],
+                |row| row.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(api, "sk-123");
+        assert_eq!(theme, "dark");
+
+        // Updating one should not affect the other
+        db.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            rusqlite::params!["api_key", "sk-456"],
+        )
+        .expect("update api_key");
+
+        let theme_after: String = db
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                rusqlite::params!["theme"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(theme_after, "dark");
+    }
+
+    #[test]
+    fn setting_value_can_be_empty_string() {
+        let state = setup_state();
+        let db = state.db.lock();
+
+        db.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?1, ?2)",
+            rusqlite::params!["empty", ""],
+        )
+        .expect("insert empty value");
+
+        let value: String = db
+            .query_row(
+                "SELECT value FROM settings WHERE key = ?1",
+                rusqlite::params!["empty"],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(value, "");
+    }
 }

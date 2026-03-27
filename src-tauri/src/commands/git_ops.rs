@@ -373,4 +373,127 @@ mod tests {
             .unwrap();
         assert!(diff.contains("modified content"));
     }
+
+    #[test]
+    fn status_char_to_string_all_variants() {
+        assert_eq!(status_char_to_string('M'), "modified");
+        assert_eq!(status_char_to_string('A'), "added");
+        assert_eq!(status_char_to_string('D'), "deleted");
+        assert_eq!(status_char_to_string('R'), "renamed");
+        assert_eq!(status_char_to_string('C'), "copied");
+        assert_eq!(status_char_to_string('T'), "typechange");
+        // Unknown chars default to "modified"
+        assert_eq!(status_char_to_string('X'), "modified");
+        assert_eq!(status_char_to_string('U'), "modified");
+    }
+
+    #[tokio::test]
+    async fn get_changed_files_untracked() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        fs::write(repo.path().join("new_file.txt"), "new content").unwrap();
+        let files = get_changed_files(repo_path).await.unwrap();
+
+        let untracked: Vec<_> = files.iter().filter(|f| f.status == "untracked").collect();
+        assert_eq!(untracked.len(), 1);
+        assert_eq!(untracked[0].path, "new_file.txt");
+        assert!(!untracked[0].staged);
+    }
+
+    #[tokio::test]
+    async fn stage_empty_paths_is_noop() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+        // Should not error on empty paths
+        git_stage_files(repo_path.clone(), vec![]).await.unwrap();
+        git_unstage_files(repo_path, vec![]).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn discard_empty_paths_is_noop() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+        git_discard_files(repo_path, vec![]).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn discard_untracked_file_deletes_it() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        let new_file = repo.path().join("temp.txt");
+        fs::write(&new_file, "temporary").unwrap();
+        assert!(new_file.exists());
+
+        git_discard_files(repo_path, vec!["temp.txt".to_string()])
+            .await
+            .unwrap();
+        assert!(!new_file.exists());
+    }
+
+    #[tokio::test]
+    async fn discard_tracked_file_restores_it() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        fs::write(repo.path().join("initial.txt"), "changed").unwrap();
+        git_discard_files(repo_path.clone(), vec!["initial.txt".to_string()])
+            .await
+            .unwrap();
+
+        let content = fs::read_to_string(repo.path().join("initial.txt")).unwrap();
+        assert_eq!(content, "hello");
+    }
+
+    #[tokio::test]
+    async fn get_file_at_head_existing_file() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        let content = get_file_at_head(repo_path, "initial.txt".to_string())
+            .await
+            .unwrap();
+        assert_eq!(content.trim(), "hello");
+    }
+
+    #[tokio::test]
+    async fn get_file_at_head_new_file_returns_empty() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        let content = get_file_at_head(repo_path, "nonexistent.txt".to_string())
+            .await
+            .unwrap();
+        assert!(content.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_file_diff_staged() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        fs::write(repo.path().join("initial.txt"), "staged change").unwrap();
+        git_stage_files(repo_path.clone(), vec!["initial.txt".to_string()])
+            .await
+            .unwrap();
+
+        let diff = get_file_diff(repo_path, "initial.txt".to_string(), true)
+            .await
+            .unwrap();
+        assert!(diff.contains("staged change"));
+    }
+
+    #[test]
+    fn changed_file_serializes_to_camel_case() {
+        let file = ChangedFile {
+            path: "src/main.rs".to_string(),
+            status: "modified".to_string(),
+            staged: true,
+            old_path: Some("src/old_main.rs".to_string()),
+        };
+        let json = serde_json::to_value(&file).unwrap();
+        assert!(json.get("oldPath").is_some());
+        assert!(json.get("old_path").is_none());
+    }
 }
