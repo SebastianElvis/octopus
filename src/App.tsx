@@ -536,6 +536,7 @@ function NavItem({
 }) {
   return (
     <button
+      data-testid={`nav-${label.toLowerCase()}`}
       onClick={onClick}
       className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors ${
         active

@@ -1,7 +1,7 @@
-mod commands;
-mod db;
-mod error;
-mod state;
+pub mod commands;
+pub mod db;
+pub mod error;
+pub mod state;
 
 use commands::ai::{get_setting, set_setting};
 use commands::filesystem::{list_dir, read_file};
