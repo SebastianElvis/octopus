@@ -163,7 +163,6 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                         key={s.id}
                         session={s}
                         onView={onViewSession}
-
                         onInterrupt={s.status === "running" ? handleInterrupt : undefined}
                         onResume={
                           s.status === "idle" || s.status === "paused" ? handleResume : undefined

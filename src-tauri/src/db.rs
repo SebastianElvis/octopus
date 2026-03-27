@@ -2,8 +2,15 @@ use rusqlite::Connection;
 
 use crate::error::{AppError, AppResult};
 
-/// Return the path to the SQLite database file (`~/.toomanytabs/toomanytabs.db`).
+/// Return the path to the SQLite database file.
+///
+/// If the `TOOMANYTABS_DB_PATH` environment variable is set, use that path
+/// directly (useful for E2E test isolation). Otherwise defaults to
+/// `~/.toomanytabs/toomanytabs.db`.
 pub fn db_path() -> AppResult<String> {
+    if let Ok(p) = std::env::var("TOOMANYTABS_DB_PATH") {
+        return Ok(p);
+    }
     let home = dirs::home_dir()
         .ok_or_else(|| AppError::Custom("could not determine home directory".to_string()))?;
     Ok(home
@@ -18,12 +25,12 @@ pub fn db_path() -> AppResult<String> {
 /// This is used once at startup to create the connection that lives inside
 /// `AppState`.  All subsequent access goes through that shared `Mutex<Connection>`.
 pub fn open_connection() -> AppResult<Connection> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| AppError::Custom("could not determine home directory".to_string()))?;
-    let dir = home.join(".toomanytabs");
-    std::fs::create_dir_all(&dir)?;
-
     let path = db_path()?;
+    let parent = std::path::Path::new(&path)
+        .parent()
+        .ok_or_else(|| AppError::Custom("invalid db path".to_string()))?;
+    std::fs::create_dir_all(parent)?;
+
     let conn = Connection::open(&path)?;
 
     // Enable WAL mode, foreign keys, and busy timeout

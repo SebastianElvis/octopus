@@ -98,6 +98,7 @@ function CommandPaletteInner({
       onClick={onClose}
     >
       <div
+        data-testid="command-palette"
         className="mt-[15vh] w-full max-w-lg overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-950"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}

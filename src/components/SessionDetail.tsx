@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from "react";
-import { timeAgo, stripAnsi } from "../lib/utils";
+import { timeAgo } from "../lib/utils";
 import {
   killSession as tauriKillSession,
   resumeSession as tauriResumeSession,
@@ -48,8 +48,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
 
   // Recap state
-  const [recap, setRecap] = useState<string | null>(null);
-  const [recapLoading, setRecapLoading] = useState(false);
+  const [recap] = useState<string | null>(null);
 
   // Full log state
   const [fullLog, setFullLog] = useState<string | null>(null);
@@ -155,21 +154,10 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
-  async function handleGenerateRecap() {
+  function handleToggleRecap() {
     if (!session) return;
     if (recap) {
       setCenterTab(centerTab === "recap" ? "terminal" : "recap");
-      return;
-    }
-    setRecapLoading(true);
-    try {
-      const result = await generateRecap(session.id);
-      setRecap(result);
-      setCenterTab("recap");
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to generate recap:", err);
-    } finally {
-      setRecapLoading(false);
     }
   }
 
@@ -214,7 +202,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             <span
               className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"} ${session.status === "running" ? RUNNING_PULSE : ""}`}
             />
-            {STATUS_LABEL[session.status] ?? session.status}
+            {session.status}
           </span>
           {session.branch && (
             <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
@@ -257,21 +245,14 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               {logLoading ? "Loading..." : centerTab === "log" ? "Hide Log" : "View Full Log"}
             </button>
           )}
-          {session.status === "waiting" && (
+          {session.status === "waiting" && recap && (
             <button
               onClick={() => {
-                void handleGenerateRecap();
+                handleToggleRecap();
               }}
-              disabled={recapLoading}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
             >
-              {recapLoading
-                ? "Generating..."
-                : recap
-                  ? centerTab === "recap"
-                    ? "Hide Recap"
-                    : "Show Recap"
-                  : "Generate Recap"}
+              {centerTab === "recap" ? "Hide Recap" : "Show Recap"}
             </button>
           )}
           {showKillConfirm ? (
@@ -322,47 +303,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             Session interrupted -- the app was restarted while this session was active. Click Resume
             to continue.
           </span>
-        </div>
-      )}
-
-      {/* Waiting session reply panel */}
-      {session.status === "waiting" && (
-        <div className="shrink-0 border-b border-red-200 bg-red-50/50 px-4 py-3 dark:border-red-800/40 dark:bg-red-950/10">
-          {/* Recent output context */}
-          {lastOutputLines.length > 0 && (
-            <div className="mb-2 max-h-32 overflow-y-auto rounded bg-gray-900 px-3 py-2">
-              <pre className="font-mono text-xs leading-5 text-gray-300">
-                {lastOutputLines.join("")}
-              </pre>
-            </div>
-          )}
-          <div className="flex gap-2">
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                  void handleReply();
-                }
-              }}
-              placeholder="Reply to session... (Cmd+Enter to send)"
-              autoFocus
-              rows={2}
-              className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-            />
-            <button
-              onClick={() => {
-                void handleReply();
-              }}
-              disabled={replying || !replyText.trim()}
-              className="cursor-pointer self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {replying ? "..." : "Send"}
-            </button>
-          </div>
-          {replyError && (
-            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{replyError}</p>
-          )}
         </div>
       )}
 

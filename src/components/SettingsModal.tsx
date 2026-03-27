@@ -76,6 +76,7 @@ function SettingsModalInner({
       onClick={onClose}
     >
       <div
+        data-testid="settings-modal"
         className="w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900"
         onClick={(e) => e.stopPropagation()}
       >

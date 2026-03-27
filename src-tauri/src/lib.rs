@@ -1,7 +1,7 @@
-mod commands;
-mod db;
-mod error;
-mod state;
+pub mod commands;
+pub mod db;
+pub mod error;
+pub mod state;
 
 use commands::ai::{get_setting, set_setting};
 use commands::filesystem::{list_dir, read_file};
@@ -17,8 +17,8 @@ use commands::github::{
 use commands::repos::{add_repo, list_repos, remove_repo};
 use commands::sessions::{
     check_stuck_sessions, get_session, interrupt_session, kill_session, list_sessions,
-    pause_session, read_session_log, resize_session, resume_session,
-    spawn_session, write_to_session,
+    pause_session, read_session_log, resize_session, resume_session, spawn_session,
+    write_to_session,
 };
 use commands::shell::{kill_shell, resize_shell, spawn_shell, write_to_shell};
 use commands::worktree::{create_worktree, get_diff, remove_worktree};

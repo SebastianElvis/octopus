@@ -48,6 +48,7 @@ export function KanbanCard({
 
   return (
     <div
+      data-testid={`session-card-${session.id}`}
       onClick={() => onView(session.id)}
       className={`cursor-pointer rounded-md border bg-white px-3 py-2.5 pl-7 transition-all hover:shadow-sm dark:bg-gray-950 ${closedBorder} ${isClosed ? "opacity-75" : ""} ${isActive ? "border-blue-400 ring-1 ring-blue-400/50 dark:border-blue-600 dark:ring-blue-600/40" : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"}`}
     >
@@ -185,7 +186,6 @@ export function KanbanCard({
           </>
         )}
       </div>
-
     </div>
   );
 }

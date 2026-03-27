@@ -17,7 +17,11 @@ interface DispatchBoardProps {
   activeSessionId?: string | null;
 }
 
-export function DispatchBoard({ onViewSession, onNewSession, activeSessionId }: DispatchBoardProps) {
+export function DispatchBoard({
+  onViewSession,
+  onNewSession,
+  activeSessionId,
+}: DispatchBoardProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const sessionsLoading = useSessionStore((s) => s.sessionsLoading);
   const sessionsError = useSessionStore((s) => s.sessionsError);
@@ -291,7 +295,7 @@ export function DispatchBoard({ onViewSession, onNewSession, activeSessionId }: 
   );
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
+    <div data-testid="dispatch-board" className="flex flex-1 flex-col overflow-hidden">
       {/* Fleet summary bar */}
       <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-3 dark:border-gray-800 dark:bg-gray-900/50">
         <div className="flex items-center gap-4">
@@ -597,7 +601,10 @@ function Column({
   };
 
   return (
-    <section className="flex w-72 shrink-0 flex-col rounded-lg bg-gray-50 dark:bg-gray-900/50">
+    <section
+      data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
+      className="flex w-72 shrink-0 flex-col rounded-lg bg-gray-50 dark:bg-gray-900/50"
+    >
       {/* Column header */}
       <div className={`border-t-2 ${headerBorder[accentColor]} rounded-t-lg`} />
       <div className="flex items-center gap-2 px-4 py-2.5">
