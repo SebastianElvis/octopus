@@ -5,6 +5,7 @@ import {
   resumeSession as tauriResumeSession,
   readSessionLog,
   generateRecap as tauriGenerateRecap,
+  getDiff,
   fetchIssues,
   fetchPRs,
 } from "../lib/tauri";
@@ -237,6 +238,19 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
             >
               {centerTab === "recap" ? "Hide Recap" : "Show Recap"}
+            </button>
+          )}
+          {session.worktreePath && (
+            <button
+              onClick={() => {
+                void getDiff(session.worktreePath!).then((patch) => {
+                  void navigator.clipboard.writeText(patch);
+                });
+              }}
+              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+              title="Copy git diff to clipboard"
+            >
+              Save Patch
             </button>
           )}
           {showKillConfirm ? (
