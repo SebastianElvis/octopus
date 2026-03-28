@@ -44,9 +44,6 @@ export function KanbanCard({
           ? "bg-yellow-500"
           : null;
 
-  // Extract short repo name (last segment)
-  const repoShort = session.repo.split("/").pop() ?? session.repo;
-
   return (
     <div
       data-testid={`session-card-${session.id}`}
@@ -62,20 +59,16 @@ export function KanbanCard({
         {session.name}
       </span>
 
-      {/* Metadata line: repo, branch, issue, time */}
+      {/* Metadata line: branch, issue, time */}
       <div className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-        <span className="truncate">{repoShort}</span>
         {session.branch && (
-          <>
-            <span className="text-gray-300 dark:text-gray-600">&middot;</span>
-            <span className="truncate font-mono text-[11px] text-gray-400 dark:text-gray-500">
-              {session.branch}
-            </span>
-          </>
+          <span className="truncate font-mono text-[11px] text-gray-400 dark:text-gray-500">
+            {session.branch}
+          </span>
         )}
         {(session.linkedIssue ?? session.linkedPR) && (
           <>
-            <span className="text-gray-300 dark:text-gray-600">&middot;</span>
+            {session.branch && <span className="text-gray-300 dark:text-gray-600">&middot;</span>}
             <span className="text-[11px] text-gray-400 dark:text-gray-500">
               {session.linkedIssue
                 ? `#${String(session.linkedIssue.number)}`

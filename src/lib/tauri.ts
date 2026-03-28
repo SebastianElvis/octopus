@@ -367,6 +367,13 @@ export async function setSetting(key: string, value: string): Promise<void> {
   return tauriInvoke<void>("set_setting", { key, value });
 }
 
+// ── AI commands ─────────────────────────────────────────────────────────────
+
+export async function generateBranchName(prompt: string): Promise<string> {
+  requireTauri("generate_branch_name");
+  return tauriInvoke<string>("generate_branch_name", { prompt });
+}
+
 // ── Prerequisites commands ───────────────────────────────────────────────────
 
 export type PrerequisiteStatus = {

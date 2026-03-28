@@ -31,7 +31,6 @@ export function DispatchBoard({
   const loadSessions = useSessionStore((s) => s.loadSessions);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(null);
   const [sortKey, setSortKey] = useState<SortKey>("recent");
 
@@ -165,13 +164,6 @@ export function DispatchBoard({
     return () => clearInterval(interval);
   }, [markStuck]);
 
-  // Derive effective selection — prune IDs that no longer exist
-  const effectiveSelectedIds = useMemo(() => {
-    const validIds = new Set(sessions.map((s) => s.id));
-    const pruned = new Set([...selectedIds].filter((id) => validIds.has(id)));
-    return pruned.size === selectedIds.size ? selectedIds : pruned;
-  }, [sessions, selectedIds]);
-
   async function handleInterrupt(id: string) {
     try {
       await interruptSession(id);
@@ -195,38 +187,6 @@ export function DispatchBoard({
     } catch {
       /* ignore */
     }
-  }
-
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  async function handleBulkKill() {
-    for (const id of effectiveSelectedIds) {
-      try {
-        await killSession(id);
-      } catch {
-        /* ignore */
-      }
-    }
-    setSelectedIds(new Set());
-  }
-
-  async function handleBulkResume() {
-    for (const id of effectiveSelectedIds) {
-      try {
-        await resumeSession(id);
-        updateSession(id, { status: "running", stateChangedAt: Date.now() });
-      } catch {
-        /* ignore */
-      }
-    }
-    setSelectedIds(new Set());
   }
 
   function toggleStatusFilter(filter: StatusFilter) {
@@ -338,11 +298,6 @@ export function DispatchBoard({
       </div>
     );
   }
-
-  const hasSelection = effectiveSelectedIds.size > 0;
-  const selectedSessions = sessions.filter((s) => effectiveSelectedIds.has(s.id));
-  const canResumeSelected = selectedSessions.some((s) => s.status === "attention");
-  const canKillSelected = selectedSessions.some((s) => s.status === "running");
 
   return (
     <div data-testid="dispatch-board" className="flex flex-1 flex-col overflow-hidden">
@@ -464,41 +419,6 @@ export function DispatchBoard({
         </div>
       )}
 
-      {/* Bulk actions bar */}
-      {hasSelection && (
-        <div className="flex shrink-0 items-center gap-3 border-b border-blue-200 bg-blue-50 px-6 py-2 dark:border-blue-900/50 dark:bg-blue-950/30">
-          <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
-            {effectiveSelectedIds.size} selected
-          </span>
-          {canKillSelected && (
-            <button
-              onClick={() => {
-                void handleBulkKill();
-              }}
-              className="cursor-pointer rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
-            >
-              Kill Selected
-            </button>
-          )}
-          {canResumeSelected && (
-            <button
-              onClick={() => {
-                void handleBulkResume();
-              }}
-              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            >
-              Resume Selected
-            </button>
-          )}
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-auto cursor-pointer text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            Clear selection
-          </button>
-        </div>
-      )}
-
       {/* Kanban columns */}
       <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto p-6">
         <Column
@@ -510,11 +430,9 @@ export function DispatchBoard({
           emptyDescription="No sessions need your attention right now."
         >
           {needsAttention.map((s) => (
-            <SelectableCard
+            <KanbanCard
               key={s.id}
               session={s}
-              selected={effectiveSelectedIds.has(s.id)}
-              onToggleSelect={toggleSelect}
               isActive={s.id === activeSessionId}
               onView={onViewSession}
               onResume={(id: string) => {
@@ -533,11 +451,9 @@ export function DispatchBoard({
           emptyDescription="All sessions are paused or waiting. Resume one to continue."
         >
           {running.map((s) => (
-            <SelectableCard
+            <KanbanCard
               key={s.id}
               session={s}
-              selected={effectiveSelectedIds.has(s.id)}
-              onToggleSelect={toggleSelect}
               isActive={s.id === activeSessionId}
               onView={onViewSession}
               onInterrupt={(id: string) => {
@@ -553,17 +469,15 @@ export function DispatchBoard({
         <Column
           title="Done"
           count={closed.length}
-          accentColor="gray"
+          accentColor="green"
           emptyIcon="inbox"
           emptyTitle="Nothing here yet"
           emptyDescription="Finished sessions will appear here."
         >
           {closed.map((s) => (
-            <SelectableCard
+            <KanbanCard
               key={s.id}
               session={s}
-              selected={effectiveSelectedIds.has(s.id)}
-              onToggleSelect={toggleSelect}
               isActive={s.id === activeSessionId}
               onView={onViewSession}
             />
@@ -594,38 +508,6 @@ function WorkflowStep({
         <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{title}</p>
         <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
       </div>
-    </div>
-  );
-}
-
-/* ── Selectable card wrapper ─────────────────────────────────────────────── */
-
-function SelectableCard({
-  session,
-  selected,
-  onToggleSelect,
-  ...cardProps
-}: {
-  session: Session;
-  selected: boolean;
-  onToggleSelect: (id: string) => void;
-  onView: (id: string) => void;
-  onInterrupt?: (id: string) => void;
-  onResume?: (id: string) => void;
-  onKill?: (id: string) => void;
-  isActive?: boolean;
-}) {
-  return (
-    <div className={`relative ${selected ? "rounded-md ring-2 ring-blue-500" : ""}`}>
-      <div className="absolute left-1.5 top-1.5 z-10" onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onToggleSelect(session.id)}
-          className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-blue-600 accent-blue-600"
-        />
-      </div>
-      <KanbanCard session={session} {...cardProps} />
     </div>
   );
 }
@@ -695,6 +577,7 @@ function Column({
   const dotColors = {
     amber: "bg-amber-500",
     blue: "bg-blue-500",
+    green: "bg-green-500",
     gray: "bg-gray-500",
     orange: "bg-orange-500",
   };
@@ -702,6 +585,7 @@ function Column({
   const headerBorder = {
     amber: "border-amber-500",
     blue: "border-blue-500",
+    green: "border-green-500",
     gray: "border-gray-300 dark:border-gray-700",
     orange: "border-orange-500",
   };

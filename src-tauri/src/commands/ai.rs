@@ -4,6 +4,64 @@ use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 
 // ---------------------------------------------------------------------------
+// Branch name generation
+// ---------------------------------------------------------------------------
+
+/// Use `claude` CLI (no thinking, fast) to generate a short branch name from a prompt.
+#[tauri::command]
+pub async fn generate_branch_name(prompt: String) -> AppResult<String> {
+    let output = tokio::process::Command::new("claude")
+        .args([
+            "--print",
+            "--model",
+            "haiku",
+            "--output-format",
+            "text",
+            "--effort",
+            "low",
+            "--no-session-persistence",
+            &format!(
+                "Generate a git branch name for this task. Rules: lowercase, hyphens only, max 30 chars, no prefix like 'feat/' or 'fix/', just a descriptive slug. Reply with ONLY the branch name, nothing else.\n\nTask: {}",
+                prompt
+            ),
+        ])
+        .output()
+        .await
+        .map_err(|e| AppError::Io(e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Custom(format!(
+            "claude CLI failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    let branch = String::from_utf8_lossy(&output.stdout)
+        .trim()
+        .to_lowercase()
+        .replace(|c: char| !c.is_ascii_alphanumeric() && c != '-', "-")
+        .trim_matches('-')
+        .to_string();
+
+    // Truncate to 30 chars at a hyphen boundary if possible
+    let branch = if branch.len() > 30 {
+        match branch[..30].rfind('-') {
+            Some(pos) if pos > 10 => branch[..pos].to_string(),
+            _ => branch[..30].to_string(),
+        }
+    } else {
+        branch
+    };
+
+    if branch.is_empty() {
+        return Err(AppError::Custom("Generated branch name was empty".into()));
+    }
+
+    Ok(branch)
+}
+
+// ---------------------------------------------------------------------------
 // Settings commands
 // ---------------------------------------------------------------------------
 
