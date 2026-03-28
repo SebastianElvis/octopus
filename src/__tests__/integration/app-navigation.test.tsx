@@ -136,7 +136,7 @@ describe("App navigation", () => {
     expect(screen.getByText("Closed")).toBeInTheDocument();
   });
 
-  it("navigates to Repos view when clicking + Add Repo button", async () => {
+  it("opens Add Repo dialog when clicking + Add Repo button", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -149,9 +149,9 @@ describe("App navigation", () => {
       fireEvent.click(screen.getByTestId("add-repo-button"));
     });
 
-    // Repos view should show repo management UI
+    // Add Repo dialog should appear
     await waitFor(() => {
-      expect(screen.getByText("Repositories")).toBeInTheDocument();
+      expect(screen.getByText("Add Repository")).toBeInTheDocument();
     });
   });
 
@@ -179,12 +179,12 @@ describe("App navigation", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("add-repo-button")).toBeInTheDocument();
+      expect(screen.getByTestId("repo-tasks-repo-1")).toBeInTheDocument();
     });
 
-    // Navigate to repos
+    // Navigate to tasks view
     await act(async () => {
-      fireEvent.click(screen.getByTestId("add-repo-button"));
+      fireEvent.click(screen.getByTestId("repo-tasks-repo-1"));
     });
 
     // Navigate back to home
