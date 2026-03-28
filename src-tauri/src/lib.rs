@@ -3,7 +3,7 @@ pub mod db;
 pub mod error;
 pub mod state;
 
-use commands::ai::{generate_branch_name, get_setting, set_setting};
+use commands::ai::{generate_branch_name, generate_recap, get_setting, set_setting};
 use commands::filesystem::{list_dir, read_file, save_temp_image, scan_slash_commands};
 use commands::git_ops::{
     get_changed_files, get_file_at_head, get_file_diff, git_discard_files, git_stage_files,
@@ -307,6 +307,7 @@ pub fn run() {
             get_file_at_head,
             // ai & settings
             generate_branch_name,
+            generate_recap,
             get_setting,
             set_setting,
             // hooks
