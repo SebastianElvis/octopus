@@ -629,6 +629,15 @@ pub async fn spawn_session(
     let pid = child.id();
     log::info!("Spawned session {} (pid {}) in print mode", session_id, pid);
 
+    // Persist PID to DB for crash recovery
+    {
+        let db = state.db.lock();
+        let _ = db.execute(
+            "UPDATE sessions SET pid = ?1 WHERE id = ?2",
+            rusqlite::params![pid as i64, session_id],
+        );
+    }
+
     // Drain stderr to a log file in a background thread to prevent pipe buffer deadlock
     let stderr_path = std::path::PathBuf::from(&log_path).join("stderr.log");
     let stderr_sid = session_id.clone();

@@ -71,7 +71,7 @@ fn check_unclean_shutdown() -> bool {
 /// "attention" (process is orphaned). If dead, already reaped correctly.
 fn recover_sessions(conn: &rusqlite::Connection) {
     let mut stmt = match conn.prepare(
-        "SELECT id, worktree_path FROM sessions WHERE status = 'running'",
+        "SELECT id, worktree_path, pid FROM sessions WHERE status = 'running'",
     ) {
         Ok(s) => s,
         Err(e) => {
@@ -81,7 +81,11 @@ fn recover_sessions(conn: &rusqlite::Connection) {
     };
 
     let rows = match stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, Option<String>>(1)?,
+            row.get::<_, Option<i64>>(2)?,
+        ))
     }) {
         Ok(r) => r,
         Err(e) => {
@@ -91,15 +95,35 @@ fn recover_sessions(conn: &rusqlite::Connection) {
     };
 
     let now = chrono::Utc::now().to_rfc3339();
-    for (session_id, _worktree_path) in rows.flatten() {
-        // Mark as attention — the original reap_orphaned_sessions will handle this
-        // but we log it explicitly for crash recovery context
+    for (session_id, _worktree_path, pid) in rows.flatten() {
+        // Check if process is still alive and kill orphans
+        #[cfg(unix)]
+        if let Some(raw_pid) = pid {
+            use nix::sys::signal::{kill, Signal};
+            use nix::unistd::Pid;
+
+            let p = Pid::from_raw(raw_pid as i32);
+            if kill(p, None).is_ok() {
+                // Process is still alive — kill it
+                log::warn!(
+                    "Crash recovery: killing orphan process {} for session {}",
+                    raw_pid,
+                    session_id
+                );
+                let _ = kill(p, Signal::SIGTERM);
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                if kill(p, None).is_ok() {
+                    let _ = kill(p, Signal::SIGKILL);
+                }
+            }
+        }
+
         log::info!(
             "Crash recovery: session {} was active at shutdown, marking attention",
             session_id
         );
         let _ = conn.execute(
-            "UPDATE sessions SET status = 'attention', state_changed_at = ?1 WHERE id = ?2",
+            "UPDATE sessions SET status = 'attention', pid = NULL, state_changed_at = ?1 WHERE id = ?2",
             rusqlite::params![now, session_id],
         );
     }
@@ -354,29 +378,32 @@ mod tests {
         }
     }
 
-    #[test]
-    fn recover_sessions_handles_empty_db() {
+    /// Helper: create an in-memory DB with schema + migrations.
+    fn test_db() -> rusqlite::Connection {
         let conn = rusqlite::Connection::open_in_memory().expect("open");
         conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
         db::create_schema(&conn).expect("create schema");
+        db::run_migrations(&conn).expect("run migrations");
+        conn
+    }
+
+    #[test]
+    fn recover_sessions_handles_empty_db() {
+        let conn = test_db();
         // Should not panic on empty DB
         recover_sessions(&conn);
     }
 
     #[test]
     fn scan_orphaned_worktrees_handles_missing_dir() {
-        let conn = rusqlite::Connection::open_in_memory().expect("open");
-        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
-        db::create_schema(&conn).expect("create schema");
+        let conn = test_db();
         // Should not panic when worktrees directory doesn't exist
         scan_orphaned_worktrees(&conn);
     }
 
     #[test]
     fn recover_sessions_marks_running_as_attention() {
-        let conn = rusqlite::Connection::open_in_memory().expect("open");
-        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
-        db::create_schema(&conn).expect("schema");
+        let conn = test_db();
 
         // Insert repo and session
         conn.execute(

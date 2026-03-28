@@ -39,7 +39,7 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
     // Add new migrations at the end of this list.  Never reorder or remove
     // entries — only append.
     let migrations: &[(i64, &str)] = &[
-        // (1, "ALTER TABLE sessions ADD COLUMN pid INTEGER;"),
+        (1, "ALTER TABLE sessions ADD COLUMN pid INTEGER;"),
     ];
 
     for &(version, sql) in migrations {
