@@ -314,9 +314,7 @@ fn find_session_by_cwd(app: &AppHandle, cwd: &str) -> Option<String> {
     let app_state = app.state::<AppState>();
     let db = app_state.db.lock();
     let mut stmt = db
-        .prepare(
-            "SELECT id FROM sessions WHERE worktree_path = ?1 AND status IN ('running', 'waiting')",
-        )
+        .prepare("SELECT id FROM sessions WHERE worktree_path = ?1 AND status = 'running'")
         .ok()?;
     stmt.query_row(rusqlite::params![cwd], |row| row.get::<_, String>(0))
         .ok()

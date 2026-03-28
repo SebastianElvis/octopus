@@ -18,7 +18,7 @@ const mockSessions: BackendSession[] = [
     repoId: "repo-1",
     name: "Fix auth bug",
     branch: "fix-auth",
-    status: "waiting",
+    status: "attention",
     stateChangedAt: new Date().toISOString(),
   },
   {
@@ -34,7 +34,7 @@ const mockSessions: BackendSession[] = [
     repoId: "repo-1",
     name: "Refactor tests",
     branch: "refactor-tests",
-    status: "completed",
+    status: "done",
     stateChangedAt: new Date().toISOString(),
   },
 ];
@@ -165,9 +165,9 @@ describe("Command palette", () => {
 
     const palette = screen.getByTestId("command-palette");
     // Should show status labels
-    expect(palette).toHaveTextContent("waiting");
+    expect(palette).toHaveTextContent("attention");
     expect(palette).toHaveTextContent("running");
-    expect(palette).toHaveTextContent("completed");
+    expect(palette).toHaveTextContent("done");
   });
 
   it("shows 'No sessions found' when search has no results", async () => {

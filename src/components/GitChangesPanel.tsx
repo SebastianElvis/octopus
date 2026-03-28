@@ -68,7 +68,7 @@ export function GitChangesPanel({
     }
   }, [sessionName]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const isSessionDone = ["done", "completed", "failed", "idle"].includes(sessionStatus ?? "");
+  const isSessionDone = sessionStatus === "done" || sessionStatus === "attention";
 
   if (!worktreePath) {
     return (

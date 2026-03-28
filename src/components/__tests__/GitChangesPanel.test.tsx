@@ -94,7 +94,7 @@ describe("GitChangesPanel", () => {
   });
 
   it("shows worktree cleaned up message for done sessions with missing path", async () => {
-    render(<GitChangesPanel worktreePath="/tmp/wt" sessionStatus="completed" />);
+    render(<GitChangesPanel worktreePath="/tmp/wt" sessionStatus="done" />);
     await act(async () => {});
     act(() => {
       useGitStore.setState({ error: "No such file or directory" });

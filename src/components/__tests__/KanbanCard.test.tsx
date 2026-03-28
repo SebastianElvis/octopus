@@ -24,8 +24,8 @@ describe("KanbanCard", () => {
   });
 
   it("renders status pill", () => {
-    render(<KanbanCard session={makeSession({ status: "waiting" })} onView={() => {}} />);
-    expect(screen.getByText("waiting")).toBeInTheDocument();
+    render(<KanbanCard session={makeSession({ status: "attention" })} onView={() => {}} />);
+    expect(screen.getByText("attention")).toBeInTheDocument();
   });
 
   it("calls onView when card is clicked", () => {
@@ -46,21 +46,10 @@ describe("KanbanCard", () => {
     expect(screen.getByText("Interrupt")).toBeInTheDocument();
   });
 
-  it("shows Resume button for paused status", () => {
+  it("shows Resume button for attention status", () => {
     render(
       <KanbanCard
-        session={makeSession({ status: "paused" })}
-        onView={() => {}}
-        onResume={() => {}}
-      />,
-    );
-    expect(screen.getByText("Resume")).toBeInTheDocument();
-  });
-
-  it("shows Resume button for interrupted status", () => {
-    render(
-      <KanbanCard
-        session={makeSession({ status: "interrupted" })}
+        session={makeSession({ status: "attention" })}
         onView={() => {}}
         onResume={() => {}}
       />,
@@ -69,13 +58,13 @@ describe("KanbanCard", () => {
   });
 
   it("always shows View button", () => {
-    render(<KanbanCard session={makeSession({ status: "completed" })} onView={() => {}} />);
+    render(<KanbanCard session={makeSession({ status: "done" })} onView={() => {}} />);
     expect(screen.getByText("View")).toBeInTheDocument();
   });
 
-  it("calls onView when View button is clicked for waiting session", () => {
+  it("calls onView when View button is clicked for attention session", () => {
     const onView = vi.fn();
-    render(<KanbanCard session={makeSession({ status: "waiting" })} onView={onView} />);
+    render(<KanbanCard session={makeSession({ status: "attention" })} onView={onView} />);
     fireEvent.click(screen.getByText("View"));
     expect(onView).toHaveBeenCalledWith("s1");
   });
@@ -100,10 +89,10 @@ describe("KanbanCard", () => {
     expect(screen.getByText("PR #7")).toBeInTheDocument();
   });
 
-  it("shows block type pill for waiting+blockType", () => {
+  it("shows block type pill for attention+blockType", () => {
     render(
       <KanbanCard
-        session={makeSession({ status: "waiting", blockType: "permission" })}
+        session={makeSession({ status: "attention", blockType: "permission" })}
         onView={() => {}}
       />,
     );
@@ -112,7 +101,7 @@ describe("KanbanCard", () => {
 
   it("applies reduced opacity for closed sessions", () => {
     const { container } = render(
-      <KanbanCard session={makeSession({ status: "completed" })} onView={() => {}} />,
+      <KanbanCard session={makeSession({ status: "done" })} onView={() => {}} />,
     );
     expect(container.firstChild).toHaveClass("opacity-75");
   });
@@ -151,20 +140,6 @@ describe("KanbanCard", () => {
       <KanbanCard session={makeSession()} onView={() => {}} ciStatus={null} />,
     );
     expect(container.querySelector('[title^="CI:"]')).not.toBeInTheDocument();
-  });
-
-  it("shows Retry button for failed sessions when onRetry is provided", () => {
-    const onRetry = vi.fn();
-    render(
-      <KanbanCard
-        session={makeSession({ status: "failed" })}
-        onView={() => {}}
-        onRetry={onRetry}
-      />,
-    );
-    expect(screen.getByText("Retry")).toBeInTheDocument();
-    fireEvent.click(screen.getByText("Retry"));
-    expect(onRetry).toHaveBeenCalledWith("s1");
   });
 
   it("shows Kill button with confirmation for running sessions", () => {

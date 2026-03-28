@@ -46,13 +46,13 @@ describe("EditorTabs", () => {
     expect(container.querySelector(".animate-pulse")).toBeTruthy();
   });
 
-  it("shows animated pulse on Claude tab when waiting", () => {
-    const { container } = render(<EditorTabs {...defaultProps} sessionStatus="waiting" />);
+  it("shows animated pulse on Claude tab when attention", () => {
+    const { container } = render(<EditorTabs {...defaultProps} sessionStatus="attention" />);
     expect(container.querySelector(".animate-pulse")).toBeTruthy();
   });
 
-  it("does not show pulse when session is idle", () => {
-    const { container } = render(<EditorTabs {...defaultProps} sessionStatus="idle" />);
+  it("does not show pulse when session is done", () => {
+    const { container } = render(<EditorTabs {...defaultProps} sessionStatus="done" />);
     expect(container.querySelector(".animate-pulse")).toBeNull();
   });
 

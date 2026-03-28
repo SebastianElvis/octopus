@@ -11,29 +11,15 @@ interface SessionTimelineProps {
 }
 
 const DOT_COLOR: Record<string, string> = {
-  waiting: "bg-red-500",
-  running: "bg-green-500",
-  idle: "bg-gray-500",
-  done: "bg-gray-500",
-  killed: "bg-gray-500",
-  completed: "bg-green-500",
-  failed: "bg-red-500",
-  paused: "bg-yellow-500",
-  stuck: "bg-orange-500",
-  interrupted: "bg-amber-500",
+  running: "bg-blue-500",
+  attention: "bg-amber-500",
+  done: "bg-green-500",
 };
 
 const LABEL_COLOR: Record<string, string> = {
-  waiting: "text-red-500",
-  running: "text-green-500",
-  idle: "text-gray-500 dark:text-gray-400",
-  done: "text-gray-500 dark:text-gray-400",
-  killed: "text-gray-500 dark:text-gray-400",
-  completed: "text-green-500",
-  failed: "text-red-500",
-  paused: "text-yellow-500",
-  stuck: "text-orange-500",
-  interrupted: "text-amber-500",
+  running: "text-blue-500 dark:text-blue-400",
+  attention: "text-amber-500 dark:text-amber-400",
+  done: "text-green-500 dark:text-green-400",
 };
 
 function dotColor(status: string): string {

@@ -17,7 +17,6 @@ interface KanbanCardProps {
   onView: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
-  onRetry?: (id: string) => void;
   onKill?: (id: string) => void;
   ciStatus?: CIStatus;
   isActive?: boolean;
@@ -28,14 +27,12 @@ export function KanbanCard({
   onView,
   onInterrupt,
   onResume,
-  onRetry,
   onKill,
   ciStatus,
   isActive,
 }: KanbanCardProps) {
-  const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
+  const isClosed = session.status === "done";
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
-  const isStuck = session.status === "stuck";
   const [showKillConfirm, setShowKillConfirm] = useState(false);
 
   const ciDotColor =
@@ -52,11 +49,9 @@ export function KanbanCard({
       data-testid={`session-card-${session.id}`}
       onClick={() => onView(session.id)}
       className={`cursor-pointer rounded-md border bg-white px-3 py-2.5 pl-7 shadow-sm transition-all hover:shadow-md dark:bg-gray-950 ${closedBorder} ${isClosed ? "opacity-75" : ""} ${
-        isStuck
-          ? "border-orange-300 ring-1 ring-orange-200 dark:border-orange-700 dark:ring-orange-900/30"
-          : isActive
-            ? "border-blue-400 ring-1 ring-blue-400/50 dark:border-blue-600 dark:ring-blue-600/40"
-            : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
+        isActive
+          ? "border-blue-400 ring-1 ring-blue-400/50 dark:border-blue-600 dark:ring-blue-600/40"
+          : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
       }`}
     >
       {/* Title */}
@@ -98,7 +93,7 @@ export function KanbanCard({
       </p>
 
       {/* Inline blocking prompt for waiting sessions */}
-      {session.status === "waiting" && session.lastMessage && (
+      {session.status === "attention" && session.lastMessage && (
         <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 dark:border-amber-800/50 dark:bg-amber-950/20">
           <p className="line-clamp-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
             {session.lastMessage}
@@ -116,24 +111,11 @@ export function KanbanCard({
           />
           {STATUS_LABEL[session.status] ?? session.status}
         </span>
-        {session.status === "waiting" && session.blockType && (
+        {session.status === "attention" && session.blockType && (
           <span
             className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${BLOCK_TYPE_PILL[session.blockType]}`}
           >
             {session.blockType}
-          </span>
-        )}
-        {isStuck && (
-          <span className="flex items-center gap-0.5 rounded-full bg-orange-100 px-1.5 py-0.5 text-[11px] font-medium text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            stuck 20+ min
           </span>
         )}
       </div>
@@ -156,29 +138,16 @@ export function KanbanCard({
           </button>
         )}
         {/* For "Needs Attention" sessions, make Resume more prominent */}
-        {(session.status === "idle" ||
-          session.status === "paused" ||
-          session.status === "interrupted") &&
-          onResume && (
-            <button
-              onClick={() => onResume(session.id)}
-              className="cursor-pointer rounded bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            >
-              Resume
-            </button>
-          )}
-        {(session.status === "failed" || session.status === "stuck") && onRetry && (
+        {session.status === "attention" && onResume && (
           <button
-            onClick={() => onRetry(session.id)}
+            onClick={() => onResume(session.id)}
             className="cursor-pointer rounded bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
           >
-            Retry
+            Resume
           </button>
         )}
         {/* Kill with confirmation — always last */}
-        {(session.status === "running" ||
-          session.status === "waiting" ||
-          session.status === "stuck") &&
+        {session.status === "running" &&
           onKill &&
           !showKillConfirm && (
             <button

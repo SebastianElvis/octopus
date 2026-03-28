@@ -13,23 +13,14 @@ const SIDEBAR_DOT: Record<string, string> = {
 
 /** Subtle row background tint to indicate status at a glance. */
 const STATUS_ROW_TINT: Record<string, string> = {
-  waiting: "bg-amber-50/50 dark:bg-amber-950/10",
-  stuck: "bg-orange-50/50 dark:bg-orange-950/10",
+  attention: "bg-amber-50/50 dark:bg-amber-950/10",
   running: "",
-  failed: "bg-red-50/30 dark:bg-red-950/10",
 };
 
 /** Status label for accessibility (shown alongside the dot). */
 const STATUS_ICON_LABEL: Record<string, string> = {
-  waiting: "Waiting",
-  stuck: "Stuck",
+  attention: "Needs Attention",
   running: "Running",
-  completed: "Done",
-  failed: "Failed",
-  killed: "Killed",
-  paused: "Paused",
-  interrupted: "Interrupted",
-  idle: "Idle",
   done: "Done",
 };
 
@@ -98,7 +89,7 @@ export function SidebarTree({
         const isExpanded = expandedRepos.has(repo.id);
         const ghUrl = repo.githubUrl;
         const repoName = ghUrl.split("/").slice(-2).join("/") || ghUrl || "unknown";
-        const waitingCount = repoSessions.filter((s) => s.status === "waiting").length;
+        const waitingCount = repoSessions.filter((s) => s.status === "attention").length;
         const issueCount = issueCountsByRepo[repo.id] ?? 0;
         const isTasksActive = activeView === "tasks" && tasksRepoId === repo.id;
 
@@ -174,15 +165,24 @@ export function SidebarTree({
                   )}
                 </button>
 
-                {/* Sessions */}
-                {repoSessions.map((s) => (
-                  <SessionNode
-                    key={s.id}
-                    session={s}
-                    isActive={s.id === activeSessionId}
-                    onClick={() => onSelectSession(s.id)}
-                  />
-                ))}
+                {/* Active sessions (attention + running) */}
+                {repoSessions
+                  .filter((s) => s.status !== "done")
+                  .map((s) => (
+                    <SessionNode
+                      key={s.id}
+                      session={s}
+                      isActive={s.id === activeSessionId}
+                      onClick={() => onSelectSession(s.id)}
+                    />
+                  ))}
+
+                {/* Done sessions (collapsed) */}
+                <DoneGroup
+                  sessions={repoSessions.filter((s) => s.status === "done")}
+                  activeSessionId={activeSessionId}
+                  onSelectSession={onSelectSession}
+                />
 
                 {/* Per-repo + New Session */}
                 <button
@@ -225,6 +225,52 @@ export function SidebarTree({
       >
         + Add Repo
       </button>
+    </div>
+  );
+}
+
+function DoneGroup({
+  sessions,
+  activeSessionId,
+  onSelectSession,
+}: {
+  sessions: Session[];
+  activeSessionId: string | null;
+  onSelectSession: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (sessions.length === 0) return null;
+
+  return (
+    <div>
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800/50 dark:hover:text-gray-300"
+      >
+        <svg
+          className={`h-2.5 w-2.5 shrink-0 text-gray-400 transition-transform dark:text-gray-500 ${expanded ? "rotate-90" : ""}`}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        <span>Done</span>
+        <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-600 dark:bg-green-900/30 dark:text-green-400">
+          {sessions.length}
+        </span>
+      </button>
+      {expanded &&
+        sessions.map((s) => (
+          <SessionNode
+            key={s.id}
+            session={s}
+            isActive={s.id === activeSessionId}
+            onClick={() => onSelectSession(s.id)}
+          />
+        ))}
     </div>
   );
 }

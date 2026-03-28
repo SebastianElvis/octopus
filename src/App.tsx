@@ -51,7 +51,6 @@ function App() {
 
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const updateSession = useSessionStore((s) => s.updateSession);
-  const removeSession = useSessionStore((s) => s.removeSession);
   const appendStructuredEvents = useSessionStore((s) => s.appendStructuredEvents);
   const loadRepos = useRepoStore((s) => s.loadRepos);
   const repos = useRepoStore((s) => s.repos);
@@ -98,7 +97,7 @@ function App() {
       if (isMeta && e.key === "j") {
         e.preventDefault();
         // Jump to next waiting session
-        const waitingSessions = sessions.filter((s) => s.status === "waiting");
+        const waitingSessions = sessions.filter((s) => s.status === "attention");
         if (waitingSessions.length > 0) {
           const sorted = [...waitingSessions].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
           setActiveSessionId(sorted[0].id);
@@ -188,53 +187,19 @@ function App() {
         const prevStatus = prevStatusRef.current[session.id];
         prevStatusRef.current[session.id] = session.status;
 
-        if (session.status === "archived") {
-          removeSession(session.id);
-          return;
-        }
-
         updateSession(session.id, session);
 
         // Notify on important status transitions
         const shouldNotify =
-          (session.status === "waiting" && prevStatus !== "waiting") ||
-          (session.status === "stuck" && prevStatus !== "stuck") ||
-          (session.status === "completed" && prevStatus !== "completed") ||
-          (session.status === "failed" && prevStatus !== "failed");
+          session.status === "attention" && prevStatus !== "attention";
 
         if (shouldNotify) {
-          const messages: Record<
-            string,
-            { toast: string; system: string; type: ToastItem["type"] }
-          > = {
-            waiting: {
-              toast: `"${session.name}" needs your input`,
-              system: `Session "${session.name}" is waiting for your response.`,
-              type: "warning",
-            },
-            stuck: {
-              toast: `"${session.name}" appears stuck`,
-              system: `Session "${session.name}" has been inactive for 20+ minutes.`,
-              type: "warning",
-            },
-            completed: {
-              toast: `"${session.name}" completed`,
-              system: `Session "${session.name}" finished successfully.`,
-              type: "success",
-            },
-            failed: {
-              toast: `"${session.name}" failed`,
-              system: `Session "${session.name}" exited with an error.`,
-              type: "warning",
-            },
+          const msg = {
+            toast: `"${session.name}" needs your attention`,
+            system: `Session "${session.name}" needs your attention.`,
+            type: "warning" as ToastItem["type"],
           };
 
-          // session.status is guaranteed to be one of the keys above due to shouldNotify check
-          const msg = messages[session.status] as {
-            toast: string;
-            system: string;
-            type: ToastItem["type"];
-          };
           // In-app toast (deduplicate: skip if same session+status toast already showing)
           setToasts((prev) => {
             const prefix = `${session.id}-${session.status}-`;
@@ -255,11 +220,11 @@ function App() {
 
           // Sound notification
           if (soundEnabled) {
-            void playNotificationSound(session.status === "completed" ? "success" : "alert");
+            void playNotificationSound("alert");
           }
         }
       }),
-    [updateSession, removeSession, soundEnabled],
+    [updateSession, soundEnabled],
   );
 
   // Batch structured events to avoid overwhelming React with rapid updates.
@@ -367,7 +332,7 @@ function App() {
     dismissToast(toast.id);
   }
 
-  const waitingCount = sessions.filter((s) => s.status === "waiting").length;
+  const waitingCount = sessions.filter((s) => s.status === "attention").length;
   const isSessionView = view === "session" && activeSessionId;
 
   return (
@@ -505,7 +470,7 @@ function App() {
       <main className="relative flex-1 overflow-hidden">
         <ErrorBoundary>
           {view === "home" && (
-            <div className="flex h-full flex-col">
+            <div className="absolute inset-0 flex flex-col overflow-hidden">
               <DispatchBoard
                 onViewSession={handleViewSession}
                 onNewSession={() => setShowNewSession(true)}

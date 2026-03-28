@@ -159,7 +159,7 @@ fn insert_and_query_sessions() {
     let state = setup();
     insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
     insert_session(&state, "s1", "r1", "Fix bug", "running");
-    insert_session(&state, "s2", "r1", "Add feature", "completed");
+    insert_session(&state, "s2", "r1", "Add feature", "attention");
 
     let db = state.db.lock();
     let mut stmt = db
@@ -177,7 +177,7 @@ fn insert_and_query_sessions() {
         (
             "s2".to_string(),
             "Add feature".to_string(),
-            "completed".to_string()
+            "attention".to_string()
         )
     );
     assert_eq!(
@@ -200,7 +200,7 @@ fn session_status_update() {
         let db = state.db.lock();
         db.execute(
             "UPDATE sessions SET status = ?1, state_changed_at = ?2 WHERE id = ?3",
-            rusqlite::params!["completed", "2025-06-01T00:00:00Z", "s1"],
+            rusqlite::params!["attention", "2025-06-01T00:00:00Z", "s1"],
         )
         .unwrap();
     }
@@ -211,14 +211,14 @@ fn session_status_update() {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(status, "completed");
+    assert_eq!(status, "attention");
 }
 
 #[test]
 fn session_with_block_type_and_last_message() {
     let state = setup();
     insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
-    insert_session(&state, "s1", "r1", "Test session", "waiting");
+    insert_session(&state, "s1", "r1", "Test session", "attention");
 
     {
         let db = state.db.lock();
@@ -253,7 +253,7 @@ fn session_foreign_key_constraint() {
             "s1",
             "nonexistent-repo",
             "orphan",
-            "idle",
+            "attention",
             "2025-01-01",
             "2025-01-01"
         ],
@@ -372,35 +372,35 @@ fn reap_orphaned_sessions() {
     let state = setup();
     insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
     insert_session(&state, "s1", "r1", "Session 1", "running");
-    insert_session(&state, "s2", "r1", "Session 2", "waiting");
-    insert_session(&state, "s3", "r1", "Session 3", "completed");
-    insert_session(&state, "s4", "r1", "Session 4", "stuck");
+    insert_session(&state, "s2", "r1", "Session 2", "attention");
+    insert_session(&state, "s3", "r1", "Session 3", "done");
 
     let db = state.db.lock();
     let reaped = toomanytabs_lib::db::reap_orphaned_sessions(&db);
-    assert_eq!(reaped, 3); // running, waiting, stuck → interrupted
+    assert_eq!(reaped, 1); // only running → attention
 
-    // completed should be untouched
+    // attention and done should be untouched
+    let status: String = db
+        .query_row("SELECT status FROM sessions WHERE id = 's2'", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(status, "attention");
+
     let status: String = db
         .query_row("SELECT status FROM sessions WHERE id = 's3'", [], |row| {
             row.get(0)
         })
         .unwrap();
-    assert_eq!(status, "completed");
+    assert_eq!(status, "done");
 
-    // Others should be interrupted
-    for sid in &["s1", "s2", "s4"] {
-        let status: String = db
-            .query_row("SELECT status FROM sessions WHERE id = ?1", [sid], |row| {
-                row.get(0)
-            })
-            .unwrap();
-        assert_eq!(
-            status, "interrupted",
-            "session {} should be interrupted",
-            sid
-        );
-    }
+    // running should become attention
+    let status: String = db
+        .query_row("SELECT status FROM sessions WHERE id = 's1'", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(status, "attention", "session s1 should be attention");
 }
 
 // ---------------------------------------------------------------------------
@@ -716,7 +716,7 @@ fn session_dangerously_skip_permissions_roundtrip() {
         db.execute(
             "INSERT INTO sessions (id, repo_id, name, status, dangerously_skip_permissions, created_at, state_changed_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            rusqlite::params!["s1", "r1", "Dangerous", "idle", 1, "2025-01-01", "2025-01-01"],
+            rusqlite::params!["s1", "r1", "Dangerous", "attention", 1, "2025-01-01", "2025-01-01"],
         )
         .unwrap();
     }
@@ -743,7 +743,7 @@ fn session_all_nullable_fields() {
         db.execute(
             "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params!["s1", "r1", "Minimal", "idle", "2025-01-01", "2025-01-01"],
+            rusqlite::params!["s1", "r1", "Minimal", "attention", "2025-01-01", "2025-01-01"],
         )
         .unwrap();
     }
@@ -800,7 +800,7 @@ fn concurrent_db_access() {
                         format!("s{}", i),
                         "r1",
                         format!("Session {}", i),
-                        "idle",
+                        "attention",
                         "2025-01-01",
                         "2025-01-01"
                     ],
@@ -859,7 +859,7 @@ fn deleting_repo_with_sessions_blocked_by_fk() {
     // SQLite FK constraint prevents deleting a repo that still has sessions
     let state = setup();
     insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
-    insert_session(&state, "s1", "r1", "Session", "idle");
+    insert_session(&state, "s1", "r1", "Session", "attention");
 
     let db = state.db.lock();
     let result = db.execute("DELETE FROM repos WHERE id = 'r1'", []);
@@ -873,7 +873,7 @@ fn deleting_repo_with_sessions_blocked_by_fk() {
 fn deleting_sessions_then_repo_succeeds() {
     let state = setup();
     insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
-    insert_session(&state, "s1", "r1", "Session", "idle");
+    insert_session(&state, "s1", "r1", "Session", "attention");
 
     {
         let db = state.db.lock();
@@ -897,7 +897,7 @@ fn deleting_sessions_then_repo_succeeds() {
 fn delete_session_directly() {
     let state = setup();
     insert_repo(&state, "r1", "https://github.com/a/b", "/tmp/b");
-    insert_session(&state, "s1", "r1", "Session", "idle");
+    insert_session(&state, "s1", "r1", "Session", "attention");
 
     {
         let db = state.db.lock();

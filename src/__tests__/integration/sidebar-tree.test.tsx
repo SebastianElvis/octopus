@@ -44,7 +44,7 @@ const mockSessions: BackendSession[] = [
     repoId: "repo-1",
     name: "Add modal animation",
     branch: "modal-anim",
-    status: "waiting",
+    status: "attention",
     stateChangedAt: new Date().toISOString(),
   },
   {
@@ -52,7 +52,7 @@ const mockSessions: BackendSession[] = [
     repoId: "repo-2",
     name: "Database indexes",
     branch: "add-indexes",
-    status: "completed",
+    status: "done",
     stateChangedAt: new Date().toISOString(),
   },
 ];

@@ -6,21 +6,12 @@ import {
   killSession,
   interruptSession,
   resumeSession,
-  retrySession,
 } from "../lib/tauri";
 import type { Session, SessionStatus } from "../lib/types";
 import { RUNNING_PULSE } from "../lib/statusColors";
 
-type StatusFilter = "attention" | "running" | "completed" | "failed" | null;
+type StatusFilter = "attention" | "running" | "done" | null;
 type SortKey = "recent" | "created" | "name" | "status";
-
-/** Priority order for "Needs Attention" column — higher severity first. */
-const ATTENTION_PRIORITY: Record<string, number> = {
-  stuck: 0,
-  waiting: 1,
-  interrupted: 2,
-  paused: 3,
-};
 
 interface DispatchBoardProps {
   onViewSession: (id: string) => void;
@@ -73,10 +64,9 @@ export function DispatchBoard({
     // Status filter
     if (statusFilter) {
       const statusGroups: Record<StatusFilter & string, SessionStatus[]> = {
-        attention: ["waiting", "paused", "stuck", "interrupted"],
+        attention: ["attention"],
         running: ["running"],
-        completed: ["completed", "done"],
-        failed: ["failed"],
+        done: ["done"],
       };
       const allowed = statusGroups[statusFilter];
       result = result.filter((s) => allowed.includes(s.status));
@@ -109,20 +99,8 @@ export function DispatchBoard({
   );
 
   const needsAttention = useMemo(() => {
-    const items = filteredSessions.filter(
-      (s) =>
-        s.status === "waiting" ||
-        s.status === "paused" ||
-        s.status === "stuck" ||
-        s.status === "interrupted",
-    );
-    // Priority sort: stuck > waiting > interrupted > paused, then by recency within same priority
-    return items.sort((a, b) => {
-      const pa = ATTENTION_PRIORITY[a.status] ?? 99;
-      const pb = ATTENTION_PRIORITY[b.status] ?? 99;
-      if (pa !== pb) return pa - pb;
-      return b.stateChangedAt - a.stateChangedAt;
-    });
+    const items = filteredSessions.filter((s) => s.status === "attention");
+    return items.sort((a, b) => b.stateChangedAt - a.stateChangedAt);
   }, [filteredSessions]);
 
   const running = useMemo(
@@ -130,34 +108,17 @@ export function DispatchBoard({
     [filteredSessions, sortSessions],
   );
   const closed = useMemo(
-    () =>
-      sortSessions(
-        filteredSessions.filter(
-          (s) =>
-            s.status === "idle" ||
-            s.status === "done" ||
-            s.status === "completed" ||
-            s.status === "failed" ||
-            s.status === "killed",
-        ),
-      ),
+    () => sortSessions(filteredSessions.filter((s) => s.status === "done")),
     [filteredSessions, sortSessions],
   );
 
   // Fleet summary counts (always from unfiltered sessions)
   const summary = useMemo(() => {
-    const counts = { attention: 0, running: 0, completed: 0, failed: 0, total: sessions.length };
+    const counts = { attention: 0, running: 0, done: 0, total: sessions.length };
     for (const s of sessions) {
-      if (
-        s.status === "waiting" ||
-        s.status === "stuck" ||
-        s.status === "paused" ||
-        s.status === "interrupted"
-      )
-        counts.attention++;
+      if (s.status === "attention") counts.attention++;
       else if (s.status === "running") counts.running++;
-      else if (s.status === "completed" || s.status === "done") counts.completed++;
-      else if (s.status === "failed") counts.failed++;
+      else if (s.status === "done") counts.done++;
     }
     return counts;
   }, [sessions]);
@@ -175,7 +136,7 @@ export function DispatchBoard({
     }
     if (parts.length === 0) {
       if (summary.total === 0) return null;
-      if (summary.completed + summary.failed === summary.total) return "All sessions finished.";
+      if (summary.done === summary.total) return "All sessions finished.";
       return null;
     }
     return parts.join(". ") + ".";
@@ -185,7 +146,7 @@ export function DispatchBoard({
     try {
       const stuckIds = await checkStuckSessions();
       for (const id of stuckIds) {
-        updateSession(id, { status: "stuck" });
+        updateSession(id, { status: "attention" });
       }
     } catch {
       // ignore — backend may not be available
@@ -215,14 +176,6 @@ export function DispatchBoard({
     try {
       await resumeSession(id);
       updateSession(id, { status: "running", stateChangedAt: Date.now() });
-    } catch {
-      /* ignore */
-    }
-  }
-
-  async function handleRetry(id: string) {
-    try {
-      await retrySession(id);
     } catch {
       /* ignore */
     }
@@ -369,18 +322,11 @@ export function DispatchBoard({
               onClick={() => toggleStatusFilter("running")}
             />
             <SummaryPill
-              color="green"
-              count={summary.completed}
-              label="completed"
-              active={statusFilter === "completed"}
-              onClick={() => toggleStatusFilter("completed")}
-            />
-            <SummaryPill
-              color="red"
-              count={summary.failed}
-              label="failed"
-              active={statusFilter === "failed"}
-              onClick={() => toggleStatusFilter("failed")}
+              color="gray"
+              count={summary.done}
+              label="done"
+              active={statusFilter === "done"}
+              onClick={() => toggleStatusFilter("done")}
             />
           </div>
           <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-400">
@@ -474,7 +420,7 @@ export function DispatchBoard({
       )}
 
       {/* Kanban columns */}
-      <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+      <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto p-6">
         <Column
           title="Needs Attention"
           count={needsAttention.length}
@@ -489,27 +435,9 @@ export function DispatchBoard({
               session={s}
               isActive={s.id === activeSessionId}
               onView={onViewSession}
-              onResume={
-                s.status === "paused" || s.status === "interrupted"
-                  ? (id: string) => {
-                      void handleResume(id);
-                    }
-                  : undefined
-              }
-              onRetry={
-                s.status === "failed" || s.status === "stuck"
-                  ? (id: string) => {
-                      void handleRetry(id);
-                    }
-                  : undefined
-              }
-              onKill={
-                s.status === "running" || s.status === "waiting" || s.status === "stuck"
-                  ? (id: string) => {
-                      void handleKill(id);
-                    }
-                  : undefined
-              }
+              onResume={(id: string) => {
+                void handleResume(id);
+              }}
             />
           ))}
         </Column>
@@ -539,12 +467,12 @@ export function DispatchBoard({
         </Column>
 
         <Column
-          title="Closed"
+          title="Done"
           count={closed.length}
-          accentColor="gray"
+          accentColor="green"
           emptyIcon="inbox"
           emptyTitle="Nothing here yet"
-          emptyDescription="Completed, failed, and idle sessions will appear here."
+          emptyDescription="Finished sessions will appear here."
         >
           {closed.map((s) => (
             <KanbanCard
@@ -552,13 +480,6 @@ export function DispatchBoard({
               session={s}
               isActive={s.id === activeSessionId}
               onView={onViewSession}
-              onRetry={
-                s.status === "failed"
-                  ? (id: string) => {
-                      void handleRetry(id);
-                    }
-                  : undefined
-              }
             />
           ))}
         </Column>
@@ -656,6 +577,7 @@ function Column({
   const dotColors = {
     amber: "bg-amber-500",
     blue: "bg-blue-500",
+    green: "bg-green-500",
     gray: "bg-gray-500",
     orange: "bg-orange-500",
   };
@@ -663,6 +585,7 @@ function Column({
   const headerBorder = {
     amber: "border-amber-500",
     blue: "border-blue-500",
+    green: "border-green-500",
     gray: "border-gray-300 dark:border-gray-700",
     orange: "border-orange-500",
   };
@@ -670,7 +593,7 @@ function Column({
   return (
     <section
       data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
-      className="flex min-w-[280px] flex-1 flex-col rounded-lg bg-gray-50/80 dark:bg-gray-900/60"
+      className="flex min-h-0 min-w-[280px] flex-1 flex-col rounded-lg bg-gray-50/80 dark:bg-gray-900/60"
     >
       {/* Column header */}
       <div className={`border-t-2 ${headerBorder[accentColor]} rounded-t-lg`} />

@@ -102,7 +102,7 @@ describe("Session state transitions", () => {
     expect(runningCol).toHaveTextContent("Fix bug Y");
   });
 
-  it("updates session in store when status changes to completed", async () => {
+  it("updates session in store when status changes to done", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -116,7 +116,7 @@ describe("Session state transitions", () => {
     // mocking has limitations, we test the store update directly)
     await act(async () => {
       useSessionStore.getState().updateSession("s1", {
-        status: "completed",
+        status: "done",
         stateChangedAt: Date.now(),
       });
     });
@@ -132,7 +132,7 @@ describe("Session state transitions", () => {
     expect(runningCol).not.toHaveTextContent("Build feature X");
   });
 
-  it("moves session to Needs Attention when status changes to waiting", async () => {
+  it("moves session to Needs Attention when status changes to attention", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -143,7 +143,7 @@ describe("Session state transitions", () => {
 
     await act(async () => {
       useSessionStore.getState().updateSession("s2", {
-        status: "waiting",
+        status: "attention",
         stateChangedAt: Date.now(),
       });
     });
@@ -154,7 +154,7 @@ describe("Session state transitions", () => {
     });
   });
 
-  it("moves session to Needs Attention when status changes to stuck", async () => {
+  it("moves session to Needs Attention when status changes to attention (second session)", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -165,7 +165,7 @@ describe("Session state transitions", () => {
 
     await act(async () => {
       useSessionStore.getState().updateSession("s1", {
-        status: "stuck",
+        status: "attention",
         stateChangedAt: Date.now(),
       });
     });
@@ -176,7 +176,7 @@ describe("Session state transitions", () => {
     });
   });
 
-  it("moves session to Closed when status changes to failed", async () => {
+  it("moves session to Closed when status changes to done", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -187,7 +187,7 @@ describe("Session state transitions", () => {
 
     await act(async () => {
       useSessionStore.getState().updateSession("s1", {
-        status: "failed",
+        status: "done",
         stateChangedAt: Date.now(),
       });
     });
@@ -207,10 +207,10 @@ describe("Session state transitions", () => {
       expect(screen.getByText("2 total")).toBeInTheDocument();
     });
 
-    // Change one to completed
+    // Change one to done
     await act(async () => {
       useSessionStore.getState().updateSession("s1", {
-        status: "completed",
+        status: "done",
         stateChangedAt: Date.now(),
       });
     });

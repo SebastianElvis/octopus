@@ -40,7 +40,7 @@ export function EditorTabs({
   const setActiveTab = useEditorStore((s) => s.setActiveTab);
   const closeTab = useEditorStore((s) => s.closeTab);
 
-  const isRunning = sessionStatus === "running" || sessionStatus === "waiting";
+  const isRunning = sessionStatus === "running" || sessionStatus === "attention";
 
   const tabClass = (active: boolean) =>
     `flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${

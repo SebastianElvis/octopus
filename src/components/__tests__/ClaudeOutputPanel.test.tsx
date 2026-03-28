@@ -37,7 +37,7 @@ beforeEach(() => {
 
 describe("ClaudeOutputPanel", () => {
   it("shows 'No messages yet' when empty and not running", async () => {
-    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="idle" />);
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="attention" />);
     await waitFor(() => {
       expect(screen.getByText("No messages yet")).toBeInTheDocument();
     });
@@ -114,7 +114,7 @@ describe("ClaudeOutputPanel", () => {
     render(
       <ClaudeOutputPanel
         sessionId="s1"
-        sessionStatus="waiting"
+        sessionStatus="attention"
         blockType="permission"
         lastMessage="Claude wants to execute a command"
       />,
@@ -124,31 +124,21 @@ describe("ClaudeOutputPanel", () => {
   });
 
   it("shows text input when waiting for text input", () => {
-    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="waiting" blockType="question" />);
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="attention" blockType="question" />);
     expect(screen.getByPlaceholderText("Type your response...")).toBeInTheDocument();
     expect(screen.getByTitle("Send (Enter)")).toBeInTheDocument();
   });
 
-  it("shows completion message for completed sessions", () => {
-    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="completed" />);
-    expect(screen.getByText("Session completed")).toBeInTheDocument();
-  });
-
-  it("shows failure message for failed sessions", () => {
-    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="failed" />);
-    expect(screen.getByText("Session failed")).toBeInTheDocument();
-  });
-
-  it("shows killed message for killed sessions", () => {
-    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="killed" />);
-    expect(screen.getByText("Session killed")).toBeInTheDocument();
+  it("shows done message for done sessions", () => {
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="done" />);
+    expect(screen.getByText("Session done")).toBeInTheDocument();
   });
 
   it("shows lastMessage in permission mode", () => {
     render(
       <ClaudeOutputPanel
         sessionId="s1"
-        sessionStatus="waiting"
+        sessionStatus="attention"
         blockType="permission"
         lastMessage="Claude wants to write to file.txt"
       />,
@@ -163,7 +153,7 @@ describe("ClaudeOutputPanel", () => {
       () => new Promise(() => {}), // never resolves — keeps loading state
     );
 
-    render(<ClaudeOutputPanel sessionId="s-new" sessionStatus="idle" />);
+    render(<ClaudeOutputPanel sessionId="s-new" sessionStatus="attention" />);
     expect(screen.getByText("Loading history...")).toBeInTheDocument();
   });
 });
