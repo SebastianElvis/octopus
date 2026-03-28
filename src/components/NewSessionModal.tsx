@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import type { Repo, GitHubIssue, GitHubPR } from "../lib/types";
-import { fetchIssues, fetchPRs, spawnSession } from "../lib/tauri";
+import { fetchIssues, fetchPRs, spawnSession, generateBranchName } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
 import { formatError } from "../lib/errors";
 
@@ -50,6 +50,11 @@ export function NewSessionModal({
   const [linked, setLinked] = useState<LinkedItem | null>(null);
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Debounced branch name generation from prompt
+  const [generatedBranch, setGeneratedBranch] = useState<string | null>(null);
+  const [generatingBranch, setGeneratingBranch] = useState(false);
+  const branchGenRef = useRef(0);
+
   // Fetch issues + PRs when repo changes
   useEffect(() => {
     if (!repoId) return;
@@ -77,6 +82,26 @@ export function NewSessionModal({
       setQuery(`#${prefillPR.number}`);
     }
   }, [prefillIssue, prefillPR]);
+
+  const triggerBranchGeneration = useCallback(() => {
+    if (!prompt.trim() || generatingBranch) return;
+
+    setGeneratingBranch(true);
+    const generation = ++branchGenRef.current;
+    void generateBranchName(prompt.trim())
+      .then((name) => {
+        if (branchGenRef.current === generation) {
+          setGeneratedBranch(name);
+          setGeneratingBranch(false);
+        }
+      })
+      .catch(() => {
+        if (branchGenRef.current === generation) {
+          setGeneratedBranch(null);
+          setGeneratingBranch(false);
+        }
+      });
+  }, [prompt, generatingBranch]);
 
   // Auto-detect from query input
   function handleQueryChange(val: string) {
@@ -177,7 +202,9 @@ export function NewSessionModal({
     return parseInt(numStr, 10);
   }
 
-  function deriveBranchName(): string {
+  const sessionFallback = useRef(`session-${Date.now()}`);
+
+  function deriveBranchNameSync(): string {
     if (linked?.kind === "issue") {
       const slug = linked.issue.title
         .toLowerCase()
@@ -188,7 +215,7 @@ export function NewSessionModal({
     if (linked?.kind === "pr") {
       return linked.pr.headRef || `pr-${linked.pr.number}`;
     }
-    return `session-${Date.now()}`;
+    return "";
   }
 
   function deriveSessionName(): string {
@@ -197,7 +224,7 @@ export function NewSessionModal({
     return prompt.trim().slice(0, 60) || `session-${Date.now()}`;
   }
 
-  const branchPreview = deriveBranchName();
+  const branchPreview = deriveBranchNameSync() || generatedBranch || sessionFallback.current;
   const canSubmit = prompt.trim().length > 0 && repos.length > 0 && !submitting;
 
   async function handleSubmit(force = false) {
@@ -210,10 +237,11 @@ export function NewSessionModal({
     setWorktreeConflict(false);
     setCreationStep("worktree");
     try {
+      const branch = deriveBranchNameSync() || generatedBranch || `session-${Date.now()}`;
       setCreationStep("spawning");
       const session = await spawnSession({
         repoId,
-        branch: deriveBranchName(),
+        branch,
         prompt: prompt.trim(),
         name: deriveSessionName(),
         issueNumber: linked?.kind === "issue" ? linked.issue.number : undefined,
@@ -453,12 +481,29 @@ export function NewSessionModal({
               className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
             />
             {/* Branch name preview */}
-            <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-              Branch:{" "}
-              <code className="rounded bg-gray-100 px-1 py-0.5 font-mono dark:bg-gray-800">
-                {branchPreview}
-              </code>
-            </p>
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+              <span>Branch:</span>
+              {generatingBranch ? (
+                <span className="inline-flex items-center gap-1">
+                  <span className="inline-block h-3 w-3 animate-spin rounded-full border border-gray-300 border-t-blue-500" />
+                  <span className="italic">generating...</span>
+                </span>
+              ) : (
+                <code className="rounded bg-gray-100 px-1 py-0.5 font-mono dark:bg-gray-800">
+                  {branchPreview}
+                </code>
+              )}
+              {!linked && prompt.trim() && !generatingBranch && (
+                <button
+                  type="button"
+                  onClick={triggerBranchGeneration}
+                  className="cursor-pointer rounded border border-gray-300 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400 dark:active:bg-blue-950/30"
+                  title="Generate a semantic branch name from the prompt"
+                >
+                  ✨ Generate
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Skip permissions */}
