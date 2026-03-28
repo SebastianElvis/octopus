@@ -470,7 +470,7 @@ function App() {
       <main className="relative flex-1 overflow-hidden">
         <ErrorBoundary>
           {view === "home" && (
-            <div className="flex h-full flex-col">
+            <div className="absolute inset-0 flex flex-col overflow-hidden">
               <DispatchBoard
                 onViewSession={handleViewSession}
                 onNewSession={() => setShowNewSession(true)}

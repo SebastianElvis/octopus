@@ -500,7 +500,7 @@ export function DispatchBoard({
       )}
 
       {/* Kanban columns */}
-      <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+      <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto p-6">
         <Column
           title="Needs Attention"
           count={needsAttention.length}
@@ -709,7 +709,7 @@ function Column({
   return (
     <section
       data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
-      className="flex min-w-[280px] flex-1 flex-col rounded-lg bg-gray-50/80 dark:bg-gray-900/60"
+      className="flex min-h-0 min-w-[280px] flex-1 flex-col rounded-lg bg-gray-50/80 dark:bg-gray-900/60"
     >
       {/* Column header */}
       <div className={`border-t-2 ${headerBorder[accentColor]} rounded-t-lg`} />

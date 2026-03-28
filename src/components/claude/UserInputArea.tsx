@@ -244,7 +244,7 @@ export function UserInputArea({
   // Status line content
   function getStatusInfo(): { label: string; color: string } | null {
     if (isRunning) return { label: "Claude is working...", color: "bg-green-500" };
-    if (isFinished) return { label: "Session done", color: "bg-gray-400" };
+    if (isFinished) return { label: "Session done", color: "bg-green-500" };
     return null;
   }
 
