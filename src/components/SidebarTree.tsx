@@ -89,7 +89,6 @@ export function SidebarTree({
         const isExpanded = expandedRepos.has(repo.id);
         const ghUrl = repo.githubUrl;
         const repoName = ghUrl.split("/").slice(-2).join("/") || ghUrl || "unknown";
-        const waitingCount = repoSessions.filter((s) => s.status === "attention").length;
         const issueCount = issueCountsByRepo[repo.id] ?? 0;
         const isTasksActive = activeView === "tasks" && tasksRepoId === repo.id;
 
@@ -111,16 +110,6 @@ export function SidebarTree({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
                 <span className="truncate">{repoName}</span>
-                {repoSessions.length > 0 && (
-                  <span className="ml-auto shrink-0 text-gray-400 dark:text-gray-500">
-                    {repoSessions.length}
-                  </span>
-                )}
-                {waitingCount > 0 && (
-                  <span className="shrink-0 rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-bold text-white">
-                    {waitingCount}
-                  </span>
-                )}
               </button>
               {/* Remove repo button (visible on hover) */}
               <button
