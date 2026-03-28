@@ -1,11 +1,26 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { SessionStatus, BlockType } from "../../lib/types";
 import { isTauri } from "../../lib/env";
-import { interruptSession, sendFollowup, scanSlashCommands } from "../../lib/tauri";
+import { interruptSession, sendFollowup, saveTempImage, scanSlashCommands } from "../../lib/tauri";
 import { useSessionStore } from "../../stores/sessionStore";
 import type { SlashCommand } from "./SlashCommandMenu";
 import { PermissionBanner } from "./PermissionBanner";
 import { SlashCommandMenu, filterCommands } from "./SlashCommandMenu";
+
+interface AttachedImage {
+  id: string;
+  file: File;
+  previewUrl: string;
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
 
 interface UserInputAreaProps {
   sessionId: string;
@@ -25,7 +40,9 @@ export function UserInputArea({
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
   const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
   const [fsCommands, setFsCommands] = useState<SlashCommand[]>([]);
+  const [attachedImages, setAttachedImages] = useState<AttachedImage[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const addOptimisticUserMessage = useSessionStore((s) => s.addOptimisticUserMessage);
 
   // Get the session's worktree path and tools from the store
@@ -113,6 +130,77 @@ export function UserInputArea({
     : "";
   const slashFiltered = slashMenuOpen ? filterCommands(slashQuery, dynamicCommands) : [];
 
+  // Image handling
+  const addImages = useCallback((files: FileList | File[]) => {
+    const imageFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const newImages: AttachedImage[] = imageFiles.map((file) => ({
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setAttachedImages((prev) => [...prev, ...newImages]);
+  }, []);
+
+  const removeImage = useCallback((id: string) => {
+    setAttachedImages((prev) => {
+      const removed = prev.find((img) => img.id === id);
+      if (removed) URL.revokeObjectURL(removed.previewUrl);
+      return prev.filter((img) => img.id !== id);
+    });
+  }, []);
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      attachedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Paste handler for images
+  const handlePaste = useCallback(
+    (e: React.ClipboardEvent) => {
+      const items = e.clipboardData.items;
+      const imageFiles: File[] = [];
+      for (const item of items) {
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) imageFiles.push(file);
+        }
+      }
+      if (imageFiles.length > 0) {
+        addImages(imageFiles);
+      }
+    },
+    [addImages],
+  );
+
+  // Drop handler for images
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true);
+    }
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      setIsDragOver(false);
+      if (e.dataTransfer.files.length > 0) {
+        addImages(e.dataTransfer.files);
+      }
+    },
+    [addImages],
+  );
+
   function handleInputChange(value: string) {
     setInputText(value);
     // Open menu when typing starts with "/" and has no space yet (still typing the command)
@@ -131,15 +219,28 @@ export function UserInputArea({
   }
 
   async function handleSend() {
-    if (!inputText.trim() || sending) return;
-    const text = inputText.trim();
+    if ((!inputText.trim() && attachedImages.length === 0) || sending) return;
+    const text = inputText.trim() || (attachedImages.length > 0 ? "Attached image(s)" : "");
     addOptimisticUserMessage(sessionId, text);
     setSending(true);
     try {
       if (isTauri()) {
-        await sendFollowup(sessionId, text);
+        // Upload images to temp files and collect paths
+        let imagePaths: string[] | undefined;
+        if (attachedImages.length > 0) {
+          imagePaths = await Promise.all(
+            attachedImages.map(async (img) => {
+              const dataUrl = await fileToDataUrl(img.file);
+              return saveTempImage(dataUrl, img.file.name);
+            }),
+          );
+        }
+        await sendFollowup(sessionId, text, imagePaths);
       }
       setInputText("");
+      // Cleanup image previews
+      attachedImages.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+      setAttachedImages([]);
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
       }
@@ -279,7 +380,21 @@ export function UserInputArea({
       )}
 
       {/* Text input area — always visible */}
-      <div className="relative px-3 py-2.5">
+      <div
+        className="relative px-3 py-2.5"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {/* Drag overlay */}
+        {isDragOver && (
+          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-blue-400 bg-blue-50/80 dark:bg-blue-950/60">
+            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+              Drop image here
+            </span>
+          </div>
+        )}
+
         {/* Slash command autocomplete menu */}
         {slashMenuOpen && slashFiltered.length > 0 && (
           <SlashCommandMenu
@@ -290,72 +405,124 @@ export function UserInputArea({
             dynamicCommands={dynamicCommands}
           />
         )}
-        <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-1 focus-within:ring-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-blue-500 dark:focus-within:bg-gray-950 dark:focus-within:ring-blue-500">
-          <textarea
-            ref={textareaRef}
-            value={inputText}
-            onChange={(e) => {
-              handleInputChange(e.target.value);
-              adjustHeight();
-            }}
-            onKeyDown={(e) => {
-              if (slashMenuOpen && slashFiltered.length > 0) {
-                if (e.key === "ArrowDown") {
-                  e.preventDefault();
-                  setSlashSelectedIndex((i) => Math.min(i + 1, slashFiltered.length - 1));
-                  return;
-                }
-                if (e.key === "ArrowUp") {
-                  e.preventDefault();
-                  setSlashSelectedIndex((i) => Math.max(i - 1, 0));
-                  return;
-                }
-                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
-                  e.preventDefault();
-                  handleSlashSelect(slashFiltered[slashSelectedIndex].command);
-                  return;
-                }
-                if (e.key === "Escape") {
-                  e.preventDefault();
-                  setSlashMenuOpen(false);
-                  return;
-                }
-              }
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                void handleSend();
-              }
-            }}
-            onBlur={() => {
-              // Delay closing so clicks on menu items register
-              setTimeout(() => setSlashMenuOpen(false), 150);
-            }}
-            placeholder={getPlaceholder()}
-            disabled={sending || !canType}
-            rows={1}
-            className="flex-1 resize-none border-0 bg-transparent text-sm text-gray-900 placeholder-gray-400 focus:outline-none disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-500"
-          />
-          <button
-            onClick={() => {
-              void handleSend();
-            }}
-            disabled={!inputText.trim() || sending || !canType}
-            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
-            title="Send (Enter)"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="h-3.5 w-3.5"
+        <div className="rounded-xl border border-gray-200 bg-gray-50 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-1 focus-within:ring-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-blue-500 dark:focus-within:bg-gray-950 dark:focus-within:ring-blue-500">
+          {/* Image thumbnails */}
+          {attachedImages.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 pt-2">
+              {attachedImages.map((img) => (
+                <div key={img.id} className="group relative">
+                  <img
+                    src={img.previewUrl}
+                    alt={img.file.name}
+                    className="h-16 w-16 rounded-md border border-gray-200 object-cover dark:border-gray-700"
+                  />
+                  <button
+                    onClick={() => removeImage(img.id)}
+                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-gray-800 text-white opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-red-400"
+                    title="Remove image"
+                  >
+                    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-end gap-2 px-3 py-2">
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) addImages(e.target.files);
+                e.target.value = ""; // Reset so same file can be re-selected
+              }}
+            />
+
+            {/* Image attach button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending || !canType}
+              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              title="Attach image"
             >
-              <path
-                fillRule="evenodd"
-                d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </button>
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5A2.25 2.25 0 0 0 22.5 18.75V5.25A2.25 2.25 0 0 0 20.25 3H3.75A2.25 2.25 0 0 0 1.5 5.25v13.5A2.25 2.25 0 0 0 3.75 21Zm16.5-13.5h.008v.008h-.008V7.5Zm0 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+            </button>
+
+            <textarea
+              ref={textareaRef}
+              value={inputText}
+              onChange={(e) => {
+                handleInputChange(e.target.value);
+                adjustHeight();
+              }}
+              onPaste={handlePaste}
+              onKeyDown={(e) => {
+                if (slashMenuOpen && slashFiltered.length > 0) {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setSlashSelectedIndex((i) => Math.min(i + 1, slashFiltered.length - 1));
+                    return;
+                  }
+                  if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setSlashSelectedIndex((i) => Math.max(i - 1, 0));
+                    return;
+                  }
+                  if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+                    e.preventDefault();
+                    handleSlashSelect(slashFiltered[slashSelectedIndex].command);
+                    return;
+                  }
+                  if (e.key === "Escape") {
+                    e.preventDefault();
+                    setSlashMenuOpen(false);
+                    return;
+                  }
+                }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+              onBlur={() => {
+                // Delay closing so clicks on menu items register
+                setTimeout(() => setSlashMenuOpen(false), 150);
+              }}
+              placeholder={getPlaceholder()}
+              disabled={sending || !canType}
+              rows={1}
+              className="flex-1 resize-none border-0 bg-transparent text-sm text-gray-900 placeholder-gray-400 focus:outline-none disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-500"
+            />
+            <button
+              onClick={() => {
+                void handleSend();
+              }}
+              disabled={(!inputText.trim() && attachedImages.length === 0) || sending || !canType}
+              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+              title="Send (Enter)"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="h-3.5 w-3.5"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 

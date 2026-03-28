@@ -893,6 +893,7 @@ pub async fn send_followup(
     state: State<'_, AppState>,
     id: String,
     prompt: String,
+    images: Option<Vec<String>>,
 ) -> AppResult<()> {
     // Ensure no process is currently running for this session
     {
@@ -930,6 +931,11 @@ pub async fn send_followup(
     cmd.arg("--include-partial-messages"); // Emit stream_event messages for real-time streaming
     if session.dangerously_skip_permissions.unwrap_or(false) {
         cmd.arg("--dangerously-skip-permissions");
+    }
+    if let Some(ref imgs) = images {
+        for img_path in imgs {
+            cmd.arg("--image").arg(img_path);
+        }
     }
     cmd.arg(&prompt);
     cmd.current_dir(worktree_path);

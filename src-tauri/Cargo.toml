@@ -36,6 +36,7 @@ portable-pty = { version = "0.8", default-features = false }
 ignore = "0.4"
 parking_lot = "0.12"
 axum = "0.8"
+base64 = "0.22"
 
 [dev-dependencies]
 tempfile = "3"

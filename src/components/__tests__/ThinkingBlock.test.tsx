@@ -21,9 +21,12 @@ describe("ThinkingBlock", () => {
     // Full text visible by default
     expect(screen.getByText(text)).toBeInTheDocument();
 
-    // Click to collapse
+    // Click to collapse — AnimatedCollapse hides with opacity:0
     fireEvent.click(screen.getByText("Thinking"));
-    expect(screen.queryByText(text)).not.toBeInTheDocument();
+    const el = screen.getByText(text);
+    const wrapper = el.closest("[style]");
+    expect(wrapper).toBeTruthy();
+    expect(wrapper?.getAttribute("style")).toContain("opacity: 0");
   });
 
   it("re-expands on second click", () => {
@@ -32,7 +35,9 @@ describe("ThinkingBlock", () => {
 
     // Collapse
     fireEvent.click(screen.getByText("Thinking"));
-    expect(screen.queryByText(text)).not.toBeInTheDocument();
+    const el = screen.getByText(text);
+    const wrapper = el.closest("[style]");
+    expect(wrapper?.getAttribute("style")).toContain("opacity: 0");
 
     // Expand again
     fireEvent.click(screen.getByText("Thinking"));

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ClaudeContentBlock } from "../../lib/types";
+import { AnimatedCollapse } from "./AnimatedCollapse";
 
 interface ToolUseBlockProps {
   name: string;
@@ -134,7 +135,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
         className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left"
       >
         <svg
-          className={`h-3 w-3 shrink-0 text-gray-400 transition-transform ${expanded ? "rotate-90" : ""}`}
+          className={`h-3 w-3 shrink-0 text-gray-400 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -174,13 +175,13 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
       </button>
 
       {/* Input details */}
-      {expanded && (
+      <AnimatedCollapse expanded={expanded}>
         <div className="border-t border-gray-100 px-3 py-2 dark:border-gray-800">
           <pre className="max-h-60 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-600 dark:text-gray-400">
             {JSON.stringify(input, null, 2)}
           </pre>
         </div>
-      )}
+      </AnimatedCollapse>
 
       {/* Tool result */}
       {resultText && (
@@ -190,7 +191,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
             className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
           >
             <svg
-              className={`h-2.5 w-2.5 shrink-0 transition-transform ${resultExpanded ? "rotate-90" : ""}`}
+              className={`h-2.5 w-2.5 shrink-0 transition-transform duration-200 ${resultExpanded ? "rotate-90" : ""}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -203,7 +204,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
               <span className="text-gray-300 dark:text-gray-600">({resultLines.length} lines)</span>
             )}
           </button>
-          {resultExpanded && (
+          <AnimatedCollapse expanded={resultExpanded}>
             <div className="px-3 pb-2">
               <pre className="max-h-80 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                 {isLongResult && !expanded
@@ -212,7 +213,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
                   : resultText}
               </pre>
             </div>
-          )}
+          </AnimatedCollapse>
         </div>
       )}
     </div>

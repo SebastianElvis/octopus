@@ -11,7 +11,7 @@ import { respondToHook } from "../../lib/tauri";
 export function PermissionDialog() {
   const pendingPermissions = useHookStore((s) => s.pendingPermissions);
   const removePermissionRequest = useHookStore((s) => s.removePermissionRequest);
-  const selectedSessionId = useUIStore((s) => s.selectedSessionId);
+  const selectedSessionId = useUIStore((s) => s.activeSessionId);
   const [responding, setResponding] = useState<string | null>(null);
 
   // Filter out permissions for the currently viewed session (handled inline)

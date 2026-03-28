@@ -14,3 +14,16 @@
       Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
 }
+
+/* Shiki dual-theme support: show light theme by default, dark theme in dark mode */
+.shiki-wrapper .shiki,
+.shiki-wrapper .shiki span {
+  color: var(--shiki-light) !important;
+  background-color: transparent !important;
+}
+
+.dark .shiki-wrapper .shiki,
+.dark .shiki-wrapper .shiki span {
+  color: var(--shiki-dark) !important;
+  background-color: transparent !important;
+}

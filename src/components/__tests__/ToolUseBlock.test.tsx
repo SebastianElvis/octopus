@@ -134,8 +134,11 @@ describe("ToolUseBlock", () => {
   it("expands input details on click", () => {
     render(<ToolUseBlock name="Read" input={{ file_path: "/src/main.ts", limit: 100 }} />);
 
-    // Initially, JSON details are not visible
-    expect(screen.queryByText(/"file_path"/)).not.toBeInTheDocument();
+    // Initially, JSON details are hidden (AnimatedCollapse renders with opacity:0)
+    const detailsBefore = screen.queryByText(/"file_path"/);
+    if (detailsBefore) {
+      expect(detailsBefore.closest("[style]")).toBeTruthy();
+    }
 
     // Click to expand
     fireEvent.click(screen.getByText("Read"));

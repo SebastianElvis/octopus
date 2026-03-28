@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { AnimatedCollapse } from "./AnimatedCollapse";
 
 interface ThinkingBlockProps {
   thinking: string;
@@ -24,7 +25,7 @@ export function ThinkingBlock({ thinking, isStreaming }: ThinkingBlockProps) {
         className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
       >
         <svg
-          className={`h-3 w-3 shrink-0 transition-transform ${expanded ? "rotate-90" : ""}`}
+          className={`h-3 w-3 shrink-0 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -37,7 +38,7 @@ export function ThinkingBlock({ thinking, isStreaming }: ThinkingBlockProps) {
           <span className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-purple-400" />
         )}
       </button>
-      {expanded && (
+      <AnimatedCollapse expanded={expanded}>
         <div className="border-t border-gray-200/60 px-3 py-2 dark:border-gray-800/60">
           <pre
             ref={contentRef}
@@ -49,7 +50,7 @@ export function ThinkingBlock({ thinking, isStreaming }: ThinkingBlockProps) {
             )}
           </pre>
         </div>
-      )}
+      </AnimatedCollapse>
     </div>
   );
 }

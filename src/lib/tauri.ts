@@ -463,9 +463,18 @@ export async function respondToSession(id: string, response: string): Promise<vo
   return tauriInvoke<void>("respond_to_session", { id, response });
 }
 
-export async function sendFollowup(id: string, prompt: string): Promise<void> {
+export async function sendFollowup(
+  id: string,
+  prompt: string,
+  images?: string[],
+): Promise<void> {
   requireTauri("send_followup");
-  return tauriInvoke<void>("send_followup", { id, prompt });
+  return tauriInvoke<void>("send_followup", { id, prompt, images: images ?? null });
+}
+
+export async function saveTempImage(data: string, filename: string): Promise<string> {
+  requireTauri("save_temp_image");
+  return tauriInvoke<string>("save_temp_image", { data, filename });
 }
 
 // ---------------------------------------------------------------------------

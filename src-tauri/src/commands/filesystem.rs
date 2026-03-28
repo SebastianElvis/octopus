@@ -493,6 +493,50 @@ pub async fn read_file(path: String) -> AppResult<String> {
     String::from_utf8(content).map_err(|_| AppError::Custom("File is not valid UTF-8.".to_string()))
 }
 
+/// Save base64-encoded image data to a temp file and return the path.
+/// Used by the frontend to pass images to Claude CLI via --image flag.
+#[tauri::command]
+pub async fn save_temp_image(data: String, filename: String) -> AppResult<String> {
+    use base64::Engine;
+
+    let tmp_dir = std::env::temp_dir().join("toomanytabs-images");
+    fs::create_dir_all(&tmp_dir)
+        .map_err(|e| AppError::Custom(format!("failed to create temp dir: {}", e)))?;
+
+    // Sanitize filename to prevent path traversal
+    let safe_name = Path::new(&filename)
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("image.png");
+    let unique_name = format!(
+        "{}-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis(),
+        safe_name
+    );
+    let dest = tmp_dir.join(&unique_name);
+
+    // Strip data URL prefix if present (e.g., "data:image/png;base64,...")
+    let b64 = if let Some(idx) = data.find(",") {
+        &data[idx + 1..]
+    } else {
+        &data
+    };
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|e| AppError::Custom(format!("invalid base64: {}", e)))?;
+
+    fs::write(&dest, &bytes)
+        .map_err(|e| AppError::Custom(format!("failed to write image: {}", e)))?;
+
+    dest.to_str()
+        .map(|s| s.to_string())
+        .ok_or_else(|| AppError::Custom("non-UTF-8 temp path".to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

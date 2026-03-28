@@ -1,9 +1,27 @@
+import { Children, isValidElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { SyntaxHighlighter } from "./SyntaxHighlighter";
 
 interface TextBlockProps {
   text: string;
   isStreaming?: boolean;
+}
+
+/** Extract plain text from React children (ReactMarkdown wraps code content in child nodes) */
+function extractText(children: React.ReactNode): string {
+  return Children.toArray(children)
+    .map((child) => {
+      if (typeof child === "string") return child;
+      if (isValidElement(child)) {
+        const props = child.props as Record<string, unknown> | null;
+        if (props != null && "children" in props) {
+          return extractText(props.children as React.ReactNode);
+        }
+      }
+      return "";
+    })
+    .join("");
 }
 
 export function TextBlock({ text, isStreaming }: TextBlockProps) {
@@ -30,20 +48,27 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
               );
             }
 
+            const lang = match ? match[1] : "";
+            const codeText = extractText(children).replace(/\n$/, "");
+
             return (
               <div className="my-2 overflow-hidden rounded-md border border-gray-200 dark:border-gray-700">
-                {match && (
+                {lang && (
                   <div className="border-b border-gray-200 bg-gray-50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500">
-                    {match[1]}
+                    {lang}
                   </div>
                 )}
                 <pre className="overflow-x-auto bg-gray-50 p-3 dark:bg-gray-900">
-                  <code
-                    className="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200"
-                    {...props}
-                  >
-                    {children}
-                  </code>
+                  {lang ? (
+                    <SyntaxHighlighter code={codeText} language={lang} />
+                  ) : (
+                    <code
+                      className="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200"
+                      {...props}
+                    >
+                      {children}
+                    </code>
+                  )}
                 </pre>
               </div>
             );
