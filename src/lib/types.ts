@@ -195,6 +195,7 @@ export type ClaudeRawStreamEvent =
         text?: string;
         partial_json?: string;
         thinking?: string;
+        signature?: string;
       };
     }
   | {
@@ -202,7 +203,7 @@ export type ClaudeRawStreamEvent =
       index: number;
     }
   | {
-      type: "message_start" | "message_delta" | "message_stop";
+      type: "message_start" | "message_delta" | "message_stop" | "ping" | "error";
       [key: string]: unknown;
     };
 
@@ -210,9 +211,25 @@ export type ClaudeRawStreamEvent =
 export type ClaudeStreamEvent =
   | {
       type: "system";
-      subtype: "init";
+      subtype: string;
       session_id?: string;
+      // init fields
       tools?: { name: string; description?: string }[];
+      model?: string;
+      cwd?: string;
+      // api_retry fields
+      attempt?: number;
+      max_retries?: number;
+      error?: string;
+      error_status?: number | null;
+      retry_delay_ms?: number;
+      // status fields
+      status?: string | null;
+      // task_notification fields
+      task_id?: string;
+      summary?: string;
+      // generic catch-all for other subtype-specific fields
+      [key: string]: unknown;
     }
   | {
       type: "assistant";
@@ -236,12 +253,39 @@ export type ClaudeStreamEvent =
     }
   | {
       type: "result";
-      subtype: "success" | "error";
+      subtype: string;
       result?: string;
       error?: string;
+      errors?: string[];
       cost_usd?: number;
+      total_cost_usd?: number;
       duration_ms?: number;
+      num_turns?: number;
+      is_error?: boolean;
       session_id?: string;
+      usage?: {
+        input_tokens: number;
+        output_tokens: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+      };
+    }
+  | {
+      type: "tool_progress";
+      tool_use_id: string;
+      tool_name: string;
+      elapsed_time_seconds: number;
+      [key: string]: unknown;
+    }
+  | {
+      type: "rate_limit_event";
+      rate_limit_info: {
+        status: string;
+        resetsAt?: number;
+        utilization?: number;
+        rate_limit_type?: string;
+      };
+      [key: string]: unknown;
     }
   | {
       type: "error";

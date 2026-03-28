@@ -1,16 +1,27 @@
 import { useState } from "react";
 import { useHookStore } from "../../stores/hookStore";
+import { useUIStore } from "../../stores/uiStore";
 import { isTauri } from "../../lib/env";
 import { respondToHook } from "../../lib/tauri";
 
+/**
+ * Global permission dialog — only shows for sessions NOT currently selected.
+ * When the user is viewing a session, its permissions appear inline via PermissionBanner.
+ */
 export function PermissionDialog() {
   const pendingPermissions = useHookStore((s) => s.pendingPermissions);
   const removePermissionRequest = useHookStore((s) => s.removePermissionRequest);
+  const selectedSessionId = useUIStore((s) => s.selectedSessionId);
   const [responding, setResponding] = useState<string | null>(null);
 
-  if (pendingPermissions.length === 0) return null;
+  // Filter out permissions for the currently viewed session (handled inline)
+  const unviewedPermissions = pendingPermissions.filter(
+    (p) => p.sessionId !== selectedSessionId,
+  );
 
-  const current = pendingPermissions[0];
+  if (unviewedPermissions.length === 0) return null;
+
+  const current = unviewedPermissions[0];
 
   async function handleDecision(decision: "allow" | "deny") {
     setResponding(current.requestId);
@@ -59,9 +70,9 @@ export function PermissionDialog() {
           <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
             Permission Request
           </h3>
-          {pendingPermissions.length > 1 && (
+          {unviewedPermissions.length > 1 && (
             <span className="ml-auto text-xs text-gray-400">
-              +{pendingPermissions.length - 1} more
+              +{unviewedPermissions.length - 1} more
             </span>
           )}
         </div>
@@ -85,14 +96,18 @@ export function PermissionDialog() {
         {/* Actions */}
         <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
           <button
-            onClick={() => { void handleDecision("deny"); }}
+            onClick={() => {
+              void handleDecision("deny");
+            }}
             disabled={isResponding}
             className="cursor-pointer rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800"
           >
             Deny
           </button>
           <button
-            onClick={() => { void handleDecision("allow"); }}
+            onClick={() => {
+              void handleDecision("allow");
+            }}
             disabled={isResponding}
             className="cursor-pointer rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500 active:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
           >

@@ -32,13 +32,39 @@ export function ClaudeOutputPanel({
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  const allMessages = streamingMessage ? [...messages, streamingMessage] : messages;
+  const isEmpty = allMessages.length === 0;
+
   // Load message history from log file on mount (if buffer is empty)
   useEffect(() => {
     let cancelled = false;
-    void loadSessionHistory(sessionId)
-      .finally(() => { if (!cancelled) setHistoryLoading(false); });
-    return () => { cancelled = true; };
+    void loadSessionHistory(sessionId).finally(() => {
+      if (!cancelled) setHistoryLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId, loadSessionHistory]);
+
+  // Track document visibility for adaptive polling
+  const [docVisible, setDocVisible] = useState(!document.hidden);
+  useEffect(() => {
+    const handler = () => setDocVisible(!document.hidden);
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, []);
+
+  // Retry loading history periodically while session is running but output is empty.
+  // Polls faster (1s) when visible, slower (5s) when hidden. Stops when session ends.
+  useEffect(() => {
+    if (historyLoading || !isEmpty) return;
+    if (sessionStatus !== "running" && sessionStatus !== "waiting") return;
+    const interval = docVisible ? 1000 : 5000;
+    const timer = setInterval(() => {
+      void loadSessionHistory(sessionId);
+    }, interval);
+    return () => clearInterval(timer);
+  }, [historyLoading, isEmpty, sessionStatus, sessionId, loadSessionHistory, docVisible]);
 
   // Track scroll position
   const handleScroll = useCallback(() => {
@@ -67,9 +93,6 @@ export function ClaudeOutputPanel({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }
 
-  const allMessages = streamingMessage ? [...messages, streamingMessage] : messages;
-  const isEmpty = allMessages.length === 0;
-
   return (
     <div className="flex h-full flex-col bg-white dark:bg-gray-950">
       {/* Message list */}
@@ -84,9 +107,7 @@ export function ClaudeOutputPanel({
               {historyLoading ? (
                 <div className="flex flex-col items-center gap-2">
                   <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-gray-400" />
-                  <p className="text-sm text-gray-400 dark:text-gray-500">
-                    Loading history...
-                  </p>
+                  <p className="text-sm text-gray-400 dark:text-gray-500">Loading history...</p>
                 </div>
               ) : sessionStatus === "running" ? (
                 <div className="flex flex-col items-center gap-2">

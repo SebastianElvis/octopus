@@ -334,9 +334,7 @@ describe("Dispatch board", () => {
     expect(card).toHaveTextContent('Kill "Add dark mode"?');
 
     // Confirm kill
-    const yesBtn = Array.from(card.querySelectorAll("button")).find(
-      (b) => b.textContent === "Yes",
-    );
+    const yesBtn = Array.from(card.querySelectorAll("button")).find((b) => b.textContent === "Yes");
     await act(async () => {
       fireEvent.click(yesBtn!);
     });

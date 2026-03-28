@@ -4,7 +4,7 @@ pub mod error;
 pub mod state;
 
 use commands::ai::{get_setting, set_setting};
-use commands::filesystem::{list_dir, read_file};
+use commands::filesystem::{list_dir, read_file, scan_slash_commands};
 use commands::git_ops::{
     get_changed_files, get_file_at_head, get_file_diff, git_discard_files, git_stage_files,
     git_unstage_files,
@@ -295,6 +295,7 @@ pub fn run() {
             // filesystem
             list_dir,
             read_file,
+            scan_slash_commands,
             // git operations
             get_changed_files,
             git_stage_files,

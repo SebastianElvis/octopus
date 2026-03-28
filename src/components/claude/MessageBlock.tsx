@@ -30,6 +30,16 @@ export function MessageBlock({ message }: MessageBlockProps) {
   }
 
   if (message.role === "user") {
+    // Only render user messages that contain visible text.
+    // Tool-result-only messages (sent by Claude Code as user messages wrapping
+    // tool results) have no text and would render as empty blue bubbles.
+    const visibleText = message.blocks
+      .filter((b) => b.type === "text" && "text" in b)
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("")
+      .trim();
+    if (!visibleText) return null;
+
     return (
       <div className="my-2 flex justify-end">
         <div className="max-w-[80%] rounded-lg bg-blue-600 px-3 py-2 text-sm text-white">
@@ -61,7 +71,6 @@ export function MessageBlock({ message }: MessageBlockProps) {
                 name={block.name}
                 input={block.input}
                 toolResult={findToolResult(message.blocks, block.id)}
-                isStreaming={message.isStreaming && i === message.blocks.length - 1}
               />
             );
           case "tool_result":

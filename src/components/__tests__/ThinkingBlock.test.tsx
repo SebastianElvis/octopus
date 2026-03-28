@@ -8,56 +8,50 @@ describe("ThinkingBlock", () => {
     expect(screen.getByText("Thinking")).toBeInTheDocument();
   });
 
-  it("shows preview of short thinking content when collapsed", () => {
-    render(<ThinkingBlock thinking="Short thought" />);
-    expect(screen.getByText("Short thought")).toBeInTheDocument();
+  it("is expanded by default showing full thinking text", () => {
+    const text = "Analyzing the code structure for potential issues.";
+    render(<ThinkingBlock thinking={text} />);
+    expect(screen.getByText(text)).toBeInTheDocument();
   });
 
-  it("truncates long thinking content in preview", () => {
-    const longText = "a".repeat(150);
-    render(<ThinkingBlock thinking={longText} />);
-    expect(screen.getByText("a".repeat(120) + "...")).toBeInTheDocument();
-  });
+  it("collapses on click and hides content", () => {
+    const text = "Let me check this file. Then I will analyze the code.";
+    render(<ThinkingBlock thinking={text} />);
 
-  it("shows full content when expanded", () => {
-    const longText = "a".repeat(150);
-    render(<ThinkingBlock thinking={longText} />);
+    // Full text visible by default
+    expect(screen.getByText(text)).toBeInTheDocument();
 
-    // Click to expand
+    // Click to collapse
     fireEvent.click(screen.getByText("Thinking"));
-
-    // Full text should be visible
-    expect(screen.getByText(longText)).toBeInTheDocument();
+    expect(screen.queryByText(text)).not.toBeInTheDocument();
   });
 
-  it("collapses back on second click", () => {
-    const longText = "a".repeat(150);
-    render(<ThinkingBlock thinking={longText} />);
-
-    // Expand
-    fireEvent.click(screen.getByText("Thinking"));
-    expect(screen.getByText(longText)).toBeInTheDocument();
+  it("re-expands on second click", () => {
+    const text = "Let me check this file. Then I will analyze the code.";
+    render(<ThinkingBlock thinking={text} />);
 
     // Collapse
     fireEvent.click(screen.getByText("Thinking"));
-    expect(screen.getByText("a".repeat(120) + "...")).toBeInTheDocument();
+    expect(screen.queryByText(text)).not.toBeInTheDocument();
+
+    // Expand again
+    fireEvent.click(screen.getByText("Thinking"));
+    expect(screen.getByText(text)).toBeInTheDocument();
   });
 
-  it("shows streaming indicator when isStreaming", () => {
-    const { container } = render(
-      <ThinkingBlock thinking="Analyzing..." isStreaming />,
-    );
+  it("shows streaming indicator when isStreaming is true", () => {
+    const { container } = render(<ThinkingBlock thinking="Thinking..." isStreaming />);
+    // Purple pulse dot for streaming
     expect(container.querySelector(".animate-pulse")).toBeTruthy();
   });
 
   it("does not show streaming indicator when not streaming", () => {
-    const { container } = render(
-      <ThinkingBlock thinking="Analyzing..." isStreaming={false} />,
-    );
-    expect(container.querySelector(".animate-pulse")).toBeNull();
+    const { container } = render(<ThinkingBlock thinking="Done thinking." />);
+    // No streaming indicators (no animate-pulse elements)
+    expect(container.querySelector(".bg-purple-400.animate-pulse")).toBeNull();
   });
 
-  it("shows preview italic text", () => {
+  it("shows italic text in expanded view", () => {
     const { container } = render(<ThinkingBlock thinking="Some thought" />);
     expect(container.querySelector(".italic")).toBeTruthy();
   });

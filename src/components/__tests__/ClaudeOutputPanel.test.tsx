@@ -17,6 +17,8 @@ vi.mock("../../lib/env", () => ({
 vi.mock("../../lib/tauri", () => ({
   respondToSession: vi.fn(),
   interruptSession: vi.fn(),
+  sendFollowup: vi.fn(),
+  respondToHook: vi.fn(),
   readSessionEvents: vi.fn(() => Promise.resolve([])),
 }));
 
@@ -35,18 +37,14 @@ beforeEach(() => {
 
 describe("ClaudeOutputPanel", () => {
   it("shows 'No messages yet' when empty and not running", async () => {
-    render(
-      <ClaudeOutputPanel sessionId="s1" sessionStatus="idle" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="idle" />);
     await waitFor(() => {
       expect(screen.getByText("No messages yet")).toBeInTheDocument();
     });
   });
 
   it("shows waiting indicator when running with no messages", async () => {
-    render(
-      <ClaudeOutputPanel sessionId="s1" sessionStatus="running" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="running" />);
     await waitFor(() => {
       expect(screen.getByText("Waiting for Claude output...")).toBeInTheDocument();
     });
@@ -74,9 +72,7 @@ describe("ClaudeOutputPanel", () => {
       streamingMessage: { s1: null },
     });
 
-    render(
-      <ClaudeOutputPanel sessionId="s1" sessionStatus="running" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="running" />);
 
     expect(screen.getByText("Session initialized")).toBeInTheDocument();
     expect(screen.getByText("Hello, I can help!")).toBeInTheDocument();
@@ -103,63 +99,48 @@ describe("ClaudeOutputPanel", () => {
       streamingMessage: { s1: streamingMsg },
     });
 
-    render(
-      <ClaudeOutputPanel sessionId="s1" sessionStatus="running" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="running" />);
 
     expect(screen.getByText("First response")).toBeInTheDocument();
     expect(screen.getByText("Typing...")).toBeInTheDocument();
   });
 
   it("shows Interrupt button when session is running", () => {
-    render(
-      <ClaudeOutputPanel sessionId="s1" sessionStatus="running" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="running" />);
     expect(screen.getByText("Interrupt")).toBeInTheDocument();
   });
 
-  it("shows Allow/Deny buttons when waiting for permission", () => {
+  it("shows permission banner when waiting for permission with lastMessage", () => {
     render(
       <ClaudeOutputPanel
         sessionId="s1"
         sessionStatus="waiting"
         blockType="permission"
+        lastMessage="Claude wants to execute a command"
       />,
     );
-    expect(screen.getByText("Allow")).toBeInTheDocument();
-    expect(screen.getByText("Deny")).toBeInTheDocument();
+    expect(screen.getByText("Permission Required")).toBeInTheDocument();
+    expect(screen.getByText("Claude wants to execute a command")).toBeInTheDocument();
   });
 
   it("shows text input when waiting for text input", () => {
-    render(
-      <ClaudeOutputPanel
-        sessionId="s1"
-        sessionStatus="waiting"
-        blockType="question"
-      />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="waiting" blockType="question" />);
     expect(screen.getByPlaceholderText("Type your response...")).toBeInTheDocument();
-    expect(screen.getByTitle("Send")).toBeInTheDocument();
+    expect(screen.getByTitle("Send (Enter)")).toBeInTheDocument();
   });
 
   it("shows completion message for completed sessions", () => {
-    render(
-      <ClaudeOutputPanel sessionId="s1" sessionStatus="completed" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="completed" />);
     expect(screen.getByText("Session completed")).toBeInTheDocument();
   });
 
   it("shows failure message for failed sessions", () => {
-    render(
-      <ClaudeOutputPanel sessionId="s1" sessionStatus="failed" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="failed" />);
     expect(screen.getByText("Session failed")).toBeInTheDocument();
   });
 
   it("shows killed message for killed sessions", () => {
-    render(
-      <ClaudeOutputPanel sessionId="s1" sessionStatus="killed" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s1" sessionStatus="killed" />);
     expect(screen.getByText("Session killed")).toBeInTheDocument();
   });
 
@@ -182,9 +163,7 @@ describe("ClaudeOutputPanel", () => {
       () => new Promise(() => {}), // never resolves — keeps loading state
     );
 
-    render(
-      <ClaudeOutputPanel sessionId="s-new" sessionStatus="idle" />,
-    );
+    render(<ClaudeOutputPanel sessionId="s-new" sessionStatus="idle" />);
     expect(screen.getByText("Loading history...")).toBeInTheDocument();
   });
 });

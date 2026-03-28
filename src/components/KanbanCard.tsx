@@ -92,7 +92,10 @@ export function KanbanCard({
         )}
         {/* CI indicator dot */}
         {ciDotColor && (
-          <span className={`ml-0.5 h-2 w-2 shrink-0 rounded-full ${ciDotColor}`} title={`CI: ${ciStatus}`} />
+          <span
+            className={`ml-0.5 h-2 w-2 shrink-0 rounded-full ${ciDotColor}`}
+            title={`CI: ${ciStatus}`}
+          />
         )}
       </div>
 
