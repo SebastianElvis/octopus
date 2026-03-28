@@ -235,16 +235,20 @@ function App() {
             system: string;
             type: ToastItem["type"];
           };
-          // In-app toast
-          setToasts((prev) => [
-            ...prev,
-            {
-              id: `${session.id}-${session.status}-${Date.now()}`,
-              message: msg.toast,
-              type: msg.type,
-              sessionId: session.id,
-            },
-          ]);
+          // In-app toast (deduplicate: skip if same session+status toast already showing)
+          setToasts((prev) => {
+            const prefix = `${session.id}-${session.status}-`;
+            if (prev.some((t) => t.id.startsWith(prefix))) return prev;
+            return [
+              ...prev,
+              {
+                id: `${prefix}${Date.now()}`,
+                message: msg.toast,
+                type: msg.type,
+                sessionId: session.id,
+              },
+            ];
+          });
 
           // System notification
           void sendSystemNotification("TooManyTabs", msg.system);
