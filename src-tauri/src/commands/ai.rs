@@ -62,6 +62,79 @@ pub async fn generate_branch_name(prompt: String) -> AppResult<String> {
 }
 
 // ---------------------------------------------------------------------------
+// Session recap generation
+// ---------------------------------------------------------------------------
+
+/// Generate a concise recap of a session's activity using Claude.
+#[tauri::command]
+pub async fn generate_recap(state: State<'_, AppState>, session_id: String) -> AppResult<String> {
+    // Look up the session's log path from DB
+    let log_path: String = {
+        let db = state.db.lock();
+        db.query_row(
+            "SELECT log_path FROM sessions WHERE id = ?1",
+            rusqlite::params![session_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| AppError::Custom(format!("Session {} not found", session_id)))?
+    };
+
+    // Read stdout log
+    let stdout_log = std::path::PathBuf::from(&log_path).join("stdout.log");
+    let log_content = tokio::fs::read_to_string(&stdout_log)
+        .await
+        .map_err(|e| AppError::Custom(format!("Failed to read session log: {}", e)))?;
+
+    if log_content.trim().is_empty() {
+        return Err(AppError::Custom("Session log is empty".into()));
+    }
+
+    // Truncate to last ~30000 chars to fit context window
+    let truncated = if log_content.len() > 30000 {
+        &log_content[log_content.len() - 30000..]
+    } else {
+        &log_content
+    };
+
+    let prompt = format!(
+        "Summarize this Claude Code session in 3-5 bullet points. What was accomplished, \
+         what decisions were made, and what is the current state? Be concise.\n\n\
+         <session_log>\n{}\n</session_log>",
+        truncated
+    );
+
+    let output = tokio::process::Command::new("claude")
+        .args([
+            "--print",
+            "--model",
+            "haiku",
+            "--output-format",
+            "text",
+            "--no-session-persistence",
+            &prompt,
+        ])
+        .output()
+        .await
+        .map_err(AppError::Io)?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(AppError::Custom(format!(
+            "Recap generation failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    let recap = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if recap.is_empty() {
+        return Err(AppError::Custom("Recap generation returned empty result".into()));
+    }
+
+    Ok(recap)
+}
+
+// ---------------------------------------------------------------------------
 // Settings commands
 // ---------------------------------------------------------------------------
 

@@ -4,6 +4,7 @@ import {
   killSession as tauriKillSession,
   resumeSession as tauriResumeSession,
   readSessionLog,
+  generateRecap as tauriGenerateRecap,
   fetchIssues,
   fetchPRs,
 } from "../lib/tauri";
@@ -49,7 +50,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
 
   // Recap state
-  const [recap] = useState<string | null>(null);
+  const [recap, setRecap] = useState<string | null>(null);
+  const [recapLoading, setRecapLoading] = useState(false);
+  const [recapError, setRecapError] = useState<string | null>(null);
 
   // Full log state
   const [fullLog, setFullLog] = useState<string | null>(null);
@@ -364,14 +367,63 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             )}
 
             {/* Recap panel */}
-            {centerTab === "recap" && recap && (
+            {centerTab === "recap" && (
               <div className="absolute inset-0 z-10 overflow-y-auto bg-white px-6 py-4 dark:bg-gray-950">
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
                   Session Recap
                 </h3>
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
-                  {recap}
-                </p>
+                {recapLoading && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Generating recap…
+                  </p>
+                )}
+                {recapError && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {recapError}
+                    </p>
+                    <button
+                      className="rounded bg-gray-100 px-3 py-1 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                      onClick={() => {
+                        setRecapError(null);
+                        setRecapLoading(true);
+                        void tauriGenerateRecap(session.id)
+                          .then(setRecap)
+                          .catch((e: unknown) =>
+                            setRecapError(
+                              e instanceof Error ? e.message : "Failed to generate recap",
+                            ),
+                          )
+                          .finally(() => setRecapLoading(false));
+                      }}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {recap && (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                    {recap}
+                  </p>
+                )}
+                {!recap && !recapLoading && !recapError && (
+                  <button
+                    className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    onClick={() => {
+                      setRecapLoading(true);
+                      void tauriGenerateRecap(session.id)
+                        .then(setRecap)
+                        .catch((e: unknown) =>
+                          setRecapError(
+                            e instanceof Error ? e.message : "Failed to generate recap",
+                          ),
+                        )
+                        .finally(() => setRecapLoading(false));
+                    }}
+                  >
+                    Generate Recap
+                  </button>
+                )}
               </div>
             )}
 

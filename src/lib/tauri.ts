@@ -374,6 +374,11 @@ export async function generateBranchName(prompt: string): Promise<string> {
   return tauriInvoke<string>("generate_branch_name", { prompt });
 }
 
+export async function generateRecap(sessionId: string): Promise<string> {
+  requireTauri("generate_recap");
+  return tauriInvoke<string>("generate_recap", { sessionId }, 60000);
+}
+
 // ── Prerequisites commands ───────────────────────────────────────────────────
 
 export type PrerequisiteStatus = {
