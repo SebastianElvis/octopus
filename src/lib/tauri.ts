@@ -18,6 +18,7 @@ import type {
   FileEntry,
   ChangedFile,
   CheckRun,
+  ClaudeStreamEvent,
 } from "./types";
 import { mapBackendSession } from "./types";
 
@@ -127,6 +128,11 @@ export async function checkStuckSessions(): Promise<string[]> {
 export async function readSessionLog(id: string): Promise<string> {
   if (!isTauri()) return "";
   return tauriInvoke<string>("read_session_log", { id });
+}
+
+export async function readSessionEvents(id: string): Promise<ClaudeStreamEvent[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<ClaudeStreamEvent[]>("read_session_events", { id });
 }
 
 export async function retrySession(sessionId: string): Promise<void> {
@@ -405,6 +411,11 @@ export type SessionOutputPayload = {
   data: string;
 };
 
+export type SessionStructuredPayload = {
+  sessionId: string;
+  event: ClaudeStreamEvent;
+};
+
 /** Returns a no-op unlisten function when outside Tauri. */
 export async function onSessionStateChanged(
   callback: (payload: SessionStateChangedPayload) => void,
@@ -422,4 +433,64 @@ export async function onSessionOutput(
 ): Promise<() => void> {
   if (!isTauri()) return noop;
   return tauriListen("session-output", (event) => callback(event.payload as SessionOutputPayload));
+}
+
+/** Returns a no-op unlisten function when outside Tauri. */
+export async function onSessionStructuredOutput(
+  callback: (payload: SessionStructuredPayload) => void,
+): Promise<() => void> {
+  if (!isTauri()) return noop;
+  return tauriListen("session-structured-output", (event) =>
+    callback(event.payload as SessionStructuredPayload),
+  );
+}
+
+export async function respondToSession(id: string, response: string): Promise<void> {
+  requireTauri("respond_to_session");
+  return tauriInvoke<void>("respond_to_session", { id, response });
+}
+
+export async function sendFollowup(id: string, prompt: string): Promise<void> {
+  requireTauri("send_followup");
+  return tauriInvoke<void>("send_followup", { id, prompt });
+}
+
+// ---------------------------------------------------------------------------
+// Hook events
+// ---------------------------------------------------------------------------
+
+export async function respondToHook(
+  requestId: string,
+  decision: "allow" | "deny",
+  reason?: string,
+): Promise<void> {
+  requireTauri("respond_to_hook");
+  return tauriInvoke<void>("respond_to_hook", { requestId, decision, reason });
+}
+
+export async function getSessionAnalytics(
+  sessionId: string,
+): Promise<import("./types").SessionAnalytics | null> {
+  if (!isTauri()) return null;
+  return tauriInvoke<import("./types").SessionAnalytics | null>("get_session_analytics", {
+    sessionId,
+  });
+}
+
+export async function onHookEvent(
+  callback: (payload: import("./types").HookEventPayload) => void,
+): Promise<() => void> {
+  if (!isTauri()) return noop;
+  return tauriListen("hook-event", (event) =>
+    callback(event.payload as import("./types").HookEventPayload),
+  );
+}
+
+export async function onHookPermissionRequest(
+  callback: (payload: import("./types").HookEventPayload) => void,
+): Promise<() => void> {
+  if (!isTauri()) return noop;
+  return tauriListen("hook-permission-request", (event) =>
+    callback(event.payload as import("./types").HookEventPayload),
+  );
 }

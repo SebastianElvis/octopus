@@ -17,9 +17,10 @@ use commands::github::{
 use commands::repos::{add_repo, list_repos, remove_repo};
 use commands::sessions::{
     check_stuck_sessions, get_session, interrupt_session, kill_session, list_sessions,
-    pause_session, read_session_log, resize_session, resume_session, spawn_session,
-    write_to_session,
+    pause_session, read_session_events, read_session_log, resize_session, respond_to_session,
+    resume_session, send_followup, spawn_session, write_to_session,
 };
+use commands::hooks::{get_hook_server_port, get_session_analytics, respond_to_hook};
 use commands::shell::{kill_shell, resize_shell, spawn_shell, write_to_shell};
 use commands::worktree::{create_worktree, get_diff, remove_worktree};
 
@@ -227,6 +228,15 @@ pub fn run() {
                     .build(),
             )?;
 
+            // Start the hook HTTP server for Claude Code integration
+            let hook_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                match commands::hooks::start_hook_server(hook_app).await {
+                    Ok(port) => log::info!("Hook server started on port {}", port),
+                    Err(e) => log::error!("Failed to start hook server: {}", e),
+                }
+            });
+
             // Start background WAL checkpoint task (every 5 minutes)
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -245,6 +255,7 @@ pub fn run() {
             // sessions
             spawn_session,
             write_to_session,
+            respond_to_session,
             resize_session,
             interrupt_session,
             kill_session,
@@ -254,6 +265,8 @@ pub fn run() {
             resume_session,
             check_stuck_sessions,
             read_session_log,
+            read_session_events,
+            send_followup,
             // repos
             add_repo,
             list_repos,
@@ -292,6 +305,10 @@ pub fn run() {
             // ai & settings
             get_setting,
             set_setting,
+            // hooks
+            respond_to_hook,
+            get_hook_server_port,
+            get_session_analytics,
             // system
             check_prerequisites,
         ])
@@ -299,7 +316,10 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|_app, event| {
             if let tauri::RunEvent::Exit = event {
-                // Clean shutdown: remove sentinel
+                // Clean shutdown: remove hooks and sentinel
+                if let Err(e) = commands::hooks::remove_claude_hooks() {
+                    log::error!("Failed to remove Claude hooks on exit: {}", e);
+                }
                 remove_sentinel();
             }
         });

@@ -1,15 +1,77 @@
-use std::io::{Read as IoRead, Write as IoWrite};
+use std::io::{BufRead, Write as IoWrite};
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use portable_pty::{native_pty_system, CommandBuilder, PtySize};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::error::{AppError, AppResult};
-use crate::state::{AppState, PtySession, SendableMaster};
+use crate::state::{AppState, ClaudeProcess};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Strip ANSI escape sequences from a string.
+///
+/// PTY output may include cursor-positioning, color, and other escape codes
+/// that would prevent JSON parsing. This strips CSI sequences (\x1b[...X),
+/// OSC sequences (\x1b]...\x07 or \x1b]...\x1b\\), and simple \x1b(X) escapes.
+fn strip_ansi_escapes(input: &str) -> String {
+    let mut result = String::with_capacity(input.len());
+    let mut chars = input.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\x1b' {
+            match chars.peek() {
+                Some('[') => {
+                    // CSI sequence: \x1b[ ... (ends at letter)
+                    chars.next();
+                    while let Some(&next) = chars.peek() {
+                        chars.next();
+                        if next.is_ascii_alphabetic() || next == '~' {
+                            break;
+                        }
+                    }
+                }
+                Some(']') => {
+                    // OSC sequence: \x1b] ... (ends at BEL \x07 or ST \x1b\\)
+                    chars.next();
+                    while let Some(&next) = chars.peek() {
+                        if next == '\x07' {
+                            chars.next();
+                            break;
+                        }
+                        if next == '\x1b' {
+                            chars.next();
+                            if chars.peek() == Some(&'\\') {
+                                chars.next();
+                            }
+                            break;
+                        }
+                        chars.next();
+                    }
+                }
+                Some('(' | ')') => {
+                    // Character set designation: \x1b(X or \x1b)X
+                    chars.next();
+                    chars.next();
+                }
+                Some(_) => {
+                    // Single-character escape (e.g. \x1b=, \x1b>)
+                    chars.next();
+                }
+                None => {}
+            }
+        } else if c == '\r' {
+            // Strip carriage returns (PTY uses \r\n)
+            continue;
+        } else {
+            result.push(c);
+        }
+    }
+    result
+}
 
 // ---------------------------------------------------------------------------
 // Data types
@@ -43,9 +105,9 @@ pub struct SessionStateChangedPayload {
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
-struct SessionOutputPayload {
+struct SessionStructuredPayload {
     session_id: String,
-    data: String,
+    event: serde_json::Value,
 }
 
 #[derive(Debug, Deserialize)]
@@ -65,12 +127,6 @@ pub struct SpawnSessionParams {
 // Constants
 // ---------------------------------------------------------------------------
 
-/// Maximum bytes to emit as events per session (10 MB).
-const MAX_EMIT_BYTES: usize = 10 * 1024 * 1024;
-
-/// Batch interval for throttled PTY output emission (16ms ≈ 60fps).
-const BATCH_INTERVAL_MS: u64 = 16;
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -86,23 +142,6 @@ fn update_session_status(app: &AppHandle, session_id: &str, status: &str) -> App
     db.execute(
         "UPDATE sessions SET status = ?1, state_changed_at = ?2 WHERE id = ?3",
         rusqlite::params![status, now, session_id],
-    )?;
-    Ok(())
-}
-
-fn update_session_block_and_message(
-    app: &AppHandle,
-    session_id: &str,
-    block_type: &str,
-    last_message: &str,
-    status: &str,
-) -> AppResult<()> {
-    let now = now_iso();
-    let state = app.state::<AppState>();
-    let db = state.db.lock();
-    db.execute(
-        "UPDATE sessions SET block_type = ?1, last_message = ?2, status = ?3, state_changed_at = ?4 WHERE id = ?5",
-        rusqlite::params![block_type, last_message, status, now, session_id],
     )?;
     Ok(())
 }
@@ -176,116 +215,101 @@ fn lookup_repo_local_path(state: &AppState, repo_id: &str) -> AppResult<String> 
     .map_err(|_| AppError::Custom(format!("repo not found: {}", repo_id)))
 }
 
-/// Detect if a line of PTY output looks like a Claude permission prompt or question.
-fn detect_prompt_pattern(line: &str) -> Option<(&'static str, String)> {
-    let trimmed = line.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
+/// Start a structured JSON reader for Claude's stream-json output format.
+///
+/// Drain stderr to a log file to prevent pipe buffer deadlock.
+fn drain_stderr(
+    stderr: std::process::ChildStderr,
+    log_path: &std::path::Path,
+    session_id: &str,
+) {
+    let reader = std::io::BufReader::new(stderr);
+    let mut log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log_path)
+        .ok();
 
-    // Detect permission prompts (Allow/Deny patterns from Claude)
-    if trimmed.contains("Allow") && trimmed.contains("Deny") {
-        return Some(("permission", trimmed.to_string()));
-    }
-    if trimmed.contains("Yes") && trimmed.contains("No") && trimmed.contains("?") {
-        return Some(("confirmation", trimmed.to_string()));
-    }
-
-    // Detect lines ending with "?" — typically questions
-    if trimmed.ends_with('?') && trimmed.len() > 5 {
-        return Some(("question", trimmed.to_string()));
-    }
-
-    // Detect lines ending with ":" — typically input prompts
-    if trimmed.ends_with(':') && trimmed.len() > 3 {
-        // Filter out common non-prompt patterns (timestamps, labels, etc.)
-        if !trimmed.contains("http") && !trimmed.contains("://") {
-            return Some(("input", trimmed.to_string()));
+    for line in reader.lines() {
+        match line {
+            Ok(line) => {
+                if let Some(ref mut f) = log_file {
+                    let _ = f.write_all(line.as_bytes());
+                    let _ = f.write_all(b"\n");
+                }
+                if !line.trim().is_empty() {
+                    log::debug!("Session {} stderr: {}", session_id, line);
+                }
+            }
+            Err(_) => break,
         }
     }
-
-    None
 }
 
-/// Start the PTY reader background threads with throttled output emission.
-///
-/// Returns immediately. Two threads are spawned:
-/// 1. Reader thread: reads from PTY, batches data, sends to emitter channel
-/// 2. Emitter thread: flushes batched data as events every BATCH_INTERVAL_MS
-fn start_pty_reader(
+/// Reads NDJSON lines from the child's stdout pipe, emits Tauri events, and
+/// logs raw output to disk. Determines final session status from the `result`
+/// event's subtype (authoritative), falling back to exit code.
+fn start_structured_reader(
     app: AppHandle,
     session_id: String,
-    reader: Box<dyn IoRead + Send>,
-    child: Box<dyn portable_pty::Child + Send + Sync>,
+    stdout: std::process::ChildStdout,
+    mut child: std::process::Child,
     log_file_path: std::path::PathBuf,
 ) {
-    let (tx, rx) = mpsc::channel::<Vec<u8>>();
-    let total_emitted = Arc::new(AtomicUsize::new(0));
-    let total_emitted2 = total_emitted.clone();
-    let sid = session_id.clone();
-    let app2 = app.clone();
+    let (tx, rx) = mpsc::channel::<serde_json::Value>();
 
-    // Emitter thread: batches data and emits events at throttled rate
+    // Shared: the emitter thread records the last result subtype so the reader
+    // thread can use it to determine the final session status.
+    let result_subtype: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    let result_subtype_writer = Arc::clone(&result_subtype);
+
+    // Emitter thread: receives parsed JSON values and emits events
     let sid_emitter = session_id.clone();
     let app_emitter = app.clone();
     std::thread::spawn(move || {
-        let mut batch = Vec::new();
-        loop {
-            // Try to receive with timeout for batching
-            match rx.recv_timeout(std::time::Duration::from_millis(BATCH_INTERVAL_MS)) {
-                Ok(data) => {
-                    batch.extend_from_slice(&data);
-                    // Drain any additional pending data
-                    while let Ok(more) = rx.try_recv() {
-                        batch.extend_from_slice(&more);
-                    }
-                }
-                Err(mpsc::RecvTimeoutError::Timeout) => {
-                    // Timeout — flush whatever we have
-                }
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    // Channel closed — flush remaining and exit
-                    if !batch.is_empty() {
-                        let current = total_emitted2.load(Ordering::Relaxed);
-                        if current < MAX_EMIT_BYTES {
-                            let data = String::from_utf8_lossy(&batch).to_string();
-                            let _ = app_emitter.emit(
-                                "session-output",
-                                SessionOutputPayload {
-                                    session_id: sid_emitter.clone(),
-                                    data,
-                                },
-                            );
-                            total_emitted2.fetch_add(batch.len(), Ordering::Relaxed);
+        while let Ok(event) = rx.recv() {
+            // Emit structured event
+            let _ = app_emitter.emit(
+                "session-structured-output",
+                SessionStructuredPayload {
+                    session_id: sid_emitter.clone(),
+                    event: event.clone(),
+                },
+            );
+
+            // Record result event subtype for final status determination
+            if let Some(event_type) = event.get("type").and_then(|v| v.as_str()) {
+                if event_type == "result" {
+                    if let Some(subtype) = event.get("subtype").and_then(|v| v.as_str()) {
+                        *result_subtype_writer.lock().unwrap() = Some(subtype.to_string());
+                        match subtype {
+                            "success" => {
+                                log::info!("Session {} received success result", sid_emitter);
+                            }
+                            _ => {
+                                let error_msg = event
+                                    .get("error")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown");
+                                log::warn!(
+                                    "Session {} received result subtype={}: {}",
+                                    sid_emitter,
+                                    subtype,
+                                    error_msg
+                                );
+                            }
                         }
                     }
-                    break;
                 }
-            }
-
-            if !batch.is_empty() {
-                let current = total_emitted2.load(Ordering::Relaxed);
-                if current < MAX_EMIT_BYTES {
-                    let data = String::from_utf8_lossy(&batch).to_string();
-                    let _ = app_emitter.emit(
-                        "session-output",
-                        SessionOutputPayload {
-                            session_id: sid_emitter.clone(),
-                            data,
-                        },
-                    );
-                    total_emitted2.fetch_add(batch.len(), Ordering::Relaxed);
-                }
-                batch.clear();
             }
         }
     });
 
-    // Reader thread: reads from PTY, sends to channel, logs to file
+    // Reader thread: reads stdout line by line, parses JSON, sends to emitter
+    let sid = session_id.clone();
+    let app2 = app.clone();
     std::thread::spawn(move || {
-        let mut reader = reader;
-        let mut child = child;
-        let mut buf = [0u8; 4096];
+        let reader = std::io::BufReader::new(stdout);
 
         // Open log file for appending (best-effort)
         let mut log_file = std::fs::OpenOptions::new()
@@ -294,18 +318,14 @@ fn start_pty_reader(
             .open(&log_file_path)
             .ok();
 
-        loop {
-            match reader.read(&mut buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    let chunk = &buf[..n];
-
-                    // Send to emitter channel (drop if channel is full/closed)
-                    let _ = tx.send(chunk.to_vec());
-
-                    // Write raw bytes to log file
+        for line_result in reader.lines() {
+            match line_result {
+                Ok(line) => {
+                    // Write to log file (raw line + newline)
                     if let Some(ref mut f) = log_file {
-                        let _ = f.write_all(chunk);
+                        let _ = f.write_all(line.as_bytes());
+                        let _ = f.write_all(b"\n");
+                        let _ = f.flush();
                     }
 
                     // Update activity timestamp
@@ -315,39 +335,56 @@ fn start_pty_reader(
                         lo.insert(sid.clone(), std::time::Instant::now());
                     }
 
-                    // Detect prompt patterns in output
-                    let text = String::from_utf8_lossy(chunk);
-                    for line in text.lines() {
-                        if let Some((block_type, message)) = detect_prompt_pattern(line) {
-                            if let Err(e) = update_session_block_and_message(
-                                &app2, &sid, block_type, &message, "waiting",
-                            ) {
-                                log::warn!(
-                                    "Failed to update block_type for session {}: {}",
-                                    sid,
-                                    e
-                                );
-                            }
-                            emit_session_changed(&app2, &sid);
+                    let trimmed = line.trim();
+                    if trimmed.is_empty() {
+                        continue;
+                    }
+
+                    // Parse as JSON — with piped stdout there are no ANSI escapes
+                    match serde_json::from_str::<serde_json::Value>(trimmed) {
+                        Ok(json_event) => {
+                            let _ = tx.send(json_event);
+                        }
+                        Err(_) => {
+                            // Non-JSON line (Claude startup banner, etc.)
+                            log::debug!("Non-JSON line from session {}: {}", sid, trimmed);
                         }
                     }
                 }
                 Err(e) => {
-                    log::error!("PTY read error for {}: {}", sid, e);
+                    log::error!("Stdout read error for session {}: {}", sid, e);
                     break;
                 }
             }
         }
 
-        // Reader closed — process exited
-        let final_status = match child.wait() {
-            Ok(status) if status.success() => "completed",
-            _ => "failed",
+        // Stdout closed — process exited (or is about to).
+        // Determine final status from (in priority order):
+        // 1. The result event's subtype (authoritative — from Claude itself)
+        // 2. Whether the user explicitly interrupted (SIGINT via UI)
+        // 3. Process exit code (fallback)
+        let app_state = app2.state::<AppState>();
+        let was_interrupted = app_state.interrupted_sessions.lock().remove(&sid);
+        let last_result = result_subtype.lock().unwrap().take();
+        let final_status = match last_result.as_deref() {
+            Some("success") => "completed",
+            Some(_) if was_interrupted => "killed",
+            Some(_) => "failed",
+            None if was_interrupted => "killed",
+            None => match child.wait() {
+                Ok(status) if status.success() => "completed",
+                _ => "failed",
+            },
         };
-        log::info!("Session {} exited ({})", sid, final_status);
+        log::info!(
+            "Session {} exited ({}, result_subtype={:?}, interrupted={})",
+            sid,
+            final_status,
+            last_result,
+            was_interrupted
+        );
 
         // Clean up state
-        let app_state = app2.state::<AppState>();
         {
             let mut map = app_state.processes.lock();
             map.remove(&sid);
@@ -431,60 +468,54 @@ pub async fn spawn_session(
         )?;
     }
 
-    // Create PTY
-    let pty_system = native_pty_system();
-    let pty_pair = pty_system
-        .openpty(PtySize {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| AppError::Custom(format!("failed to create PTY: {}", e)))?;
-
-    // Clone reader and writer from master
-    let reader = pty_pair
-        .master
-        .try_clone_reader()
-        .map_err(|e| AppError::Custom(format!("failed to clone PTY reader: {}", e)))?;
-    let writer = pty_pair
-        .master
-        .take_writer()
-        .map_err(|e| AppError::Custom(format!("failed to take PTY writer: {}", e)))?;
-
-    // Build command — run claude in interactive mode (no --print)
+    // Build and spawn command with piped I/O (not PTY)
     let skip_permissions = params.dangerously_skip_permissions.unwrap_or(false);
-    let mut cmd = CommandBuilder::new("claude");
+    let mut cmd = std::process::Command::new("claude");
+    cmd.arg("--print"); // Non-interactive single-prompt mode
+    cmd.arg("--output-format").arg("stream-json");
+    cmd.arg("--verbose"); // Required for stream-json in print mode
     if skip_permissions {
         cmd.arg("--dangerously-skip-permissions");
     }
     cmd.arg(&params.prompt);
-    cmd.cwd(&worktree_path);
-    cmd.env("TERM", "xterm-256color");
+    cmd.current_dir(&worktree_path);
+    cmd.stdin(std::process::Stdio::null()); // No stdin needed for print mode
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
 
-    // Spawn on PTY slave
-    let child = pty_pair
-        .slave
-        .spawn_command(cmd)
+    // Create new process group so we can signal the whole group
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+
+    let mut child = cmd
+        .spawn()
         .map_err(|e| AppError::Custom(format!("failed to spawn claude: {}", e)))?;
 
-    let pid = child.process_id().unwrap_or(0);
-    log::info!("Spawned session {} (pid {}) in PTY", session_id, pid);
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| AppError::Custom("failed to capture stdout".to_string()))?;
+    let stderr = child.stderr.take();
 
-    // Drop slave — only the child process uses it
-    drop(pty_pair.slave);
+    let pid = child.id();
+    log::info!("Spawned session {} (pid {}) in print mode", session_id, pid);
 
-    // Store PTY session in state
+    // Drain stderr to a log file in a background thread to prevent pipe buffer deadlock
+    let stderr_path = std::path::PathBuf::from(&log_path).join("stderr.log");
+    let stderr_sid = session_id.clone();
+    if let Some(stderr) = stderr {
+        std::thread::spawn(move || {
+            drain_stderr(stderr, &stderr_path, &stderr_sid);
+        });
+    }
+
+    // Store process in state (for signal management)
     {
         let mut map = state.processes.lock();
-        map.insert(
-            session_id.clone(),
-            PtySession {
-                writer,
-                pid,
-                master: SendableMaster(pty_pair.master),
-            },
-        );
+        map.insert(session_id.clone(), ClaudeProcess { pid });
     }
 
     emit_session_changed(&app, &session_id);
@@ -495,58 +526,71 @@ pub async fn spawn_session(
         last_output_map.insert(session_id.clone(), std::time::Instant::now());
     }
 
-    // Start background PTY reader with throttled output
+    // Start background structured JSON reader
     let log_file_path = std::path::PathBuf::from(&log_path).join("stdout.log");
-    start_pty_reader(
-        app.clone(),
-        session_id.clone(),
-        reader,
-        child,
-        log_file_path,
-    );
+    start_structured_reader(app.clone(), session_id.clone(), stdout, child, log_file_path);
 
     let db = state.db.lock();
     query_session_by_id(&db, &session_id)
 }
 
-/// Write raw terminal input to the session's PTY.
+/// Write raw input to the session's stdin pipe.
 #[tauri::command]
 pub async fn write_to_session(
     state: State<'_, AppState>,
     id: String,
-    data: String,
+    _data: String,
 ) -> AppResult<()> {
-    let mut map = state.processes.lock();
-    let pty_session = map
-        .get_mut(&id)
-        .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
-    pty_session.writer.write_all(data.as_bytes())?;
-    pty_session.writer.flush()?;
+    // Print-mode sessions have no stdin — write is not supported
+    let map = state.processes.lock();
+    if !map.contains_key(&id) {
+        return Err(AppError::Custom(format!("no running process for session {}", id)));
+    }
+    log::warn!("write_to_session called but print-mode sessions have no stdin (session {})", id);
     Ok(())
 }
 
-/// Resize the session's PTY terminal.
+/// Send a user response to the session.
+/// Note: Print-mode sessions don't support interactive responses.
 #[tauri::command]
-pub async fn resize_session(
+pub async fn respond_to_session(
+    app: AppHandle,
     state: State<'_, AppState>,
     id: String,
-    rows: u16,
-    cols: u16,
+    _response: String,
 ) -> AppResult<()> {
-    let map = state.processes.lock();
-    let pty_session = map
-        .get(&id)
-        .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
-    pty_session
-        .master
-        .0
-        .resize(PtySize {
-            rows,
-            cols,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .map_err(|e| AppError::Custom(format!("failed to resize PTY: {}", e)))?;
+    {
+        let map = state.processes.lock();
+        if !map.contains_key(&id) {
+            return Err(AppError::Custom(format!("no running process for session {}", id)));
+        }
+        log::warn!("respond_to_session called but print-mode sessions have no stdin (session {})", id);
+    }
+
+    // Update session status back to running
+    update_session_status(&app, &id, "running")?;
+    // Clear block type
+    {
+        let state_ref = app.state::<AppState>();
+        let db = state_ref.db.lock();
+        db.execute(
+            "UPDATE sessions SET block_type = NULL, status = 'running', state_changed_at = ?1 WHERE id = ?2",
+            rusqlite::params![now_iso(), id],
+        )?;
+    }
+    emit_session_changed(&app, &id);
+    Ok(())
+}
+
+/// Resize the session (no-op for piped sessions — kept for API compatibility).
+#[tauri::command]
+pub async fn resize_session(
+    _state: State<'_, AppState>,
+    _id: String,
+    _rows: u16,
+    _cols: u16,
+) -> AppResult<()> {
+    // Claude sessions use piped I/O, not a PTY, so there is nothing to resize.
     Ok(())
 }
 
@@ -558,7 +602,7 @@ pub async fn interrupt_session(
     message: Option<String>,
 ) -> AppResult<()> {
     let mut map = state.processes.lock();
-    let pty_session = map
+    let process = map
         .get_mut(&id)
         .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
 
@@ -567,23 +611,22 @@ pub async fn interrupt_session(
         use nix::sys::signal::{kill, Signal};
         use nix::unistd::Pid;
         // Send to process group (negative pid) for reliable signal delivery
-        let pgid = -(pty_session.pid as i32);
+        let pgid = -(process.pid as i32);
         let result = kill(Pid::from_raw(pgid), Signal::SIGINT);
         if result.is_err() {
             // Fallback: send to process directly
-            kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGINT)
+            kill(Pid::from_raw(process.pid as i32), Signal::SIGINT)
                 .map_err(|e| AppError::Custom(format!("failed to send SIGINT: {}", e)))?;
         }
-        log::info!("Sent SIGINT to session {} (pid {})", id, pty_session.pid);
+        log::info!("Sent SIGINT to session {} (pid {})", id, process.pid);
     }
 
-    if let Some(msg) = message {
-        if !msg.is_empty() {
-            pty_session
-                .writer
-                .write_all(format!("{}\n", msg).as_bytes())?;
-            pty_session.writer.flush()?;
-        }
+    // Mark as interrupted so the reader thread uses "killed" instead of "completed"
+    state.interrupted_sessions.lock().insert(id.clone());
+
+    // Print-mode sessions have no stdin, so we skip writing a message
+    if message.is_some() {
+        log::debug!("interrupt_session: message ignored for print-mode session {}", id);
     }
 
     Ok(())
@@ -601,15 +644,15 @@ pub async fn kill_session(
     // Kill the process with graceful shutdown
     {
         let mut map = state.processes.lock();
-        if let Some(pty_session) = map.remove(&id) {
-            log::info!("Killing session {} (pid {})", id, pty_session.pid);
+        if let Some(process) = map.remove(&id) {
+            log::info!("Killing session {} (pid {})", id, process.pid);
             #[cfg(unix)]
             {
                 use nix::sys::signal::{kill, Signal};
                 use nix::unistd::Pid;
 
-                let pgid = -(pty_session.pid as i32);
-                let pid = Pid::from_raw(pty_session.pid as i32);
+                let pgid = -(process.pid as i32);
+                let pid = Pid::from_raw(process.pid as i32);
                 let pg_pid = Pid::from_raw(pgid);
 
                 // Step 1: SIGINT to process group
@@ -629,7 +672,7 @@ pub async fn kill_session(
                     }
                 }
             }
-            // Dropping pty_session closes the PTY handles
+            // Dropping process closes stdin pipe
         }
     }
 
@@ -701,7 +744,7 @@ pub async fn pause_session(
 ) -> AppResult<()> {
     {
         let map = state.processes.lock();
-        let pty_session = map
+        let process = map
             .get(&id)
             .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
 
@@ -710,9 +753,9 @@ pub async fn pause_session(
             use nix::sys::signal::{kill, Signal};
             use nix::unistd::Pid;
             // Send SIGSTOP to process group
-            let pgid = -(pty_session.pid as i32);
+            let pgid = -(process.pid as i32);
             kill(Pid::from_raw(pgid), Signal::SIGSTOP)
-                .or_else(|_| kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGSTOP))
+                .or_else(|_| kill(Pid::from_raw(process.pid as i32), Signal::SIGSTOP))
                 .map_err(|e| AppError::Custom(format!("failed to send SIGSTOP: {}", e)))?;
         }
     }
@@ -740,7 +783,7 @@ pub async fn resume_session(
     if has_process {
         // Process alive — send SIGCONT (paused session)
         let map = state.processes.lock();
-        let pty_session = map
+        let process = map
             .get(&id)
             .ok_or_else(|| AppError::Custom(format!("no running process for session {}", id)))?;
 
@@ -749,9 +792,9 @@ pub async fn resume_session(
             use nix::sys::signal::{kill, Signal};
             use nix::unistd::Pid;
             // Send SIGCONT to process group
-            let pgid = -(pty_session.pid as i32);
+            let pgid = -(process.pid as i32);
             kill(Pid::from_raw(pgid), Signal::SIGCONT)
-                .or_else(|_| kill(Pid::from_raw(pty_session.pid as i32), Signal::SIGCONT))
+                .or_else(|_| kill(Pid::from_raw(process.pid as i32), Signal::SIGCONT))
                 .map_err(|e| AppError::Custom(format!("failed to send SIGCONT: {}", e)))?;
         }
     } else {
@@ -775,56 +818,52 @@ pub async fn resume_session(
 
         let log_path = session.log_path.as_deref().unwrap_or("");
 
-        // Create PTY
-        let pty_system = native_pty_system();
-        let pty_pair = pty_system
-            .openpty(PtySize {
-                rows: 24,
-                cols: 80,
-                pixel_width: 0,
-                pixel_height: 0,
-            })
-            .map_err(|e| AppError::Custom(format!("failed to create PTY: {}", e)))?;
-
-        let reader = pty_pair
-            .master
-            .try_clone_reader()
-            .map_err(|e| AppError::Custom(format!("failed to clone PTY reader: {}", e)))?;
-        let writer = pty_pair
-            .master
-            .take_writer()
-            .map_err(|e| AppError::Custom(format!("failed to take PTY writer: {}", e)))?;
-
-        // Spawn claude --continue in the existing worktree
-        let mut cmd = CommandBuilder::new("claude");
+        // Spawn claude --continue in print mode with piped I/O
+        let mut cmd = std::process::Command::new("claude");
+        cmd.arg("--print"); // Non-interactive mode
+        cmd.arg("--continue");
+        cmd.arg("--output-format").arg("stream-json");
+        cmd.arg("--verbose"); // Required for stream-json in print mode
         if session.dangerously_skip_permissions.unwrap_or(false) {
             cmd.arg("--dangerously-skip-permissions");
         }
-        cmd.arg("--continue");
-        cmd.cwd(worktree_path);
-        cmd.env("TERM", "xterm-256color");
+        cmd.current_dir(worktree_path);
+        cmd.stdin(std::process::Stdio::null());
+        cmd.stdout(std::process::Stdio::piped());
+        cmd.stderr(std::process::Stdio::piped());
 
-        let child = pty_pair
-            .slave
-            .spawn_command(cmd)
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            cmd.process_group(0);
+        }
+
+        let mut child = cmd
+            .spawn()
             .map_err(|e| AppError::Custom(format!("failed to spawn claude: {}", e)))?;
 
-        let pid = child.process_id().unwrap_or(0);
-        log::info!("Resumed session {} (pid {}) in PTY", id, pid);
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| AppError::Custom("failed to capture stdout".to_string()))?;
+        let stderr = child.stderr.take();
 
-        drop(pty_pair.slave);
+        let pid = child.id();
+        log::info!("Resumed session {} (pid {}) in print mode", id, pid);
 
-        // Store PTY session in state
+        // Drain stderr to prevent pipe buffer deadlock
+        let stderr_path = std::path::PathBuf::from(log_path).join("stderr.log");
+        let stderr_sid = id.clone();
+        if let Some(stderr) = stderr {
+            std::thread::spawn(move || {
+                drain_stderr(stderr, &stderr_path, &stderr_sid);
+            });
+        }
+
+        // Store process in state (for signal management)
         {
             let mut map = state.processes.lock();
-            map.insert(
-                id.clone(),
-                PtySession {
-                    writer,
-                    pid,
-                    master: SendableMaster(pty_pair.master),
-                },
-            );
+            map.insert(id.clone(), ClaudeProcess { pid });
         }
 
         // Record initial last_output_at
@@ -833,10 +872,116 @@ pub async fn resume_session(
             last_output_map.insert(id.clone(), std::time::Instant::now());
         }
 
-        // Start background PTY reader with throttled output
+        // Start background structured JSON reader
         let log_file_path = std::path::PathBuf::from(log_path).join("stdout.log");
-        start_pty_reader(app.clone(), id.clone(), reader, child, log_file_path);
+        start_structured_reader(app.clone(), id.clone(), stdout, child, log_file_path);
     }
+
+    update_session_status(&app, &id, "running")?;
+    emit_session_changed(&app, &id);
+    Ok(())
+}
+
+/// Send a follow-up prompt to a completed/failed session.
+/// Runs `claude --print --continue --output-format stream-json --verbose <prompt>`
+/// in the session's worktree, continuing the Claude conversation.
+#[tauri::command]
+pub async fn send_followup(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+    prompt: String,
+) -> AppResult<()> {
+    // Ensure no process is currently running for this session
+    {
+        let map = state.processes.lock();
+        if map.contains_key(&id) {
+            return Err(AppError::Custom(
+                "Session already has a running process".to_string(),
+            ));
+        }
+    }
+
+    let session = {
+        let db = state.db.lock();
+        query_session_by_id(&db, &id)?
+    };
+
+    let worktree_path = session
+        .worktree_path
+        .as_deref()
+        .ok_or_else(|| AppError::Custom("session has no worktree path".to_string()))?;
+
+    if !Path::new(worktree_path).is_dir() {
+        return Err(AppError::Custom(
+            "Worktree no longer exists. Cannot send follow-up.".to_string(),
+        ));
+    }
+
+    let log_path = session.log_path.as_deref().unwrap_or("");
+
+    let mut cmd = std::process::Command::new("claude");
+    cmd.arg("--print");
+    cmd.arg("--continue");
+    cmd.arg("--output-format").arg("stream-json");
+    cmd.arg("--verbose");
+    if session.dangerously_skip_permissions.unwrap_or(false) {
+        cmd.arg("--dangerously-skip-permissions");
+    }
+    cmd.arg(&prompt);
+    cmd.current_dir(worktree_path);
+    cmd.stdin(std::process::Stdio::null());
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        cmd.process_group(0);
+    }
+
+    let mut child = cmd
+        .spawn()
+        .map_err(|e| AppError::Custom(format!("failed to spawn claude: {}", e)))?;
+
+    let stdout = child
+        .stdout
+        .take()
+        .ok_or_else(|| AppError::Custom("failed to capture stdout".to_string()))?;
+    let stderr = child.stderr.take();
+
+    let pid = child.id();
+    log::info!(
+        "Follow-up for session {} (pid {}): {}",
+        id,
+        pid,
+        prompt.chars().take(80).collect::<String>()
+    );
+
+    // Drain stderr
+    let stderr_path = std::path::PathBuf::from(log_path).join("stderr.log");
+    let stderr_sid = id.clone();
+    if let Some(stderr) = stderr {
+        std::thread::spawn(move || {
+            drain_stderr(stderr, &stderr_path, &stderr_sid);
+        });
+    }
+
+    // Store process
+    {
+        let mut map = state.processes.lock();
+        map.insert(id.clone(), ClaudeProcess { pid });
+    }
+
+    // Record last_output_at
+    {
+        let mut last_output_map = state.last_output_at.lock();
+        last_output_map.insert(id.clone(), std::time::Instant::now());
+    }
+
+    // Start structured reader
+    let log_file_path = std::path::PathBuf::from(log_path).join("stdout.log");
+    start_structured_reader(app.clone(), id.clone(), stdout, child, log_file_path);
 
     update_session_status(&app, &id, "running")?;
     emit_session_changed(&app, &id);
@@ -922,58 +1067,48 @@ pub async fn read_session_log(state: State<'_, AppState>, id: String) -> AppResu
     }
 }
 
+/// Read the structured event history from stdout.log, returning parsed JSON events.
+///
+/// Each line in stdout.log is attempted as JSON. Lines that parse successfully
+/// are returned as a JSON array. Non-JSON lines (startup messages etc.) are skipped.
+#[tauri::command]
+pub async fn read_session_events(
+    state: State<'_, AppState>,
+    id: String,
+) -> AppResult<Vec<serde_json::Value>> {
+    let log_path = {
+        let db = state.db.lock();
+        let session = query_session_by_id(&db, &id)?;
+        session.log_path.unwrap_or_default()
+    };
+
+    if log_path.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    let log_file = Path::new(&log_path).join("stdout.log");
+    let contents = match std::fs::read_to_string(&log_file) {
+        Ok(c) => c,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    let events: Vec<serde_json::Value> = contents
+        .lines()
+        .filter_map(|line| {
+            let clean = strip_ansi_escapes(line.trim());
+            if clean.is_empty() {
+                return None;
+            }
+            serde_json::from_str::<serde_json::Value>(&clean).ok()
+        })
+        .collect();
+
+    Ok(events)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn detect_permission_prompt() {
-        let result = detect_prompt_pattern("  Allow  |  Deny  ");
-        assert!(result.is_some());
-        let (bt, _) = result.unwrap();
-        assert_eq!(bt, "permission");
-    }
-
-    #[test]
-    fn detect_confirmation_prompt() {
-        let result = detect_prompt_pattern("Do you want to continue? Yes / No");
-        assert!(result.is_some());
-        let (bt, _) = result.unwrap();
-        assert_eq!(bt, "confirmation");
-    }
-
-    #[test]
-    fn detect_question_prompt() {
-        let result = detect_prompt_pattern("What file should I edit?");
-        assert!(result.is_some());
-        let (bt, _) = result.unwrap();
-        assert_eq!(bt, "question");
-    }
-
-    #[test]
-    fn detect_input_prompt() {
-        let result = detect_prompt_pattern("Enter your name:");
-        assert!(result.is_some());
-        let (bt, _) = result.unwrap();
-        assert_eq!(bt, "input");
-    }
-
-    #[test]
-    fn detect_no_prompt_on_empty() {
-        assert!(detect_prompt_pattern("").is_none());
-        assert!(detect_prompt_pattern("   ").is_none());
-    }
-
-    #[test]
-    fn detect_no_prompt_on_url() {
-        assert!(detect_prompt_pattern("https://example.com:8080").is_none());
-    }
-
-    #[test]
-    fn detect_no_prompt_on_short_question() {
-        // Too short (<=5 chars)
-        assert!(detect_prompt_pattern("ok?").is_none());
-    }
 
     #[test]
     fn session_struct_has_last_message() {
@@ -996,60 +1131,6 @@ mod tests {
         };
         assert_eq!(session.last_message, Some("What file?".to_string()));
         assert_eq!(session.block_type, Some("question".to_string()));
-    }
-
-    // -- Prompt detection edge cases --
-
-    #[test]
-    fn detect_prompt_with_allow_deny_inline() {
-        let result = detect_prompt_pattern("Do you Allow this? Or Deny?");
-        assert!(result.is_some());
-        assert_eq!(result.unwrap().0, "permission");
-    }
-
-    #[test]
-    fn detect_no_prompt_on_regular_text() {
-        assert!(detect_prompt_pattern("Compiling module...").is_none());
-        assert!(detect_prompt_pattern("Build successful").is_none());
-        assert!(detect_prompt_pattern("100% done").is_none());
-    }
-
-    #[test]
-    fn detect_no_prompt_on_http_url_colon() {
-        // URLs with ":" at the end should not be detected as input prompts
-        assert!(detect_prompt_pattern("http://example.com:").is_none());
-        assert!(detect_prompt_pattern("Visit https://docs.rs:").is_none());
-    }
-
-    #[test]
-    fn detect_input_prompt_without_url() {
-        let result = detect_prompt_pattern("Enter password:");
-        assert!(result.is_some());
-        assert_eq!(result.unwrap().0, "input");
-    }
-
-    #[test]
-    fn detect_question_long_enough() {
-        // Exactly 6 chars ending with ? should be detected
-        let result = detect_prompt_pattern("Ready?");
-        assert!(result.is_some());
-        assert_eq!(result.unwrap().0, "question");
-    }
-
-    #[test]
-    fn detect_prompt_trims_whitespace() {
-        let result = detect_prompt_pattern("   Allow  |  Deny   ");
-        assert!(result.is_some());
-        assert_eq!(result.unwrap().0, "permission");
-    }
-
-    #[test]
-    fn detect_confirmation_needs_all_three() {
-        // Has Yes and No but no "?"
-        assert!(
-            detect_prompt_pattern("Yes or No").is_none()
-                || detect_prompt_pattern("Yes or No").unwrap().0 != "confirmation"
-        );
     }
 
     // -- Session serialization --
@@ -1272,5 +1353,99 @@ mod tests {
 
         let session = query_session_by_id(&conn, "s1").unwrap();
         assert_eq!(session.dangerously_skip_permissions, Some(true));
+    }
+
+    // -- ANSI escape stripping --
+
+    #[test]
+    fn strip_ansi_plain_text_unchanged() {
+        assert_eq!(strip_ansi_escapes("hello world"), "hello world");
+    }
+
+    #[test]
+    fn strip_ansi_csi_color_codes() {
+        // \x1b[0m = reset, \x1b[31m = red
+        assert_eq!(
+            strip_ansi_escapes("\x1b[31mhello\x1b[0m"),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn strip_ansi_csi_cursor_movement() {
+        // \x1b[2J = clear screen, \x1b[H = cursor home
+        assert_eq!(
+            strip_ansi_escapes("\x1b[2J\x1b[H{\"type\":\"system\"}"),
+            "{\"type\":\"system\"}"
+        );
+    }
+
+    #[test]
+    fn strip_ansi_osc_title() {
+        // \x1b]0;title\x07 = set terminal title
+        assert_eq!(
+            strip_ansi_escapes("\x1b]0;Claude\x07{\"type\":\"init\"}"),
+            "{\"type\":\"init\"}"
+        );
+    }
+
+    #[test]
+    fn strip_ansi_osc_with_st_terminator() {
+        // \x1b]0;title\x1b\\ = OSC with ST terminator
+        assert_eq!(
+            strip_ansi_escapes("\x1b]0;title\x1b\\data"),
+            "data"
+        );
+    }
+
+    #[test]
+    fn strip_ansi_carriage_return() {
+        assert_eq!(
+            strip_ansi_escapes("hello\r\nworld"),
+            "hello\nworld"
+        );
+    }
+
+    #[test]
+    fn strip_ansi_complex_mixed() {
+        // Real-world PTY output: color codes around JSON
+        let input = "\x1b[?25l\x1b[0m{\"type\":\"system\",\"subtype\":\"init\"}\x1b[?25h";
+        assert_eq!(
+            strip_ansi_escapes(input),
+            "{\"type\":\"system\",\"subtype\":\"init\"}"
+        );
+    }
+
+    #[test]
+    fn strip_ansi_charset_designation() {
+        // \x1b(B = US ASCII charset
+        assert_eq!(strip_ansi_escapes("\x1b(Bhello"), "hello");
+    }
+
+    #[test]
+    fn strip_ansi_preserves_valid_json() {
+        let json = r#"{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"Hello"}}"#;
+        let with_escapes = format!("\x1b[0m{}\x1b[0m\r", json);
+        let cleaned = strip_ansi_escapes(&with_escapes);
+        assert_eq!(cleaned, json);
+        // Verify it's still valid JSON
+        let parsed: serde_json::Value = serde_json::from_str(&cleaned).unwrap();
+        assert_eq!(parsed["type"], "content_block_start");
+    }
+
+    #[test]
+    fn strip_ansi_empty_input() {
+        assert_eq!(strip_ansi_escapes(""), "");
+    }
+
+    #[test]
+    fn strip_ansi_only_escapes() {
+        assert_eq!(strip_ansi_escapes("\x1b[31m\x1b[0m"), "");
+    }
+
+    #[test]
+    fn strip_ansi_tilde_terminator() {
+        // CSI sequence ending with ~ (e.g., \x1b[1~ = Home key)
+        assert_eq!(strip_ansi_escapes("\x1b[1~text"), "text");
     }
 }

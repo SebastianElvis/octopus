@@ -5,6 +5,14 @@ import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 // jsdom stubs
 Element.prototype.scrollIntoView = vi.fn();
 
+// ResizeObserver stub (not implemented in jsdom, required by xterm)
+class MockResizeObserver {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+vi.stubGlobal("ResizeObserver", MockResizeObserver);
+
 // matchMedia stub (not implemented in jsdom)
 Object.defineProperty(window, "matchMedia", {
   writable: true,
