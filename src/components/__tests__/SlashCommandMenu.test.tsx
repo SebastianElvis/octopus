@@ -19,7 +19,7 @@ describe("filterCommands", () => {
   });
 
   it("filters by description", () => {
-    const results = filterCommands("token");
+    const results = filterCommands("cost");
     expect(results.some((c) => c.command === "/cost")).toBe(true);
   });
 
@@ -35,7 +35,7 @@ describe("filterCommands", () => {
   it("matches partial command names", () => {
     const results = filterCommands("com");
     expect(results.some((c) => c.command === "/compact")).toBe(true);
-    expect(results.some((c) => c.command === "/pr-comments")).toBe(true);
+    expect(results.some((c) => c.command === "/commit")).toBe(true);
   });
 
   it("includes dynamic commands when provided", () => {
@@ -121,7 +121,7 @@ describe("SlashCommandMenu", () => {
 
   it("shows descriptions", () => {
     render(<SlashCommandMenu {...defaultProps} filter="clear" />);
-    expect(screen.getByText("Clear conversation history")).toBeInTheDocument();
+    expect(screen.getByText("Clear conversation history and free up context")).toBeInTheDocument();
   });
 
   it("renders dynamic commands with category headers", () => {
