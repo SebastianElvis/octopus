@@ -69,6 +69,10 @@ pub struct AppState {
     /// Pending hook permission requests awaiting frontend decisions.
     pub pending_hook_responses: Mutex<HashMap<String, oneshot::Sender<HookResponse>>>,
 
+    /// Maps hook request_id → TooManyTabs session_id so we can restore
+    /// session status after a permission decision.
+    pub hook_request_sessions: Mutex<HashMap<String, String>>,
+
     /// Port the hook HTTP server is listening on.
     pub hook_server_port: Mutex<Option<u16>>,
 
@@ -87,6 +91,7 @@ impl AppState {
             github_token: Mutex::new(None),
             interrupted_sessions: Mutex::new(HashSet::new()),
             pending_hook_responses: Mutex::new(HashMap::new()),
+            hook_request_sessions: Mutex::new(HashMap::new()),
             hook_server_port: Mutex::new(None),
             session_analytics: Mutex::new(HashMap::new()),
         }

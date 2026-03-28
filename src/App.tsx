@@ -30,8 +30,6 @@ import { playNotificationSound } from "./lib/sound";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR, ClaudeStreamEvent } from "./lib/types";
-import { PermissionDialog } from "./components/claude/PermissionDialog";
-
 type View = "home" | "session" | "tasks";
 
 function App() {
@@ -586,9 +584,6 @@ function App() {
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} onClickToast={handleToastClick} />
-
-      {/* Hook permission dialog (modal overlay) */}
-      <PermissionDialog />
     </div>
   );
 }

@@ -94,12 +94,14 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
     let output = run_git(&worktree_path, &["status", "--porcelain=v2"])?;
 
     // Get numstat for staged and unstaged changes
-    let staged_numstat = parse_numstat(
-        &run_git_allow_failure(&worktree_path, &["diff", "--cached", "--numstat"]),
-    );
-    let unstaged_numstat = parse_numstat(
-        &run_git_allow_failure(&worktree_path, &["diff", "--numstat"]),
-    );
+    let staged_numstat = parse_numstat(&run_git_allow_failure(
+        &worktree_path,
+        &["diff", "--cached", "--numstat"],
+    ));
+    let unstaged_numstat = parse_numstat(&run_git_allow_failure(
+        &worktree_path,
+        &["diff", "--numstat"],
+    ));
 
     let mut files: Vec<ChangedFile> = Vec::new();
 
