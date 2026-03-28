@@ -160,6 +160,13 @@ fn query_session_by_id(db: &rusqlite::Connection, session_id: &str) -> AppResult
         .ok_or_else(|| AppError::Custom(format!("session {} not found", session_id)))
 }
 
+/// Public accessor for querying a session by ID (used by hooks module).
+pub fn query_session_public(app: &AppHandle, session_id: &str) -> AppResult<Session> {
+    let state = app.state::<AppState>();
+    let db = state.db.lock();
+    query_session_by_id(&db, session_id)
+}
+
 fn emit_session_changed(app: &AppHandle, session_id: &str) {
     let state = app.state::<AppState>();
     let db = state.db.lock();
@@ -218,11 +225,7 @@ fn lookup_repo_local_path(state: &AppState, repo_id: &str) -> AppResult<String> 
 /// Start a structured JSON reader for Claude's stream-json output format.
 ///
 /// Drain stderr to a log file to prevent pipe buffer deadlock.
-fn drain_stderr(
-    stderr: std::process::ChildStderr,
-    log_path: &std::path::Path,
-    session_id: &str,
-) {
+fn drain_stderr(stderr: std::process::ChildStderr, log_path: &std::path::Path, session_id: &str) {
     let reader = std::io::BufReader::new(stderr);
     let mut log_file = std::fs::OpenOptions::new()
         .create(true)
@@ -529,7 +532,13 @@ pub async fn spawn_session(
 
     // Start background structured JSON reader
     let log_file_path = std::path::PathBuf::from(&log_path).join("stdout.log");
-    start_structured_reader(app.clone(), session_id.clone(), stdout, child, log_file_path);
+    start_structured_reader(
+        app.clone(),
+        session_id.clone(),
+        stdout,
+        child,
+        log_file_path,
+    );
 
     let db = state.db.lock();
     query_session_by_id(&db, &session_id)
@@ -545,9 +554,15 @@ pub async fn write_to_session(
     // Print-mode sessions have no stdin — write is not supported
     let map = state.processes.lock();
     if !map.contains_key(&id) {
-        return Err(AppError::Custom(format!("no running process for session {}", id)));
+        return Err(AppError::Custom(format!(
+            "no running process for session {}",
+            id
+        )));
     }
-    log::warn!("write_to_session called but print-mode sessions have no stdin (session {})", id);
+    log::warn!(
+        "write_to_session called but print-mode sessions have no stdin (session {})",
+        id
+    );
     Ok(())
 }
 
@@ -563,9 +578,15 @@ pub async fn respond_to_session(
     {
         let map = state.processes.lock();
         if !map.contains_key(&id) {
-            return Err(AppError::Custom(format!("no running process for session {}", id)));
+            return Err(AppError::Custom(format!(
+                "no running process for session {}",
+                id
+            )));
         }
-        log::warn!("respond_to_session called but print-mode sessions have no stdin (session {})", id);
+        log::warn!(
+            "respond_to_session called but print-mode sessions have no stdin (session {})",
+            id
+        );
     }
 
     // Update session status back to running
@@ -627,7 +648,10 @@ pub async fn interrupt_session(
 
     // Print-mode sessions have no stdin, so we skip writing a message
     if message.is_some() {
-        log::debug!("interrupt_session: message ignored for print-mode session {}", id);
+        log::debug!(
+            "interrupt_session: message ignored for print-mode session {}",
+            id
+        );
     }
 
     Ok(())
@@ -683,35 +707,21 @@ pub async fn kill_session(
         lo.remove(&id);
     }
 
-    // Look up session info for worktree cleanup
-    let (worktree_path, branch, repo_id) = {
+    // Update status to killed
+    let now = chrono::Utc::now().to_rfc3339();
+    let session = {
         let db = state.db.lock();
-        let result: Result<(Option<String>, Option<String>, Option<String>), _> = db.query_row(
-            "SELECT worktree_path, branch, repo_id FROM sessions WHERE id = ?1",
-            rusqlite::params![id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        );
-        result.unwrap_or((None, None, None))
+        db.execute(
+            "UPDATE sessions SET status = 'killed', state_changed_at = ?1 WHERE id = ?2",
+            rusqlite::params![now, id],
+        )?;
+        query_session_by_id(&db, &id)?
     };
 
-    // Remove worktree and delete branch
-    if let (Some(wt_path), Some(br), Some(rid)) = (worktree_path, branch, repo_id) {
-        if let Ok(repo_local_path) = lookup_repo_local_path(&state, &rid) {
-            if let Err(e) =
-                crate::commands::worktree::remove_worktree(repo_local_path, wt_path, br).await
-            {
-                log::warn!("Failed to clean up worktree for session {}: {}", id, e);
-            }
-        }
-    }
+    // Emit state change event
+    let _ = _app.emit("session-state-changed", serde_json::json!({ "session": session }));
 
-    // Delete session from DB
-    {
-        let db = state.db.lock();
-        db.execute("DELETE FROM sessions WHERE id = ?1", rusqlite::params![id])?;
-    }
-
-    log::info!("Killed and removed session {}", id);
+    log::info!("Killed session {}", id);
     Ok(())
 }
 
@@ -771,6 +781,28 @@ pub async fn archive_session(
     {
         let mut lo = state.last_output_at.lock();
         lo.remove(&id);
+    }
+
+    // Look up session info for worktree cleanup
+    let (worktree_path, branch, repo_id) = {
+        let db = state.db.lock();
+        let result: Result<(Option<String>, Option<String>, Option<String>), _> = db.query_row(
+            "SELECT worktree_path, branch, repo_id FROM sessions WHERE id = ?1",
+            rusqlite::params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        );
+        result.unwrap_or((None, None, None))
+    };
+
+    // Remove worktree and delete branch
+    if let (Some(wt_path), Some(br), Some(rid)) = (worktree_path, branch, repo_id) {
+        if let Ok(repo_local_path) = lookup_repo_local_path(&state, &rid) {
+            if let Err(e) =
+                crate::commands::worktree::remove_worktree(repo_local_path, wt_path, br).await
+            {
+                log::warn!("Failed to clean up worktree for session {}: {}", id, e);
+            }
+        }
     }
 
     // Update status to done
@@ -1435,10 +1467,7 @@ mod tests {
     #[test]
     fn strip_ansi_csi_color_codes() {
         // \x1b[0m = reset, \x1b[31m = red
-        assert_eq!(
-            strip_ansi_escapes("\x1b[31mhello\x1b[0m"),
-            "hello"
-        );
+        assert_eq!(strip_ansi_escapes("\x1b[31mhello\x1b[0m"), "hello");
     }
 
     #[test]
@@ -1462,18 +1491,12 @@ mod tests {
     #[test]
     fn strip_ansi_osc_with_st_terminator() {
         // \x1b]0;title\x1b\\ = OSC with ST terminator
-        assert_eq!(
-            strip_ansi_escapes("\x1b]0;title\x1b\\data"),
-            "data"
-        );
+        assert_eq!(strip_ansi_escapes("\x1b]0;title\x1b\\data"), "data");
     }
 
     #[test]
     fn strip_ansi_carriage_return() {
-        assert_eq!(
-            strip_ansi_escapes("hello\r\nworld"),
-            "hello\nworld"
-        );
+        assert_eq!(strip_ansi_escapes("hello\r\nworld"), "hello\nworld");
     }
 
     #[test]

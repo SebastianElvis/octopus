@@ -202,8 +202,7 @@ fn scan_mcp_servers(home: &Path, worktree_path: Option<&str>) -> Vec<DiscoveredC
                 if let Ok(inst_content) = fs::read_to_string(&installed_path) {
                     if let Ok(installed) = serde_json::from_str::<serde_json::Value>(&inst_content)
                     {
-                        if let Some(plugins) =
-                            installed.get("plugins").and_then(|v| v.as_object())
+                        if let Some(plugins) = installed.get("plugins").and_then(|v| v.as_object())
                         {
                             for (key, is_enabled) in enabled {
                                 if !is_enabled.as_bool().unwrap_or(false) || !key.contains('@') {
@@ -338,7 +337,9 @@ fn scan_installed_plugins(home: &Path) -> Vec<DiscoveredCommand> {
 /// - Marketplace skills (from `~/.claude/plugins/marketplaces/*/skills/`)
 /// - MCP servers (from `.mcp.json` files)
 #[tauri::command]
-pub async fn scan_slash_commands(worktree_path: Option<String>) -> AppResult<Vec<DiscoveredCommand>> {
+pub async fn scan_slash_commands(
+    worktree_path: Option<String>,
+) -> AppResult<Vec<DiscoveredCommand>> {
     let mut all = Vec::new();
 
     // Project-level custom commands: {worktree}/.claude/commands/*.md
@@ -836,7 +837,11 @@ mod tests {
         // Create installed_plugins.json
         let plugins_dir = claude_dir.join("plugins");
         fs::create_dir_all(&plugins_dir).unwrap();
-        let install_path = plugins_dir.join("cache").join("test-marketplace").join("my-plugin").join("1.0.0");
+        let install_path = plugins_dir
+            .join("cache")
+            .join("test-marketplace")
+            .join("my-plugin")
+            .join("1.0.0");
         fs::create_dir_all(&install_path).unwrap();
 
         let installed_json = format!(
@@ -848,11 +853,7 @@ mod tests {
         // Create plugin commands
         let cmds = install_path.join("commands");
         fs::create_dir_all(&cmds).unwrap();
-        fs::write(
-            cmds.join("hello.md"),
-            "---\ndescription: Say hello\n---\n",
-        )
-        .unwrap();
+        fs::write(cmds.join("hello.md"), "---\ndescription: Say hello\n---\n").unwrap();
 
         // Create plugin skills
         let skills = install_path.join("skills");
