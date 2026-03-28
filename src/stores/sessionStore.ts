@@ -20,6 +20,12 @@ function processEvent(state: MessageState, event: ClaudeStreamEvent): MessageSta
   const messages = state.messages;
   let streaming = state.streaming;
 
+  console.debug(
+    `[sessionStore:processEvent] type=${event.type}` +
+      ("subtype" in event ? ` subtype=${event.subtype}` : "") +
+      ` messagesCount=${messages.length} hasStreaming=${streaming != null}`,
+  );
+
   // Unwrap stream_event wrapper — the CLI wraps raw API events in this
   if (event.type === "stream_event") {
     const inner = event.event;
@@ -128,6 +134,12 @@ function processEvent(state: MessageState, event: ClaudeStreamEvent): MessageSta
   } else if (event.type === "system") {
     const subtype = event.subtype;
     if (subtype === "init") {
+      console.debug(
+        `[sessionStore:processEvent] system.init event received.` +
+          ` tools=${event.tools ? `array(${event.tools.length})` : "absent"}` +
+          ` model=${event.model ?? "unknown"} cwd=${event.cwd ?? "unknown"}` +
+          ` raw tools: ${JSON.stringify(event.tools)}`,
+      );
       messages.push({
         id: `system-${Date.now()}`,
         role: "system",
@@ -194,6 +206,52 @@ export interface SessionTool {
   description?: string;
 }
 
+/**
+ * Filter raw tool entries from CLI events, keeping only valid ones with a name string.
+ * Logs detailed diagnostics when invalid entries are encountered so the full context
+ * can be copy-pasted for debugging.
+ */
+function validSessionTools(raw: unknown[], sessionId?: string): SessionTool[] {
+  const valid: SessionTool[] = [];
+  const invalid: { index: number; value: unknown }[] = [];
+
+  for (let i = 0; i < raw.length; i++) {
+    const t = raw[i];
+    if (
+      t != null &&
+      typeof t === "object" &&
+      "name" in t &&
+      typeof (t as SessionTool).name === "string"
+    ) {
+      valid.push(t as SessionTool);
+    } else {
+      invalid.push({ index: i, value: t });
+    }
+  }
+
+  if (invalid.length > 0) {
+    console.error(
+      `[sessionStore] Invalid tool entries in system init event` +
+        `${sessionId ? ` (session=${sessionId})` : ""}:` +
+        `\n  Total tools received: ${raw.length}` +
+        `\n  Valid: ${valid.length}, Invalid: ${invalid.length}` +
+        `\n  Invalid entries:\n${invalid
+          .map(
+            ({ index, value }) =>
+              `    [${index}] type=${typeof value}, value=${JSON.stringify(value)}`,
+          )
+          .join("\n")}` +
+        `\n  Full tools array: ${JSON.stringify(raw)}`,
+    );
+  }
+
+  console.debug(
+    `[sessionStore] Processed tools for session=${sessionId ?? "unknown"}: ${valid.length} valid out of ${raw.length} total`,
+  );
+
+  return valid;
+}
+
 interface SessionState {
   sessions: Session[];
   outputBuffers: Record<string, string[]>;
@@ -248,6 +306,9 @@ export const useSessionStore = create<SessionState>((set) => ({
 
   appendStructuredEvent: (sessionId, event) =>
     set((state) => {
+      console.debug(
+        `[sessionStore:appendStructuredEvent] session=${sessionId} event.type=${event.type}`,
+      );
       const result = processEvent(
         {
           messages: [...(state.messageBuffers[sessionId] ?? [])],
@@ -261,9 +322,14 @@ export const useSessionStore = create<SessionState>((set) => ({
       };
       // Capture tools from system init event
       if (event.type === "system" && event.subtype === "init" && event.tools) {
+        const validated = validSessionTools(event.tools, sessionId);
+        console.debug(
+          `[sessionStore:appendStructuredEvent] Storing ${validated.length} tools for session=${sessionId}` +
+            ` (names: ${validated.map((t) => t.name).join(", ")})`,
+        );
         updates.sessionTools = {
           ...state.sessionTools,
-          [sessionId]: event.tools as SessionTool[],
+          [sessionId]: validated,
         };
       }
       return updates;
@@ -272,6 +338,9 @@ export const useSessionStore = create<SessionState>((set) => ({
   // Batch version: processes many events in a single set() to avoid rapid re-renders
   appendStructuredEvents: (events) =>
     set((state) => {
+      console.debug(
+        `[sessionStore:appendStructuredEvents] Processing batch of ${events.length} events`,
+      );
       // Group events by sessionId
       const bySession = new Map<string, ClaudeStreamEvent[]>();
       for (const { sessionId, event } of events) {
@@ -296,9 +365,14 @@ export const useSessionStore = create<SessionState>((set) => ({
           msgState = processEvent(msgState, event);
           // Capture tools from system init event
           if (event.type === "system" && event.subtype === "init" && event.tools) {
+            const validated = validSessionTools(event.tools, sessionId);
+            console.debug(
+              `[sessionStore:appendStructuredEvents] Storing ${validated.length} tools for session=${sessionId}` +
+                ` (names: ${validated.map((t) => t.name).join(", ")})`,
+            );
             newSessionTools = {
               ...newSessionTools,
-              [sessionId]: event.tools as SessionTool[],
+              [sessionId]: validated,
             };
           }
         }

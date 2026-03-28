@@ -51,12 +51,25 @@ export function UserInputArea({
   const dynamicCommands = useMemo(() => {
     const all: SlashCommand[] = [...fsCommands];
     if (sessionTools) {
+      console.debug(
+        `[UserInputArea] Merging ${sessionTools.length} session tools for session=${sessionId}` +
+          ` with ${fsCommands.length} fs commands`,
+      );
       // Add tools that look like slash commands (e.g. MCP prompts)
       // and tools not already in the built-in or fs list
       const existing = new Set([
         ...fsCommands.map((c) => c.command),
       ]);
       for (const tool of sessionTools) {
+        if (!tool || typeof tool.name !== "string") {
+          console.error(
+            `[UserInputArea] Unexpected invalid tool in sessionTools for session=${sessionId}:` +
+              ` type=${typeof tool}, value=${JSON.stringify(tool)}` +
+              ` — this should have been filtered by validSessionTools.` +
+              ` Full sessionTools: ${JSON.stringify(sessionTools)}`,
+          );
+          continue;
+        }
         const cmd = tool.name.startsWith("/") ? tool.name : `/${tool.name}`;
         if (!existing.has(cmd)) {
           all.push({
@@ -69,7 +82,7 @@ export function UserInputArea({
       }
     }
     return all.length > 0 ? all : undefined;
-  }, [fsCommands, sessionTools]);
+  }, [fsCommands, sessionTools, sessionId]);
 
   const isRunning = sessionStatus === "running";
   const isFinished = ["completed", "done", "failed", "killed"].includes(sessionStatus);
