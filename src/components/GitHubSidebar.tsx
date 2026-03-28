@@ -1,6 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { GitHubIssue, GitHubPR, CheckRun } from "../lib/types";
-import { fetchIssues, fetchPRs, createPR, fetchCheckRuns, mergePR, closeIssue } from "../lib/tauri";
+import {
+  fetchIssues,
+  fetchPRs,
+  createPR,
+  fetchCheckRuns,
+  mergePR,
+  closeIssue,
+  deleteRemoteBranch,
+} from "../lib/tauri";
 import { formatError } from "../lib/errors";
 import { isTauri } from "../lib/env";
 
@@ -139,7 +147,18 @@ export function GitHubSidebar({
         mergeMethod,
       });
       setMerged(true);
-      // Auto-close linked issue if present
+
+      // Post-merge cleanup (best-effort — each step independent)
+      // 1. Delete remote branch
+      if (branch) {
+        try {
+          await deleteRemoteBranch(repoId, branch);
+        } catch {
+          // Branch deletion is non-critical
+        }
+      }
+
+      // 2. Auto-close linked issue if present
       if (issue?.state === "open" && linkedIssueNumber) {
         await handleCloseIssue();
       }
@@ -334,16 +353,18 @@ export function GitHubSidebar({
                         void handleMerge();
                       }}
                       disabled={
-                        merging || (checkRuns.length > 0 && !allChecksPass && !checksPending)
+                        merging || (checkRuns.length > 0 && !allChecksPass)
                       }
                       className="flex-1 cursor-pointer rounded bg-green-600 px-3 py-1 text-xs font-medium text-white hover:bg-green-500 active:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {merging ? "Merging..." : "Merge PR"}
                     </button>
                   </div>
-                  {checkRuns.length > 0 && !allChecksPass && !checksPending && (
+                  {checkRuns.length > 0 && !allChecksPass && (
                     <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Merge disabled until required checks pass
+                      {checksPending
+                        ? "Waiting for checks to complete…"
+                        : "Merge disabled until required checks pass"}
                     </p>
                   )}
                 </div>
