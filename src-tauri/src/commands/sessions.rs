@@ -222,6 +222,66 @@ fn lookup_repo_local_path(state: &AppState, repo_id: &str) -> AppResult<String> 
     .map_err(|_| AppError::Custom(format!("repo not found: {}", repo_id)))
 }
 
+/// Truncate a string to `max_len` characters, appending "…" if truncated.
+fn truncate_message(text: &str, max_len: usize) -> String {
+    let trimmed = text.trim();
+    if trimmed.len() <= max_len {
+        trimmed.to_string()
+    } else {
+        format!("{}…", &trimmed[..max_len.saturating_sub(1)])
+    }
+}
+
+/// Detect the block type from Claude assistant text output.
+///
+/// Returns `(block_type, last_message)` if a pattern is detected.
+/// Conservative: false negatives are preferred over false positives.
+fn detect_block_type(text: &str) -> Option<(String, String)> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let lower = trimmed.to_lowercase();
+
+    // Confirmation patterns (most specific)
+    if lower.contains("(y/n)")
+        || lower.contains("(y/n)")
+        || lower.contains("yes/no")
+        || lower.contains("proceed?")
+        || lower.contains("continue?")
+    {
+        return Some(("confirmation".to_string(), truncate_message(trimmed, 200)));
+    }
+
+    // Input request patterns
+    if (lower.contains("please enter")
+        || lower.contains("please provide")
+        || lower.contains("please specify")
+        || lower.contains("enter the")
+        || lower.contains("provide the"))
+        && (trimmed.ends_with(':') || trimmed.ends_with('?'))
+    {
+        return Some(("input".to_string(), truncate_message(trimmed, 200)));
+    }
+
+    // Question patterns
+    let last_line = trimmed.lines().last().unwrap_or("").trim();
+    if last_line.ends_with('?')
+        || lower.contains("would you like")
+        || lower.contains("should i ")
+        || lower.contains("do you want")
+        || lower.contains("which file")
+        || lower.contains("what should")
+        || lower.contains("how should")
+        || lower.contains("where should")
+    {
+        return Some(("question".to_string(), truncate_message(last_line, 200)));
+    }
+
+    None
+}
+
 /// Start a structured JSON reader for Claude's stream-json output format.
 ///
 /// Drain stderr to a log file to prevent pipe buffer deadlock.
@@ -270,6 +330,8 @@ fn start_structured_reader(
     let sid_emitter = session_id.clone();
     let app_emitter = app.clone();
     std::thread::spawn(move || {
+        let mut last_assistant_text = String::new();
+
         while let Ok(event) = rx.recv() {
             // Emit structured event
             let _ = app_emitter.emit(
@@ -280,9 +342,48 @@ fn start_structured_reader(
                 },
             );
 
-            // Record result event subtype for final status determination
             if let Some(event_type) = event.get("type").and_then(|v| v.as_str()) {
+                // Accumulate assistant text content for blockType detection
+                if event_type == "assistant" {
+                    if let Some(content) = event
+                        .get("message")
+                        .and_then(|m| m.get("content"))
+                        .and_then(|c| c.as_array())
+                    {
+                        for block in content {
+                            if block.get("type").and_then(|t| t.as_str()) == Some("text") {
+                                if let Some(text) = block.get("text").and_then(|t| t.as_str()) {
+                                    last_assistant_text = text.to_string();
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // On result event, check accumulated text for block type
                 if event_type == "result" {
+                    // Detect blockType from assistant text
+                    if !last_assistant_text.is_empty() {
+                        if let Some((block_type, last_msg)) =
+                            detect_block_type(&last_assistant_text)
+                        {
+                            let app_state = app_emitter.state::<AppState>();
+                            let db = app_state.db.lock();
+                            let _ = db.execute(
+                                "UPDATE sessions SET block_type = ?1, last_message = ?2 WHERE id = ?3",
+                                rusqlite::params![block_type, last_msg, sid_emitter],
+                            );
+                            drop(db);
+                            emit_session_changed(&app_emitter, &sid_emitter);
+                            log::info!(
+                                "Session {} detected blockType={} from output",
+                                sid_emitter,
+                                block_type
+                            );
+                        }
+                        last_assistant_text.clear();
+                    }
+
                     if let Some(subtype) = event.get("subtype").and_then(|v| v.as_str()) {
                         *result_subtype_writer.lock().unwrap() = Some(subtype.to_string());
                         match subtype {
