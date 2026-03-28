@@ -139,7 +139,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -160,7 +160,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -201,7 +201,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -222,7 +222,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Waiting session")).toBeInTheDocument();
+      expect(screen.getAllByText("Waiting session").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -245,7 +245,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Completed task")).toBeInTheDocument();
+      expect(screen.getAllByText("Completed task").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -265,7 +265,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -293,7 +293,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -337,7 +337,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -413,7 +413,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     // Navigate to session s1
@@ -467,7 +467,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Completed task")).toBeInTheDocument();
+      expect(screen.getAllByText("Completed task").length).toBeGreaterThan(0);
     });
 
     // Navigate to the completed session — it has no in-memory messages
@@ -490,7 +490,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -559,7 +559,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -600,7 +600,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {

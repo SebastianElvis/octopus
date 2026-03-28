@@ -4,7 +4,7 @@
  * Uses @tauri-apps/api/mocks to intercept IPC at the Tauri internals level,
  * exercising the real tauriInvoke wrapper and isTauri() detection.
  */
-import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, act, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type { BackendSession } from "../../lib/types";
 import App from "../../App";
@@ -91,11 +91,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   localStorage.clear();
 });
 
 describe("App navigation", () => {
-  it("renders the sidebar with nav items on launch", async () => {
+  it("renders the sidebar with Home nav item on launch", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -105,8 +106,6 @@ describe("App navigation", () => {
     });
 
     expect(screen.getByTestId("nav-home")).toBeInTheDocument();
-    expect(screen.getByTestId("nav-tasks")).toBeInTheDocument();
-    expect(screen.getByTestId("nav-repos")).toBeInTheDocument();
   });
 
   it("loads sessions from backend via mockIPC and shows dispatch board", async () => {
@@ -115,12 +114,13 @@ describe("App navigation", () => {
     });
 
     // Wait for sessions to load via the mocked IPC
+    // Sessions appear in both sidebar and dispatch board, so use getAllByText
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
 
-    expect(screen.getByText("Add tests")).toBeInTheDocument();
-    expect(screen.getByText("Refactor DB")).toBeInTheDocument();
+    expect(screen.getAllByText("Add tests").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Refactor DB").length).toBeGreaterThan(0);
   });
 
   it("shows kanban columns with correct session categorization", async () => {
@@ -136,17 +136,17 @@ describe("App navigation", () => {
     expect(screen.getByText("Closed")).toBeInTheDocument();
   });
 
-  it("navigates to Repos view when clicking nav button", async () => {
+  it("navigates to Repos view when clicking + Add Repo button", async () => {
     await act(async () => {
       render(<App />);
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("nav-repos")).toBeInTheDocument();
+      expect(screen.getByTestId("add-repo-button")).toBeInTheDocument();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId("nav-repos"));
+      fireEvent.click(screen.getByTestId("add-repo-button"));
     });
 
     // Repos view should show repo management UI
@@ -155,17 +155,17 @@ describe("App navigation", () => {
     });
   });
 
-  it("navigates to Tasks view when clicking nav button", async () => {
+  it("navigates to Tasks view when clicking repo Issues & PRs", async () => {
     await act(async () => {
       render(<App />);
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("nav-tasks")).toBeInTheDocument();
+      expect(screen.getByTestId("repo-tasks-repo-1")).toBeInTheDocument();
     });
 
     await act(async () => {
-      fireEvent.click(screen.getByTestId("nav-tasks"));
+      fireEvent.click(screen.getByTestId("repo-tasks-repo-1"));
     });
 
     // Tasks view should render
@@ -179,12 +179,12 @@ describe("App navigation", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId("nav-repos")).toBeInTheDocument();
+      expect(screen.getByTestId("add-repo-button")).toBeInTheDocument();
     });
 
     // Navigate to repos
     await act(async () => {
-      fireEvent.click(screen.getByTestId("nav-repos"));
+      fireEvent.click(screen.getByTestId("add-repo-button"));
     });
 
     // Navigate back to home
@@ -193,7 +193,7 @@ describe("App navigation", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
   });
 
@@ -204,7 +204,7 @@ describe("App navigation", () => {
 
     // "waiting" session should cause badge "1" on Home nav
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
 
     const homeNav = screen.getByTestId("nav-home");

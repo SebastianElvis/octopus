@@ -166,7 +166,7 @@ describe("Dispatch board", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     expect(screen.getByText("6 total")).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe("Dispatch board", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -220,9 +220,11 @@ describe("Dispatch board", () => {
       });
     });
 
-    expect(screen.getByText("API refactor")).toBeInTheDocument();
-    expect(screen.queryByText("Fix login form")).not.toBeInTheDocument();
-    expect(screen.queryByText("Add dark mode")).not.toBeInTheDocument();
+    // Scope assertions to the main content area (sidebar still shows all sessions)
+    const main = document.querySelector("main")!;
+    expect(main).toHaveTextContent("API refactor");
+    expect(main).not.toHaveTextContent("Fix login form");
+    expect(main).not.toHaveTextContent("Add dark mode");
   });
 
   it("filters sessions by repo name", async () => {
@@ -233,7 +235,7 @@ describe("Dispatch board", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -243,10 +245,11 @@ describe("Dispatch board", () => {
       });
     });
 
-    // Only repo-2 sessions should show
-    expect(screen.getByText("API refactor")).toBeInTheDocument();
-    expect(screen.getByText("DB migration")).toBeInTheDocument();
-    expect(screen.queryByText("Fix login form")).not.toBeInTheDocument();
+    // Only repo-2 sessions should show in the board
+    const main = document.querySelector("main")!;
+    expect(main).toHaveTextContent("API refactor");
+    expect(main).toHaveTextContent("DB migration");
+    expect(main).not.toHaveTextContent("Fix login form");
   });
 
   it("filters sessions by branch name", async () => {
@@ -257,7 +260,7 @@ describe("Dispatch board", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix login form")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix login form").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -266,8 +269,9 @@ describe("Dispatch board", () => {
       });
     });
 
-    expect(screen.getByText("Add dark mode")).toBeInTheDocument();
-    expect(screen.queryByText("Fix login form")).not.toBeInTheDocument();
+    const main = document.querySelector("main")!;
+    expect(main).toHaveTextContent("Add dark mode");
+    expect(main).not.toHaveTextContent("Fix login form");
   });
 
   it("shows session card with status pill and block type", async () => {

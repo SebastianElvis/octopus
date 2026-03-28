@@ -11,8 +11,6 @@ const SHORTCUTS = [
     items: [
       { keys: "Cmd+K", action: "Open command palette" },
       { keys: "Cmd+1", action: "Go to Home / Board" },
-      { keys: "Cmd+2", action: "Go to Tasks" },
-      { keys: "Cmd+3", action: "Go to Repos" },
       { keys: "Esc", action: "Close modal / Go back to board" },
     ],
   },

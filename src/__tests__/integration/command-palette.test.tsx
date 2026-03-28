@@ -99,7 +99,7 @@ describe("Command palette", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -123,7 +123,7 @@ describe("Command palette", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -152,7 +152,7 @@ describe("Command palette", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -176,7 +176,7 @@ describe("Command palette", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -198,7 +198,7 @@ describe("Command palette", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -224,7 +224,7 @@ describe("Command palette", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix auth bug")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });
 
     // Open

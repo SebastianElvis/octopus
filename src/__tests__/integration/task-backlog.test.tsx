@@ -136,12 +136,13 @@ async function navigateToTasks() {
     render(<App />);
   });
 
+  // Click the repo's "Issues & PRs" button in the sidebar
   await waitFor(() => {
-    expect(screen.getByTestId("nav-tasks")).toBeInTheDocument();
+    expect(screen.getByTestId("repo-tasks-repo-1")).toBeInTheDocument();
   });
 
   await act(async () => {
-    fireEvent.click(screen.getByTestId("nav-tasks"));
+    fireEvent.click(screen.getByTestId("repo-tasks-repo-1"));
   });
 
   // Wait for items to load
@@ -314,18 +315,13 @@ describe("Task backlog", () => {
       render(<App />);
     });
 
+    // With no repos, + Add Repo is the way to get to repos view
     await waitFor(() => {
-      expect(screen.getByTestId("nav-tasks")).toBeInTheDocument();
+      expect(screen.getByTestId("add-repo-button")).toBeInTheDocument();
     });
 
-    await act(async () => {
-      fireEvent.click(screen.getByTestId("nav-tasks"));
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText("No repos connected")).toBeInTheDocument();
-    });
-
-    expect(screen.getByText("Add a Repo")).toBeInTheDocument();
+    // The sidebar should show "No repos yet." when no repos and no sessions
+    const sidebar = document.querySelector("aside")!;
+    expect(sidebar).toHaveTextContent("No repos yet.");
   });
 });
