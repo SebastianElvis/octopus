@@ -146,7 +146,7 @@ describe("Onboarding flow", () => {
     expect(localStorage.getItem("tmt-onboarding-completed")).toBe("true");
   });
 
-  it("onboarding step 2 can open repo settings", async () => {
+  it("onboarding step 2 can open add repo dialog", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -160,7 +160,7 @@ describe("Onboarding flow", () => {
       fireEvent.click(screen.getByText("Next"));
     });
 
-    // Click "Open Repo Settings" — should dismiss onboarding and navigate to repos
+    // Click "Open Repo Settings" — should dismiss onboarding and open add repo dialog
     await act(async () => {
       fireEvent.click(screen.getByText("Open Repo Settings"));
     });
@@ -169,6 +169,6 @@ describe("Onboarding flow", () => {
       expect(screen.queryByTestId("onboarding-dialog")).not.toBeInTheDocument();
     });
 
-    expect(screen.getByText("Repositories")).toBeInTheDocument();
+    expect(screen.getByText("Add Repository")).toBeInTheDocument();
   });
 });
