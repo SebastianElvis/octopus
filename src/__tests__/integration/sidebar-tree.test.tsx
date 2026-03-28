@@ -2,10 +2,10 @@
  * Integration tests for the sidebar session tree.
  *
  * Covers sessions grouped by repo, collapsible repo sections,
- * session status dots, clicking to view a session, and the
- * sidebar + New Session button.
+ * session status dots, clicking to view a session, per-repo
+ * Issues & PRs rows, per-repo + New Session, and + Add Repo button.
  */
-import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, act, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
 import type { BackendSession } from "../../lib/types";
 import App from "../../App";
@@ -57,6 +57,33 @@ const mockSessions: BackendSession[] = [
   },
 ];
 
+const mockIssues = [
+  {
+    number: 1,
+    title: "Bug",
+    body: "",
+    labels: [],
+    state: "open" as const,
+    htmlUrl: "https://github.com/acme/frontend/issues/1",
+    user: "alice",
+    comments: 0,
+    createdAt: "2026-03-01T00:00:00Z",
+    updatedAt: "2026-03-01T00:00:00Z",
+  },
+  {
+    number: 2,
+    title: "Feature",
+    body: "",
+    labels: [],
+    state: "open" as const,
+    htmlUrl: "https://github.com/acme/frontend/issues/2",
+    user: "bob",
+    comments: 0,
+    createdAt: "2026-03-01T00:00:00Z",
+    updatedAt: "2026-03-01T00:00:00Z",
+  },
+];
+
 function resetStores() {
   useSessionStore.setState({
     sessions: [],
@@ -72,7 +99,7 @@ beforeEach(() => {
   localStorage.setItem("tmt-onboarding-completed", "true");
   resetStores();
   mockWindows("main");
-  mockIPC((cmd: string) => {
+  mockIPC((cmd: string, args?: Record<string, unknown>) => {
     switch (cmd) {
       case "list_sessions":
         return mockSessions;
@@ -87,6 +114,8 @@ beforeEach(() => {
       case "get_github_token":
         return null;
       case "fetch_issues":
+        // Return issues only for repo-1
+        if (args?.repoId === "repo-1") return mockIssues;
         return [];
       case "fetch_prs":
         return [];
@@ -97,6 +126,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
   localStorage.clear();
 });
 
@@ -107,7 +137,7 @@ describe("Sidebar session tree", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix CSS layout")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix CSS layout").length).toBeGreaterThan(0);
     });
 
     const sidebar = document.querySelector("aside")!;
@@ -122,7 +152,7 @@ describe("Sidebar session tree", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix CSS layout")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix CSS layout").length).toBeGreaterThan(0);
     });
 
     const sidebar = document.querySelector("aside")!;
@@ -137,7 +167,7 @@ describe("Sidebar session tree", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix CSS layout")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix CSS layout").length).toBeGreaterThan(0);
     });
 
     // The acme/frontend repo should have a waiting badge (1 waiting session: s2)
@@ -153,28 +183,12 @@ describe("Sidebar session tree", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix CSS layout")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix CSS layout").length).toBeGreaterThan(0);
     });
 
-    // Repo sections may start collapsed (expandedRepos initializes before repos load).
-    // Click repo headers to expand them.
+    // Repos auto-expand when loaded, so sessions and branches should already be visible
     const sidebar = document.querySelector("aside")!;
 
-    await waitFor(() => {
-      expect(sidebar).toHaveTextContent("acme/frontend");
-    });
-
-    // Click acme/frontend header to toggle expand
-    await act(async () => {
-      fireEvent.click(screen.getByText("acme/frontend"));
-    });
-
-    // Click acme/backend header to toggle expand
-    await act(async () => {
-      fireEvent.click(screen.getByText("acme/backend"));
-    });
-
-    // Now session names and branches should be visible in the sidebar
     await waitFor(() => {
       expect(sidebar).toHaveTextContent("fix-css");
     });
@@ -186,24 +200,20 @@ describe("Sidebar session tree", () => {
     expect(sidebar).toHaveTextContent("Database indexes");
   });
 
-  it("shows empty state when no sessions exist", async () => {
+  it("shows empty state when no sessions and no repos exist", async () => {
     mockWindows("main");
     mockIPC((cmd: string) => {
       switch (cmd) {
         case "list_sessions":
           return [];
         case "list_repos":
-          return mockRepos;
+          return [];
         case "check_stuck_sessions":
           return [];
         case "get_setting":
           return null;
         case "get_github_token":
           return null;
-        case "fetch_issues":
-          return [];
-        case "fetch_prs":
-          return [];
         default:
           return null;
       }
@@ -219,31 +229,81 @@ describe("Sidebar session tree", () => {
     });
 
     const sidebar = document.querySelector("aside")!;
-    expect(sidebar).toHaveTextContent("No sessions yet.");
+    expect(sidebar).toHaveTextContent("No repos yet.");
   });
 
-  it("has a + New Session button in the sidebar", async () => {
+  it("has per-repo + New Session buttons in the sidebar", async () => {
     await act(async () => {
       render(<App />);
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix CSS layout")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix CSS layout").length).toBeGreaterThan(0);
     });
 
     const sidebar = document.querySelector("aside")!;
-    const newSessionBtn = sidebar.querySelector("button")!;
     const allSidebarButtons = Array.from(sidebar.querySelectorAll("button"));
-    const newBtn = allSidebarButtons.find((b) => b.textContent === "+ New Session");
-    expect(newBtn).toBeTruthy();
+    const newBtns = allSidebarButtons.filter((b) => b.textContent === "+ New Session");
+    // Should have one per expanded repo
+    expect(newBtns.length).toBeGreaterThan(0);
 
     // Clicking should open new session modal
     await act(async () => {
-      fireEvent.click(newBtn!);
+      fireEvent.click(newBtns[0]);
     });
 
     await waitFor(() => {
       expect(screen.getByTestId("new-session-modal")).toBeInTheDocument();
+    });
+  });
+
+  it("has a + Add Repo button at the bottom of the sidebar", async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+    });
+
+    const addRepoBtn = screen.getByTestId("add-repo-button");
+    expect(addRepoBtn).toBeInTheDocument();
+    expect(addRepoBtn.textContent).toBe("+ Add Repo");
+  });
+
+  it("shows Issues & PRs row under each repo", async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Fix CSS layout").length).toBeGreaterThan(0);
+    });
+
+    // Each expanded repo should have an "Issues & PRs" button
+    const sidebar = document.querySelector("aside")!;
+    const issueButtons = Array.from(sidebar.querySelectorAll("button")).filter((b) =>
+      b.textContent?.includes("Issues & PRs"),
+    );
+    expect(issueButtons.length).toBeGreaterThan(0);
+  });
+
+  it("clicking Issues & PRs navigates to tasks view", async () => {
+    await act(async () => {
+      render(<App />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("repo-tasks-repo-1")).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("repo-tasks-repo-1"));
+    });
+
+    // Should navigate to task backlog
+    await waitFor(() => {
+      expect(screen.getByText("Task Backlog")).toBeInTheDocument();
     });
   });
 

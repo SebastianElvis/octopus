@@ -86,12 +86,13 @@ async function navigateToRepos() {
     render(<App />);
   });
 
+  // Navigate to repos view via the + Add Repo button in the sidebar
   await waitFor(() => {
-    expect(screen.getByTestId("nav-repos")).toBeInTheDocument();
+    expect(screen.getByTestId("add-repo-button")).toBeInTheDocument();
   });
 
   await act(async () => {
-    fireEvent.click(screen.getByTestId("nav-repos"));
+    fireEvent.click(screen.getByTestId("add-repo-button"));
   });
 
   await waitFor(() => {
@@ -116,12 +117,18 @@ describe("Repo management", () => {
     expect(screen.getByText("No repositories connected yet.")).toBeInTheDocument();
   });
 
-  it("opens add repo form when clicking + Add Repo", async () => {
+  it("opens add repo form when clicking + Add Repo in main content", async () => {
     setupIPC();
     await navigateToRepos();
 
+    // Click the + Add Repo button in the main content area (not the sidebar one)
+    const main = document.querySelector("main")!;
+    const addBtn = Array.from(main.querySelectorAll("button")).find(
+      (b) => b.textContent === "+ Add Repo",
+    )!;
+
     await act(async () => {
-      fireEvent.click(screen.getByText("+ Add Repo"));
+      fireEvent.click(addBtn);
     });
 
     expect(screen.getByText("Add Repository")).toBeInTheDocument();
@@ -132,8 +139,12 @@ describe("Repo management", () => {
     setupIPC();
     await navigateToRepos();
 
+    const main = document.querySelector("main")!;
+    const addBtn = Array.from(main.querySelectorAll("button")).find(
+      (b) => b.textContent === "+ Add Repo",
+    )!;
     await act(async () => {
-      fireEvent.click(screen.getByText("+ Add Repo"));
+      fireEvent.click(addBtn);
     });
 
     const urlInput = screen.getByPlaceholderText("owner/repo");
@@ -157,8 +168,12 @@ describe("Repo management", () => {
     setupIPC();
     await navigateToRepos();
 
+    const main = document.querySelector("main")!;
+    const addBtn = Array.from(main.querySelectorAll("button")).find(
+      (b) => b.textContent === "+ Add Repo",
+    )!;
     await act(async () => {
-      fireEvent.click(screen.getByText("+ Add Repo"));
+      fireEvent.click(addBtn);
     });
 
     expect(screen.getByText("Add Repository")).toBeInTheDocument();

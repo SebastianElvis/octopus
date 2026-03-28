@@ -1,7 +1,7 @@
 /**
  * Integration tests for keyboard shortcuts.
  *
- * Verifies that Cmd+K, Cmd+N, Cmd+1/2/3, and Escape work correctly
+ * Verifies that Cmd+K, Cmd+N, Cmd+1, and Escape work correctly
  * when the full App component is rendered with mocked IPC.
  */
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
@@ -77,7 +77,7 @@ describe("Keyboard shortcuts", () => {
     });
   });
 
-  it("Cmd+2 navigates to Tasks view", async () => {
+  it("Cmd+1 navigates to Home view", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -86,48 +86,13 @@ describe("Keyboard shortcuts", () => {
       expect(screen.getByTestId("nav-home")).toBeInTheDocument();
     });
 
+    // Navigate somewhere else first via + Add Repo
+    const addRepoBtn = screen.getByTestId("add-repo-button");
     await act(async () => {
-      fireEvent.keyDown(window, { key: "2", metaKey: true });
+      fireEvent.click(addRepoBtn);
     });
 
-    // Tasks nav should be active
-    const tasksNav = screen.getByTestId("nav-tasks");
-    expect(tasksNav.className).toContain("bg-gray-100");
-  });
-
-  it("Cmd+3 navigates to Repos view", async () => {
-    await act(async () => {
-      render(<App />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("nav-home")).toBeInTheDocument();
-    });
-
-    await act(async () => {
-      fireEvent.keyDown(window, { key: "3", metaKey: true });
-    });
-
-    // Repos nav should be active
-    const reposNav = screen.getByTestId("nav-repos");
-    expect(reposNav.className).toContain("bg-gray-100");
-  });
-
-  it("Cmd+1 returns to Home from Repos view", async () => {
-    await act(async () => {
-      render(<App />);
-    });
-
-    await waitFor(() => {
-      expect(screen.getByTestId("nav-home")).toBeInTheDocument();
-    });
-
-    // Go to repos
-    await act(async () => {
-      fireEvent.keyDown(window, { key: "3", metaKey: true });
-    });
-
-    // Back to home
+    // Back to home with Cmd+1
     await act(async () => {
       fireEvent.keyDown(window, { key: "1", metaKey: true });
     });

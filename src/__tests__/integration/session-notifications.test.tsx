@@ -91,10 +91,10 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Build feature X")).toBeInTheDocument();
+      expect(screen.getAllByText("Build feature X").length).toBeGreaterThan(0);
     });
 
-    expect(screen.getByText("Fix bug Y")).toBeInTheDocument();
+    expect(screen.getAllByText("Fix bug Y").length).toBeGreaterThan(0);
 
     // Both should be in the Running column
     const runningCol = screen.getByTestId("column-running");
@@ -108,7 +108,7 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Build feature X")).toBeInTheDocument();
+      expect(screen.getAllByText("Build feature X").length).toBeGreaterThan(0);
     });
 
     // Simulate session state change by directly updating the store
@@ -138,7 +138,7 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Fix bug Y")).toBeInTheDocument();
+      expect(screen.getAllByText("Fix bug Y").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -160,7 +160,7 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Build feature X")).toBeInTheDocument();
+      expect(screen.getAllByText("Build feature X").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -182,7 +182,7 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Build feature X")).toBeInTheDocument();
+      expect(screen.getAllByText("Build feature X").length).toBeGreaterThan(0);
     });
 
     await act(async () => {
@@ -225,7 +225,7 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Build feature X")).toBeInTheDocument();
+      expect(screen.getAllByText("Build feature X").length).toBeGreaterThan(0);
     });
 
     // Add a new session directly to the store
@@ -242,7 +242,7 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("New hot session")).toBeInTheDocument();
+      expect(screen.getAllByText("New hot session").length).toBeGreaterThan(0);
     });
 
     expect(screen.getByText("3 total")).toBeInTheDocument();

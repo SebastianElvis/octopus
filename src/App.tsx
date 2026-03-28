@@ -45,7 +45,8 @@ function App() {
   const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
   const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
   const [prefillPR, setPrefillPR] = useState<GitHubPR | null>(null);
-  const [openIssueCount, setOpenIssueCount] = useState(0);
+  const [issueCountsByRepo, setIssueCountsByRepo] = useState<Record<string, number>>({});
+  const [tasksRepoId, setTasksRepoId] = useState<string | null>(null);
 
   const { showOnboarding, dismissOnboarding } = useOnboarding();
 
@@ -54,6 +55,7 @@ function App() {
   const appendStructuredEvents = useSessionStore((s) => s.appendStructuredEvents);
   const loadRepos = useRepoStore((s) => s.loadRepos);
   const repos = useRepoStore((s) => s.repos);
+  const removeRepo = useRepoStore((s) => s.removeRepo);
   const sessions = useSessionStore((s) => s.sessions);
 
   const sidebarWidth = useUIStore((s) => s.panelSizes.sidebarWidth);
@@ -110,16 +112,6 @@ function App() {
         setActiveSessionId(null);
         return;
       }
-      if (isMeta && e.key === "2") {
-        e.preventDefault();
-        setView("tasks");
-        return;
-      }
-      if (isMeta && e.key === "3") {
-        e.preventDefault();
-        setView("repos");
-        return;
-      }
       if (isMeta && (e.key === "/" || e.key === "?")) {
         e.preventDefault();
         setShowShortcuts((v) => !v);
@@ -160,22 +152,28 @@ function App() {
     void loadRepos();
   }, [loadSessions, loadRepos]);
 
-  // Fetch total open issue count for badge
+  // Fetch open issue+PR counts per repo for sidebar badges
   useEffect(() => {
     if (repos.length === 0) return;
     let cancelled = false;
     void Promise.all(
-      repos.flatMap((repo) => [
-        fetchIssues(repo.id)
-          .then((issues) => issues.filter((i) => i.state === "open").length)
-          .catch(() => 0),
-        fetchPRs(repo.id)
-          .then((prs) => prs.filter((p) => p.state === "open").length)
-          .catch(() => 0),
-      ]),
-    ).then((counts) => {
+      repos.map(async (repo) => {
+        const [issues, prs] = await Promise.all([
+          fetchIssues(repo.id).catch(() => [] as { state: string }[]),
+          fetchPRs(repo.id).catch(() => [] as { state: string }[]),
+        ]);
+        const count =
+          issues.filter((i) => i.state === "open").length +
+          prs.filter((p) => p.state === "open").length;
+        return { repoId: repo.id, count };
+      }),
+    ).then((results) => {
       if (!cancelled) {
-        setOpenIssueCount(counts.reduce((a, b) => a + b, 0));
+        const counts: Record<string, number> = {};
+        for (const { repoId, count } of results) {
+          counts[repoId] = count;
+        }
+        setIssueCountsByRepo(counts);
       }
     });
     return () => {
@@ -442,13 +440,6 @@ function App() {
                   setActiveSessionId(null);
                 }}
               />
-              <NavItem
-                label="Tasks"
-                active={view === "tasks"}
-                badge={openIssueCount > 0 ? openIssueCount : undefined}
-                onClick={() => setView("tasks")}
-              />
-              <NavItem label="Repos" active={view === "repos"} onClick={() => setView("repos")} />
             </nav>
 
             {/* Session tree */}
@@ -458,7 +449,21 @@ function App() {
                 sessions={sessions}
                 activeSessionId={activeSessionId}
                 onSelectSession={handleViewSession}
-                onNewSession={() => setShowNewSession(true)}
+                onNewSession={(repo?: Repo) => {
+                  if (repo) setPrefillRepo(repo);
+                  setShowNewSession(true);
+                }}
+                onViewRepoTasks={(repoId: string) => {
+                  setTasksRepoId(repoId);
+                  setView("tasks");
+                }}
+                onAddRepo={() => setView("repos")}
+                onRemoveRepo={(repoId: string) => {
+                  void removeRepo(repoId);
+                }}
+                issueCountsByRepo={issueCountsByRepo}
+                activeView={view}
+                tasksRepoId={tasksRepoId}
               />
             </div>
           </aside>
@@ -520,7 +525,7 @@ function App() {
           {view === "tasks" && (
             <div className="h-full overflow-y-auto p-6">
               <IssueBacklog
-                repos={repos}
+                repos={tasksRepoId ? repos.filter((r) => r.id === tasksRepoId) : repos}
                 onSelectIssue={handleSelectIssue}
                 onSelectPR={handleSelectPR}
                 onNavigateSettings={() => setView("repos")}
