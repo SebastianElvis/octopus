@@ -125,7 +125,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     if (!session) return;
     try {
       await tauriKillSession(session.id);
-      updateSession(session.id, { status: "killed", stateChangedAt: Date.now() });
       onBack();
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to kill session:", err);
