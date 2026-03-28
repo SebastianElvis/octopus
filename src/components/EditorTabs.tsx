@@ -1,8 +1,8 @@
 import { useEditorStore } from "../stores/editorStore";
 
 interface EditorTabsProps {
-  terminalActive: boolean;
-  onSelectTerminal: () => void;
+  claudeActive: boolean;
+  onSelectClaude: () => void;
   sessionStatus: string;
   hasGitHubTab?: boolean;
   githubActive?: boolean;
@@ -14,11 +14,13 @@ interface EditorTabsProps {
   hasRecapTab?: boolean;
   recapActive?: boolean;
   onSelectRecap?: () => void;
+  analyticsActive?: boolean;
+  onSelectAnalytics?: () => void;
 }
 
 export function EditorTabs({
-  terminalActive,
-  onSelectTerminal,
+  claudeActive,
+  onSelectClaude,
   sessionStatus,
   hasGitHubTab,
   githubActive,
@@ -30,6 +32,8 @@ export function EditorTabs({
   hasRecapTab,
   recapActive,
   onSelectRecap,
+  analyticsActive,
+  onSelectAnalytics,
 }: EditorTabsProps) {
   const tabs = useEditorStore((s) => s.tabs);
   const activeTabId = useEditorStore((s) => s.activeTabId);
@@ -38,33 +42,26 @@ export function EditorTabs({
 
   const isRunning = sessionStatus === "running" || sessionStatus === "waiting";
 
+  const tabClass = (active: boolean) =>
+    `flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
+      active
+        ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
+        : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+    }`;
+
   return (
     <div className="flex shrink-0 items-center gap-0 overflow-x-auto border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
-      {/* Pinned Claude terminal tab */}
-      <button
-        onClick={onSelectTerminal}
-        className={`flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
-          terminalActive
-            ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
-            : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
-        }`}
-      >
+      {/* Claude structured output tab */}
+      <button onClick={onSelectClaude} className={tabClass(claudeActive)}>
         <span
-          className={`h-2 w-2 shrink-0 rounded-full ${isRunning ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}
+          className={`h-2 w-2 shrink-0 rounded-full ${isRunning ? "animate-pulse bg-green-500" : "bg-gray-400"}`}
         />
         <span className="font-medium">Claude</span>
       </button>
 
       {/* GitHub tab */}
       {hasGitHubTab && onSelectGitHub && (
-        <button
-          onClick={onSelectGitHub}
-          className={`flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
-            githubActive
-              ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
-              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
-          }`}
-        >
+        <button onClick={onSelectGitHub} className={tabClass(githubActive ?? false)}>
           <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="currentColor">
             <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
           </svg>
@@ -74,36 +71,34 @@ export function EditorTabs({
 
       {/* Log tab */}
       {hasLogTab && onSelectLog && (
-        <button
-          onClick={onSelectLog}
-          className={`flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
-            logActive
-              ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
-              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
-          }`}
-        >
+        <button onClick={onSelectLog} className={tabClass(logActive ?? false)}>
           <span className="font-medium">Log</span>
         </button>
       )}
 
       {/* Recap tab */}
       {hasRecapTab && onSelectRecap && (
-        <button
-          onClick={onSelectRecap}
-          className={`flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
-            recapActive
-              ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
-              : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
-          }`}
-        >
+        <button onClick={onSelectRecap} className={tabClass(recapActive ?? false)}>
           <span className="font-medium">Recap</span>
+        </button>
+      )}
+
+      {/* Analytics tab */}
+      {onSelectAnalytics && (
+        <button onClick={onSelectAnalytics} className={tabClass(analyticsActive ?? false)}>
+          <span className="font-medium">Analytics</span>
         </button>
       )}
 
       {/* File tabs */}
       {tabs.map((tab) => {
         const isActive =
-          !terminalActive && !githubActive && !logActive && !recapActive && tab.id === activeTabId;
+          !claudeActive &&
+          !githubActive &&
+          !logActive &&
+          !recapActive &&
+          !analyticsActive &&
+          tab.id === activeTabId;
         return (
           <div
             key={tab.id}

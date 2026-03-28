@@ -1,8 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 use parking_lot::Mutex;
 use rusqlite::Connection;
+use tokio::sync::oneshot;
+
+use crate::commands::hooks::{HookResponse, SessionAnalytics};
 
 /// Wrapper to make `Box<dyn MasterPty>` Send.
 ///
@@ -12,7 +15,7 @@ use rusqlite::Connection;
 pub struct SendableMaster(pub Box<dyn portable_pty::MasterPty>);
 unsafe impl Send for SendableMaster {}
 
-/// A running PTY-backed Claude Code session.
+/// A running PTY-backed shell session (plain terminal, not Claude).
 pub struct PtySession {
     /// Writer handle to send input to the terminal.
     pub writer: Box<dyn std::io::Write + Send>,
@@ -20,6 +23,16 @@ pub struct PtySession {
     pub pid: u32,
     /// Master PTY handle (for resize).
     pub master: SendableMaster,
+}
+
+/// A running Claude Code session with piped stdout (no PTY).
+///
+/// Using pipes instead of a PTY ensures that `--output-format stream-json`
+/// produces clean NDJSON without terminal escape sequences.
+/// Sessions run in `--print` mode (non-interactive), so stdin is not needed.
+pub struct ClaudeProcess {
+    /// Process ID (for sending signals).
+    pub pid: u32,
 }
 
 /// Cached GitHub auth token with expiry tracking.
@@ -34,8 +47,8 @@ pub struct AppState {
     /// shared safely across Tauri command handlers.
     pub db: Mutex<Connection>,
 
-    /// Map of session_id -> running PTY session.
-    pub processes: Mutex<HashMap<String, PtySession>>,
+    /// Map of session_id -> running Claude session (piped I/O, not PTY).
+    pub processes: Mutex<HashMap<String, ClaudeProcess>>,
 
     /// Map of session_id -> last time stdout output was observed from the process.
     pub last_output_at: Mutex<HashMap<String, Instant>>,
@@ -48,6 +61,19 @@ pub struct AppState {
 
     /// Cached GitHub auth token (refreshed every 5 minutes).
     pub github_token: Mutex<Option<CachedToken>>,
+
+    /// Sessions that were explicitly interrupted by the user (SIGINT).
+    /// Used to distinguish "killed" from "completed" when the process exits.
+    pub interrupted_sessions: Mutex<HashSet<String>>,
+
+    /// Pending hook permission requests awaiting frontend decisions.
+    pub pending_hook_responses: Mutex<HashMap<String, oneshot::Sender<HookResponse>>>,
+
+    /// Port the hook HTTP server is listening on.
+    pub hook_server_port: Mutex<Option<u16>>,
+
+    /// Per-session analytics derived from hook events.
+    pub session_analytics: Mutex<HashMap<String, SessionAnalytics>>,
 }
 
 impl AppState {
@@ -59,6 +85,10 @@ impl AppState {
             shell_processes: Mutex::new(HashMap::new()),
             http_client: reqwest::Client::new(),
             github_token: Mutex::new(None),
+            interrupted_sessions: Mutex::new(HashSet::new()),
+            pending_hook_responses: Mutex::new(HashMap::new()),
+            hook_server_port: Mutex::new(None),
+            session_analytics: Mutex::new(HashMap::new()),
         }
     }
 }

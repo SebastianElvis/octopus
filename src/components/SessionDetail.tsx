@@ -11,7 +11,8 @@ import {
 import { useSessionStore } from "../stores/sessionStore";
 import { useEditorStore } from "../stores/editorStore";
 import { useUIStore } from "../stores/uiStore";
-import { TerminalPanel } from "./TerminalPanel";
+import { ClaudeOutputPanel } from "./claude/ClaudeOutputPanel";
+import { AnalyticsPanel } from "./claude/AnalyticsPanel";
 import { CodeEditor } from "./CodeEditor";
 import { EditorTabs } from "./EditorTabs";
 import { RightPanel } from "./RightPanel";
@@ -22,7 +23,7 @@ import { ShellPanel } from "./ShellPanel";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
 import { STATUS_PILL, STATUS_DOT, RUNNING_PULSE } from "../lib/statusColors";
 
-type CenterTab = "terminal" | "editor" | "github" | "log" | "recap";
+type CenterTab = "claude" | "editor" | "github" | "log" | "recap" | "analytics";
 
 interface SessionDetailProps {
   sessionId: string;
@@ -41,7 +42,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const setPanelSize = useUIStore((s) => s.setPanelSize);
 
   const [showKillConfirm, setShowKillConfirm] = useState(false);
-  const [centerTab, setCenterTab] = useState<CenterTab>("terminal");
+  const [centerTab, setCenterTab] = useState<CenterTab>("claude");
 
   // GitHub data for the detail tab
   const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
@@ -92,7 +93,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         setCenterTab("editor");
       }
       if (!activeTabId && tabs.length === 0 && centerTab === "editor") {
-        setCenterTab("terminal");
+        setCenterTab("claude");
       }
     }
   }, [activeTabId, tabs.length, centerTab, setCenterTab]);
@@ -157,14 +158,14 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   function handleToggleRecap() {
     if (!session) return;
     if (recap) {
-      setCenterTab(centerTab === "recap" ? "terminal" : "recap");
+      setCenterTab(centerTab === "recap" ? "claude" : "recap");
     }
   }
 
   async function handleViewLog() {
     if (!session) return;
     if (fullLog) {
-      setCenterTab(centerTab === "log" ? "terminal" : "log");
+      setCenterTab(centerTab === "log" ? "claude" : "log");
       return;
     }
     setLogLoading(true);
@@ -312,8 +313,8 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Unified tab bar */}
           <EditorTabs
-            terminalActive={centerTab === "terminal"}
-            onSelectTerminal={() => setCenterTab("terminal")}
+            claudeActive={centerTab === "claude"}
+            onSelectClaude={() => setCenterTab("claude")}
             sessionStatus={session.status}
             hasGitHubTab={hasGitHubLink}
             githubActive={centerTab === "github"}
@@ -331,27 +332,29 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             hasRecapTab={recap !== null}
             recapActive={centerTab === "recap"}
             onSelectRecap={() => setCenterTab("recap")}
+            analyticsActive={centerTab === "analytics"}
+            onSelectAnalytics={() => setCenterTab("analytics")}
           />
 
           {/* Content area — all panels use absolute positioning + visibility toggle
               to avoid layout overlap and keep xterm dimensions valid */}
           <div className="relative flex-1 overflow-hidden">
-            {/* Terminal — always mounted, visibility toggled */}
+            {/* Claude output — structured view, primary tab */}
             <div
               className={
-                centerTab === "terminal"
-                  ? "absolute inset-0 z-10"
-                  : "invisible absolute inset-0 z-0"
+                centerTab === "claude" ? "absolute inset-0 z-10" : "invisible absolute inset-0 z-0"
               }
             >
-              <TerminalPanel
+              <ClaudeOutputPanel
                 sessionId={session.id}
                 sessionStatus={session.status}
-                visible={centerTab === "terminal"}
+                blockType={session.blockType}
+                lastMessage={session.lastMessage}
+                visible={centerTab === "claude"}
               />
             </div>
 
-            {/* GitHub detail view — absolute positioned like terminal */}
+            {/* GitHub detail view */}
             <div
               className={
                 centerTab === "github"
@@ -403,6 +406,13 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                 <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
                   {recap}
                 </p>
+              </div>
+            )}
+
+            {/* Analytics panel */}
+            {centerTab === "analytics" && (
+              <div className="absolute inset-0 z-10 overflow-hidden bg-white dark:bg-gray-950">
+                <AnalyticsPanel sessionId={session.id} sessionStatus={session.status} />
               </div>
             )}
           </div>

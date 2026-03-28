@@ -164,3 +164,127 @@ export interface CheckRun {
   startedAt: string | null;
   completedAt: string | null;
 }
+
+// ---------------------------------------------------------------------------
+// Claude Code stream-json event types
+// ---------------------------------------------------------------------------
+
+/** Content block types within Claude messages */
+export type ClaudeContentBlock =
+  | { type: "text"; text: string }
+  | { type: "tool_use"; id: string; name: string; input: Record<string, unknown> }
+  | {
+      type: "tool_result";
+      tool_use_id: string;
+      content: string | { type: string; text?: string }[];
+    }
+  | { type: "thinking"; thinking: string; signature?: string };
+
+/** Raw API streaming event (inside stream_event wrapper) */
+export type ClaudeRawStreamEvent =
+  | {
+      type: "content_block_start";
+      index: number;
+      content_block: ClaudeContentBlock;
+    }
+  | {
+      type: "content_block_delta";
+      index: number;
+      delta: {
+        type: string;
+        text?: string;
+        partial_json?: string;
+        thinking?: string;
+      };
+    }
+  | {
+      type: "content_block_stop";
+      index: number;
+    }
+  | {
+      type: "message_start" | "message_delta" | "message_stop";
+      [key: string]: unknown;
+    };
+
+/** Top-level stream-json event types from Claude CLI */
+export type ClaudeStreamEvent =
+  | {
+      type: "system";
+      subtype: "init";
+      session_id?: string;
+      tools?: { name: string; description?: string }[];
+    }
+  | {
+      type: "assistant";
+      message: {
+        role: "assistant";
+        content: ClaudeContentBlock[];
+        stop_reason?: string;
+        usage?: { input_tokens: number; output_tokens: number };
+      };
+    }
+  | {
+      type: "user";
+      message: {
+        role: "user";
+        content: ClaudeContentBlock[];
+      };
+    }
+  | {
+      type: "stream_event";
+      event: ClaudeRawStreamEvent;
+    }
+  | {
+      type: "result";
+      subtype: "success" | "error";
+      result?: string;
+      error?: string;
+      cost_usd?: number;
+      duration_ms?: number;
+      session_id?: string;
+    }
+  | {
+      type: "error";
+      error: { message: string };
+    };
+
+// ---------------------------------------------------------------------------
+// Hook event types (from the hooks HTTP server)
+// ---------------------------------------------------------------------------
+
+export interface HookEvent {
+  hook_event_name: string;
+  session_id: string;
+  cwd: string;
+  tool_name?: string;
+  tool_input?: Record<string, unknown>;
+  tool_result?: Record<string, unknown>;
+  file_path?: string;
+  change_type?: string;
+  user_prompt?: string;
+  reason?: string;
+  permission_mode?: string;
+  [key: string]: unknown;
+}
+
+export interface HookEventPayload {
+  requestId: string;
+  event: HookEvent;
+}
+
+export interface SessionAnalytics {
+  toolCalls: { toolName: string; timestamp: number; success: boolean }[];
+  totalCostUsd: number;
+  totalDurationMs: number;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** A processed message for rendering in the Claude output panel */
+export interface ClaudeMessage {
+  id: string;
+  role: "assistant" | "user" | "system";
+  blocks: ClaudeContentBlock[];
+  timestamp: number;
+  isStreaming?: boolean;
+}

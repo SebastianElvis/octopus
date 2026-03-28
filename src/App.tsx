@@ -16,12 +16,21 @@ import { KeyboardShortcutsOverlay } from "./components/KeyboardShortcutsOverlay"
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { useUIStore } from "./stores/uiStore";
-import { onSessionStateChanged, onSessionOutput, fetchIssues, fetchPRs } from "./lib/tauri";
+import { useHookStore } from "./stores/hookStore";
+import {
+  onSessionStateChanged,
+  onSessionStructuredOutput,
+  onHookEvent,
+  onHookPermissionRequest,
+  fetchIssues,
+  fetchPRs,
+} from "./lib/tauri";
 import { requestNotificationPermission, sendSystemNotification } from "./lib/notifications";
 import { playNotificationSound } from "./lib/sound";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
-import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
+import type { Repo, GitHubIssue, GitHubPR, ClaudeStreamEvent } from "./lib/types";
+import { PermissionDialog } from "./components/claude/PermissionDialog";
 
 type View = "home" | "session" | "repos" | "tasks";
 
@@ -42,7 +51,7 @@ function App() {
 
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const updateSession = useSessionStore((s) => s.updateSession);
-  const appendOutput = useSessionStore((s) => s.appendOutput);
+  const appendStructuredEvents = useSessionStore((s) => s.appendStructuredEvents);
   const loadRepos = useRepoStore((s) => s.loadRepos);
   const repos = useRepoStore((s) => s.repos);
   const sessions = useSessionStore((s) => s.sessions);
@@ -240,12 +249,48 @@ function App() {
     [updateSession, soundEnabled],
   );
 
+  // Batch structured events to avoid overwhelming React with rapid updates.
+  // Events are buffered in a ref and flushed once per animation frame.
+  const pendingEventsRef = useRef<{ sessionId: string; event: ClaudeStreamEvent }[]>([]);
+  const rafIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, []);
+
   useTauriEvent(
     () =>
-      onSessionOutput((payload) => {
-        appendOutput(payload.sessionId, payload.data);
+      onSessionStructuredOutput((payload) => {
+        pendingEventsRef.current.push({
+          sessionId: payload.sessionId,
+          event: payload.event,
+        });
+        rafIdRef.current ??= requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          const batch = pendingEventsRef.current;
+          pendingEventsRef.current = [];
+          if (batch.length > 0) {
+            appendStructuredEvents(batch);
+          }
+        });
       }),
-    [appendOutput],
+    [appendStructuredEvents],
+  );
+
+  // Subscribe to hook events from the Claude Code hooks server
+  const addHookEvent = useHookStore((s) => s.addHookEvent);
+  const addPermissionRequest = useHookStore((s) => s.addPermissionRequest);
+
+  useTauriEvent(
+    () => onHookEvent((payload) => { addHookEvent(payload); }),
+    [addHookEvent],
+  );
+
+  useTauriEvent(
+    () => onHookPermissionRequest((payload) => { addPermissionRequest(payload); }),
+    [addPermissionRequest],
   );
 
   const handleSidebarResize = useCallback(
@@ -442,8 +487,8 @@ function App() {
               />
             </div>
           )}
-          {/* SessionDetail: kept mounted with visibility:hidden to preserve xterm state.
-              xterm's IntersectionObserver auto-pauses rendering when not visible. */}
+          {/* SessionDetail: kept mounted with visibility:hidden to preserve state.
+              The raw terminal tab still uses xterm which auto-pauses when not visible. */}
           {activeSessionId && (
             <div
               className={
@@ -519,6 +564,9 @@ function App() {
 
       {/* Toast notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} onClickToast={handleToastClick} />
+
+      {/* Hook permission dialog (modal overlay) */}
+      <PermissionDialog />
     </div>
   );
 }
