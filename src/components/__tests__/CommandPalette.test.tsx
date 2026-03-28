@@ -23,8 +23,8 @@ beforeEach(() => {
   useSessionStore.setState({
     sessions: [
       makeSession({ id: "s1", name: "Fix auth bug", repo: "backend" }),
-      makeSession({ id: "s2", name: "Add tests", repo: "frontend", status: "waiting" }),
-      makeSession({ id: "s3", name: "Deploy hotfix", repo: "infra", status: "completed" }),
+      makeSession({ id: "s2", name: "Add tests", repo: "frontend", status: "attention" }),
+      makeSession({ id: "s3", name: "Deploy hotfix", repo: "infra", status: "done" }),
     ],
   });
 });

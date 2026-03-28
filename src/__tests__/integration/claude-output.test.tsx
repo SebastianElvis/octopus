@@ -40,7 +40,7 @@ function makeSessions(): BackendSession[] {
       repoId: "repo-1",
       name: "Waiting session",
       branch: "waiting-branch",
-      status: "waiting",
+      status: "attention",
       blockType: "permission",
       lastMessage: "Claude wants to edit main.ts",
       stateChangedAt: new Date().toISOString(),
@@ -50,7 +50,7 @@ function makeSessions(): BackendSession[] {
       repoId: "repo-1",
       name: "Completed task",
       branch: "done-branch",
-      status: "completed",
+      status: "done",
       stateChangedAt: new Date().toISOString(),
     },
   ];

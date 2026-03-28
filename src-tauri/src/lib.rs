@@ -68,10 +68,10 @@ fn check_unclean_shutdown() -> bool {
 
 /// On startup, for each session with status "running" in the DB:
 /// check if the PID is still alive using kill(pid, 0). If alive, mark as
-/// "interrupted" (process is orphaned). If dead, already reaped correctly.
+/// "attention" (process is orphaned). If dead, already reaped correctly.
 fn recover_sessions(conn: &rusqlite::Connection) {
     let mut stmt = match conn.prepare(
-        "SELECT id, worktree_path FROM sessions WHERE status IN ('running', 'waiting', 'paused', 'stuck')",
+        "SELECT id, worktree_path FROM sessions WHERE status = 'running'",
     ) {
         Ok(s) => s,
         Err(e) => {
@@ -92,14 +92,14 @@ fn recover_sessions(conn: &rusqlite::Connection) {
 
     let now = chrono::Utc::now().to_rfc3339();
     for (session_id, _worktree_path) in rows.flatten() {
-        // Mark as interrupted — the original reap_orphaned_sessions will handle this
+        // Mark as attention — the original reap_orphaned_sessions will handle this
         // but we log it explicitly for crash recovery context
         log::info!(
-            "Crash recovery: session {} was active at shutdown, marking interrupted",
+            "Crash recovery: session {} was active at shutdown, marking attention",
             session_id
         );
         let _ = conn.execute(
-            "UPDATE sessions SET status = 'interrupted', state_changed_at = ?1 WHERE id = ?2",
+            "UPDATE sessions SET status = 'attention', state_changed_at = ?1 WHERE id = ?2",
             rusqlite::params![now, session_id],
         );
     }
@@ -205,8 +205,8 @@ pub fn run() {
         recover_sessions(&conn);
     }
 
-    // Mark any sessions that were still active when the app last exited as
-    // "interrupted" — their OS processes no longer exist.
+    // Mark any sessions that were still running when the app last exited as
+    // "attention" — their OS processes no longer exist.
     db::reap_orphaned_sessions(&conn);
 
     // Scan for orphaned worktrees
@@ -371,7 +371,7 @@ mod tests {
     }
 
     #[test]
-    fn recover_sessions_marks_running_as_interrupted() {
+    fn recover_sessions_marks_running_as_attention() {
         let conn = rusqlite::Connection::open_in_memory().expect("open");
         conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
         db::create_schema(&conn).expect("schema");
@@ -400,7 +400,7 @@ mod tests {
         conn.execute(
             "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params!["s2", "r1", "Done", "completed", "2024-01-01", "2024-01-01"],
+            rusqlite::params!["s2", "r1", "Done", "attention", "2024-01-01", "2024-01-01"],
         )
         .expect("insert session");
 
@@ -411,54 +411,14 @@ mod tests {
                 row.get(0)
             })
             .unwrap();
-        assert_eq!(s1_status, "interrupted");
+        assert_eq!(s1_status, "attention");
 
         let s2_status: String = conn
             .query_row("SELECT status FROM sessions WHERE id = 's2'", [], |row| {
                 row.get(0)
             })
             .unwrap();
-        assert_eq!(s2_status, "completed");
-    }
-
-    #[test]
-    fn recover_sessions_marks_waiting_and_paused() {
-        let conn = rusqlite::Connection::open_in_memory().expect("open");
-        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
-        db::create_schema(&conn).expect("schema");
-
-        conn.execute(
-            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
-             VALUES (?1, ?2, ?3, ?4, ?5)",
-            rusqlite::params![
-                "r1",
-                "https://github.com/a/b",
-                "/tmp/b",
-                "main",
-                "2024-01-01"
-            ],
-        )
-        .expect("insert repo");
-
-        for (sid, status) in &[("s1", "waiting"), ("s2", "paused"), ("s3", "stuck")] {
-            conn.execute(
-                "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                rusqlite::params![sid, "r1", "Session", status, "2024-01-01", "2024-01-01"],
-            )
-            .expect("insert session");
-        }
-
-        recover_sessions(&conn);
-
-        for sid in &["s1", "s2", "s3"] {
-            let status: String = conn
-                .query_row("SELECT status FROM sessions WHERE id = ?1", [sid], |row| {
-                    row.get(0)
-                })
-                .unwrap();
-            assert_eq!(status, "interrupted", "{} should be interrupted", sid);
-        }
+        assert_eq!(s2_status, "attention");
     }
 
     #[test]

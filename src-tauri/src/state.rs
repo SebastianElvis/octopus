@@ -63,7 +63,7 @@ pub struct AppState {
     pub github_token: Mutex<Option<CachedToken>>,
 
     /// Sessions that were explicitly interrupted by the user (SIGINT).
-    /// Used to distinguish "killed" from "completed" when the process exits.
+    /// Used to track which sessions were explicitly interrupted by the user.
     pub interrupted_sessions: Mutex<HashSet<String>>,
 
     /// Pending hook permission requests awaiting frontend decisions.

@@ -38,7 +38,7 @@ export function SessionCard({ session, onView, onInterrupt, onResume, onKill }: 
                 />
                 {session.status}
               </span>
-              {session.status === "waiting" && session.blockType && (
+              {session.status === "attention" && session.blockType && (
                 <span
                   className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${BLOCK_TYPE_PILL[session.blockType]}`}
                 >
@@ -71,34 +71,13 @@ export function SessionCard({ session, onView, onInterrupt, onResume, onKill }: 
               Interrupt
             </button>
           )}
-          {session.status === "idle" && (
+          {session.status === "attention" && (
             <button
               onClick={() => onResume?.(session.id)}
               className="cursor-pointer rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
             >
               Resume
             </button>
-          )}
-          {session.status === "paused" && (
-            <button
-              onClick={() => onResume?.(session.id)}
-              className="cursor-pointer rounded-md bg-blue-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            >
-              Resume
-            </button>
-          )}
-          {session.status === "stuck" && (
-            <span className="flex items-center gap-1 text-xs font-medium text-orange-600 dark:text-orange-400">
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              No output for &gt;20min
-            </span>
           )}
           <button
             onClick={() => onView(session.id)}

@@ -80,7 +80,7 @@ export function ClaudeOutputPanel({
   // Polls faster (1s) when visible, slower (5s) when hidden. Stops when session ends.
   useEffect(() => {
     if (historyLoading || !isEmpty) return;
-    if (sessionStatus !== "running" && sessionStatus !== "waiting") return;
+    if (sessionStatus !== "running" && sessionStatus !== "attention") return;
     const interval = docVisible ? 1000 : 5000;
     const timer = setInterval(() => {
       void loadSessionHistory(sessionId);

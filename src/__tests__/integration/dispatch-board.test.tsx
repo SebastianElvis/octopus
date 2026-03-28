@@ -36,7 +36,7 @@ function makeSessions(): BackendSession[] {
       repoId: "repo-1",
       name: "Fix login form",
       branch: "fix-login",
-      status: "waiting",
+      status: "attention",
       blockType: "permission",
       stateChangedAt: new Date().toISOString(),
     },
@@ -61,7 +61,7 @@ function makeSessions(): BackendSession[] {
       repoId: "repo-1",
       name: "Fix CSS bug",
       branch: "fix-css",
-      status: "completed",
+      status: "done",
       stateChangedAt: new Date().toISOString(),
     },
     {
@@ -69,7 +69,7 @@ function makeSessions(): BackendSession[] {
       repoId: "repo-2",
       name: "DB migration",
       branch: "migrate-db",
-      status: "failed",
+      status: "done",
       stateChangedAt: new Date().toISOString(),
     },
     {
@@ -77,7 +77,7 @@ function makeSessions(): BackendSession[] {
       repoId: "repo-1",
       name: "Stale session",
       branch: "stale",
-      status: "stuck",
+      status: "attention",
       stateChangedAt: new Date().toISOString(),
     },
   ];

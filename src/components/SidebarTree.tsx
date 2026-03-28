@@ -13,23 +13,14 @@ const SIDEBAR_DOT: Record<string, string> = {
 
 /** Subtle row background tint to indicate status at a glance. */
 const STATUS_ROW_TINT: Record<string, string> = {
-  waiting: "bg-amber-50/50 dark:bg-amber-950/10",
-  stuck: "bg-orange-50/50 dark:bg-orange-950/10",
+  attention: "bg-amber-50/50 dark:bg-amber-950/10",
   running: "",
-  failed: "bg-red-50/30 dark:bg-red-950/10",
 };
 
 /** Status label for accessibility (shown alongside the dot). */
 const STATUS_ICON_LABEL: Record<string, string> = {
-  waiting: "Waiting",
-  stuck: "Stuck",
+  attention: "Needs Attention",
   running: "Running",
-  completed: "Done",
-  failed: "Failed",
-  killed: "Killed",
-  paused: "Paused",
-  interrupted: "Interrupted",
-  idle: "Idle",
   done: "Done",
 };
 
@@ -98,7 +89,7 @@ export function SidebarTree({
         const isExpanded = expandedRepos.has(repo.id);
         const ghUrl = repo.githubUrl;
         const repoName = ghUrl.split("/").slice(-2).join("/") || ghUrl || "unknown";
-        const waitingCount = repoSessions.filter((s) => s.status === "waiting").length;
+        const waitingCount = repoSessions.filter((s) => s.status === "attention").length;
         const issueCount = issueCountsByRepo[repo.id] ?? 0;
         const isTasksActive = activeView === "tasks" && tasksRepoId === repo.id;
 

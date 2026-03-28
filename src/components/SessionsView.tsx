@@ -61,7 +61,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
   }
 
   function handleInterrupt(id: string) {
-    updateSession(id, { status: "idle", stateChangedAt: Date.now() });
+    updateSession(id, { status: "attention", stateChangedAt: Date.now() });
   }
 
   function handleResume(id: string) {
@@ -109,7 +109,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
         const repoSessions = sessionsByRepo.get(repo.id) ?? [];
         const isCollapsed = collapsedRepos.has(repo.id);
         const activeCount = repoSessions.filter(
-          (s) => s.status === "running" || s.status === "waiting",
+          (s) => s.status === "running" || s.status === "attention",
         ).length;
 
         return (
@@ -165,7 +165,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                         onView={onViewSession}
                         onInterrupt={s.status === "running" ? handleInterrupt : undefined}
                         onResume={
-                          s.status === "idle" || s.status === "paused" ? handleResume : undefined
+                          s.status === "attention" ? handleResume : undefined
                         }
                       />
                     ))}
@@ -193,7 +193,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                   session={s}
                   onView={onViewSession}
                   onInterrupt={s.status === "running" ? handleInterrupt : undefined}
-                  onResume={s.status === "idle" || s.status === "paused" ? handleResume : undefined}
+                  onResume={s.status === "attention" ? handleResume : undefined}
                 />
               ))}
             </div>

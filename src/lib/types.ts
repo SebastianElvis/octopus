@@ -1,15 +1,4 @@
-export type SessionStatus =
-  | "waiting"
-  | "running"
-  | "idle"
-  | "done"
-  | "completed"
-  | "failed"
-  | "killed"
-  | "paused"
-  | "stuck"
-  | "interrupted"
-  | "archived";
+export type SessionStatus = "attention" | "running" | "done";
 export type BlockType = "permission" | "confirmation" | "question" | "input";
 
 /** Raw session shape returned by the Tauri backend (camelCase of Rust fields). */
@@ -56,7 +45,7 @@ export function mapBackendSession(raw: BackendSession): Session {
     repo: raw.repoId ?? "",
     repoId: raw.repoId ?? "",
     branch: raw.branch ?? "",
-    status: (raw.status ?? "idle") as SessionStatus,
+    status: (raw.status ?? "attention") as SessionStatus,
     blockType: raw.blockType as BlockType | undefined,
     lastMessage: raw.lastMessage,
     worktreePath: raw.worktreePath,

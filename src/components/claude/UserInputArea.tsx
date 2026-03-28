@@ -71,8 +71,8 @@ export function UserInputArea({
   );
 
   const isRunning = sessionStatus === "running";
-  const isFinished = ["completed", "done", "failed", "killed"].includes(sessionStatus);
-  const isWaiting = sessionStatus === "waiting";
+  const isFinished = sessionStatus === "done";
+  const isWaiting = sessionStatus === "attention";
   const isWaitingPermission = isWaiting && blockType === "permission";
   const isWaitingQuestion = isWaiting && (blockType === "question" || blockType === "input");
   const isWaitingConfirmation = isWaiting && blockType === "confirmation";
@@ -244,24 +244,11 @@ export function UserInputArea({
   // Status line content
   function getStatusInfo(): { label: string; color: string } | null {
     if (isRunning) return { label: "Claude is working...", color: "bg-green-500" };
-    if (isFinished) {
-      const labels: Record<string, string> = {
-        completed: "Session completed",
-        done: "Session completed",
-        failed: "Session failed",
-        killed: "Session killed",
-      };
-      return { label: labels[sessionStatus] ?? "Session ended", color: "bg-gray-400" };
-    }
+    if (isFinished) return { label: "Session done", color: "bg-gray-400" };
     return null;
   }
 
   const statusInfo = getStatusInfo();
-
-  // For paused with no meaningful state, hide entirely
-  if (!isRunning && !isFinished && !isWaiting && sessionStatus !== "idle") {
-    return null;
-  }
 
   return (
     <div className="border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">

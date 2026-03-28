@@ -89,25 +89,25 @@ describe("DispatchBoard", () => {
   it("renders three kanban columns", () => {
     useSessionStore.setState({
       sessions: [
-        makeSession({ id: "s1", status: "waiting" }),
+        makeSession({ id: "s1", status: "attention" }),
         makeSession({ id: "s2", status: "running" }),
-        makeSession({ id: "s3", status: "completed" }),
+        makeSession({ id: "s3", status: "done" }),
       ],
     });
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
     expect(screen.getByText("Needs Attention")).toBeInTheDocument();
     expect(screen.getByText("Running")).toBeInTheDocument();
-    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getByText("Done")).toBeInTheDocument();
   });
 
   it("categorizes sessions into correct columns", () => {
     useSessionStore.setState({
       sessions: [
-        makeSession({ id: "s1", name: "Waiting one", status: "waiting" }),
+        makeSession({ id: "s1", name: "Waiting one", status: "attention" }),
         makeSession({ id: "s2", name: "Running one", status: "running" }),
-        makeSession({ id: "s3", name: "Done one", status: "completed" }),
-        makeSession({ id: "s4", name: "Stuck one", status: "stuck" }),
+        makeSession({ id: "s3", name: "Done one", status: "done" }),
+        makeSession({ id: "s4", name: "Stuck one", status: "attention" }),
       ],
     });
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
@@ -121,20 +121,20 @@ describe("DispatchBoard", () => {
   it("shows fleet summary counts", () => {
     useSessionStore.setState({
       sessions: [
-        makeSession({ id: "s1", status: "waiting" }),
+        makeSession({ id: "s1", status: "attention" }),
         makeSession({ id: "s2", status: "running" }),
         makeSession({ id: "s3", status: "running" }),
-        makeSession({ id: "s4", status: "completed" }),
-        makeSession({ id: "s5", status: "failed" }),
+        makeSession({ id: "s4", status: "done" }),
+        makeSession({ id: "s5", status: "done" }),
       ],
     });
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
     expect(screen.getByText("5 total")).toBeInTheDocument();
-    // Fleet summary bar has labels: "attention", "running", "completed", "failed"
-    expect(screen.getByText("attention")).toBeInTheDocument();
-    // "completed" appears in both summary and card, so check it exists
-    expect(screen.getAllByText("completed").length).toBeGreaterThanOrEqual(1);
+    // Fleet summary bar has labels: "attention", "running", "done"
+    // "attention" and "done" appear in both summary pills and card status badges
+    expect(screen.getAllByText("attention").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("done").length).toBeGreaterThanOrEqual(1);
   });
 
   it("search filters sessions by name", () => {
@@ -179,7 +179,7 @@ describe("DispatchBoard", () => {
 
     expect(screen.getByText("No sessions need your attention right now.")).toBeInTheDocument();
     expect(
-      screen.getByText("Completed, failed, and idle sessions will appear here."),
+      screen.getByText("Finished sessions will appear here."),
     ).toBeInTheDocument();
   });
 });

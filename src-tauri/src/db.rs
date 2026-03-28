@@ -80,18 +80,18 @@ pub fn create_schema(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
-/// Mark any sessions that were running/waiting/paused/stuck when the app last
-/// exited as "interrupted".  Their OS processes are gone after a restart.
+/// Mark any sessions that were running when the app last exited as "attention".
+/// Their OS processes are gone after a restart.
 pub fn reap_orphaned_sessions(conn: &Connection) -> usize {
     let now = chrono::Utc::now().to_rfc3339();
     match conn.execute(
-        "UPDATE sessions SET status = 'interrupted', state_changed_at = ?1 \
-         WHERE status IN ('running', 'waiting', 'paused', 'stuck')",
+        "UPDATE sessions SET status = 'attention', state_changed_at = ?1 \
+         WHERE status = 'running'",
         rusqlite::params![now],
     ) {
         Ok(n) => {
             if n > 0 {
-                log::info!("Reaped {} orphaned session(s) → interrupted", n);
+                log::info!("Reaped {} orphaned session(s) → attention", n);
             }
             n
         }
@@ -100,6 +100,18 @@ pub fn reap_orphaned_sessions(conn: &Connection) -> usize {
             0
         }
     }
+}
+
+/// Migrate old session statuses to the new simplified enum.
+/// Maps: waiting, completed, failed, killed, paused, stuck, interrupted, idle → attention
+/// Maps: archived → done
+pub fn migrate_statuses(conn: &Connection) -> AppResult<()> {
+    conn.execute_batch(
+        "UPDATE sessions SET status = 'attention' WHERE status IN ('waiting', 'completed', 'failed', 'killed', 'paused', 'stuck', 'interrupted', 'idle');
+         UPDATE sessions SET status = 'done' WHERE status = 'archived';",
+    )?;
+    log::info!("Migrated session statuses to simplified enum");
+    Ok(())
 }
 
 /// Run a WAL checkpoint to flush the WAL file into the main database.
@@ -114,6 +126,7 @@ pub fn run_wal_checkpoint(conn: &Connection) {
 pub fn init_db() -> AppResult<Connection> {
     let conn = open_connection()?;
     create_schema(&conn)?;
+    migrate_statuses(&conn)?;
     Ok(conn)
 }
 
@@ -303,15 +316,11 @@ mod tests {
         )
         .expect("insert repo");
 
-        // Insert sessions with various statuses
+        // Insert sessions with the three valid statuses
         for (sid, status) in &[
             ("s1", "running"),
-            ("s2", "waiting"),
-            ("s3", "paused"),
-            ("s4", "stuck"),
-            ("s5", "completed"),
-            ("s6", "failed"),
-            ("s7", "idle"),
+            ("s2", "attention"),
+            ("s3", "done"),
         ] {
             conn.execute(
                 "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
@@ -329,17 +338,13 @@ mod tests {
         }
 
         let reaped = reap_orphaned_sessions(&conn);
-        assert_eq!(reaped, 4); // running, waiting, paused, stuck
+        assert_eq!(reaped, 1); // only running gets reaped
 
         // Verify each status
         for (sid, expected) in &[
-            ("s1", "interrupted"),
-            ("s2", "interrupted"),
-            ("s3", "interrupted"),
-            ("s4", "interrupted"),
-            ("s5", "completed"),
-            ("s6", "failed"),
-            ("s7", "idle"),
+            ("s1", "attention"),
+            ("s2", "attention"),
+            ("s3", "done"),
         ] {
             let status: String = conn
                 .query_row("SELECT status FROM sessions WHERE id = ?1", [sid], |row| {
@@ -368,7 +373,7 @@ mod tests {
                 "s1",
                 "nonexistent",
                 "orphan",
-                "idle",
+                "attention",
                 "2024-01-01",
                 "2024-01-01"
             ],
@@ -469,7 +474,7 @@ mod tests {
         conn.execute(
             "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params!["s1", "r1", "test", "idle", "2024-01-01", "2024-01-01"],
+            rusqlite::params!["s1", "r1", "test", "attention", "2024-01-01", "2024-01-01"],
         )
         .expect("insert session without dsp");
 

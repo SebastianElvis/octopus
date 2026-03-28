@@ -20,7 +20,7 @@ const mockSessions: BackendSession[] = [
     repoId: "repo-1",
     name: "Fix auth bug",
     branch: "fix-auth",
-    status: "waiting",
+    status: "attention",
     stateChangedAt: new Date().toISOString(),
   },
   {
@@ -36,7 +36,7 @@ const mockSessions: BackendSession[] = [
     repoId: "repo-1",
     name: "Refactor DB",
     branch: "refactor-db",
-    status: "completed",
+    status: "done",
     stateChangedAt: new Date().toISOString(),
   },
 ];
@@ -202,7 +202,7 @@ describe("App navigation", () => {
       render(<App />);
     });
 
-    // "waiting" session should cause badge "1" on Home nav
+    // "attention" session should cause badge "1" on Home nav
     await waitFor(() => {
       expect(screen.getAllByText("Fix auth bug").length).toBeGreaterThan(0);
     });

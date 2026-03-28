@@ -367,13 +367,13 @@ fn start_structured_reader(
         let was_interrupted = app_state.interrupted_sessions.lock().remove(&sid);
         let last_result = result_subtype.lock().unwrap().take();
         let final_status = match last_result.as_deref() {
-            Some("success") => "completed",
-            Some(_) if was_interrupted => "killed",
-            Some(_) => "failed",
-            None if was_interrupted => "killed",
+            Some("success") => "attention",
+            Some(_) if was_interrupted => "attention",
+            Some(_) => "attention",
+            None if was_interrupted => "attention",
             None => match child.wait() {
-                Ok(status) if status.success() => "completed",
-                _ => "failed",
+                Ok(status) if status.success() => "attention",
+                _ => "attention",
             },
         };
         log::info!(
@@ -622,7 +622,7 @@ pub async fn interrupt_session(
         log::info!("Sent SIGINT to session {} (pid {})", id, process.pid);
     }
 
-    // Mark as interrupted so the reader thread uses "killed" instead of "completed"
+    // Mark as interrupted so the reader thread knows the user explicitly stopped this
     state.interrupted_sessions.lock().insert(id.clone());
 
     // Print-mode sessions have no stdin, so we skip writing a message
@@ -715,7 +715,7 @@ pub async fn kill_session(
     Ok(())
 }
 
-/// Return all non-archived sessions from the database.
+/// Return all non-done sessions from the database.
 #[tauri::command]
 pub async fn list_sessions(state: State<'_, AppState>) -> AppResult<Vec<Session>> {
     let db = state.db.lock();
@@ -724,12 +724,12 @@ pub async fn list_sessions(state: State<'_, AppState>) -> AppResult<Vec<Session>
         "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
          linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
          dangerously_skip_permissions, last_message \
-         FROM sessions WHERE status != 'archived' ORDER BY created_at DESC",
+         FROM sessions ORDER BY created_at DESC",
         &[],
     )
 }
 
-/// Archive a session: stop its process (if running) and set status to "archived".
+/// Archive a session: stop its process (if running) and set status to "done".
 /// Unlike kill_session, this preserves the session record and worktree.
 #[tauri::command]
 pub async fn archive_session(
@@ -773,12 +773,12 @@ pub async fn archive_session(
         lo.remove(&id);
     }
 
-    // Update status to archived
+    // Update status to done
     let now = chrono::Utc::now().to_rfc3339();
     let session = {
         let db = state.db.lock();
         db.execute(
-            "UPDATE sessions SET status = 'archived', state_changed_at = ?1 WHERE id = ?2",
+            "UPDATE sessions SET status = 'done', state_changed_at = ?1 WHERE id = ?2",
             rusqlite::params![now, id],
         )?;
         query_session_by_id(&db, &id)?
@@ -823,14 +823,13 @@ pub async fn pause_session(
         }
     }
 
-    update_session_status(&app, &id, "paused")?;
+    update_session_status(&app, &id, "attention")?;
     emit_session_changed(&app, &id);
     Ok(())
 }
 
-/// Resume a session. If the process is still alive (paused), send SIGCONT.
-/// If the process is dead (interrupted/failed/stuck), re-spawn claude in
-/// the existing worktree.
+/// Resume a session. If the process is still alive (paused/attention), send SIGCONT.
+/// If the process is dead, re-spawn claude in the existing worktree.
 #[tauri::command]
 pub async fn resume_session(
     app: AppHandle,
@@ -1059,7 +1058,7 @@ pub async fn send_followup(
     Ok(())
 }
 
-/// Flag sessions with no output for >20 minutes as "stuck".
+/// Flag sessions with no output for >20 minutes as "attention".
 #[tauri::command]
 pub async fn check_stuck_sessions(
     app: AppHandle,
@@ -1109,7 +1108,7 @@ pub async fn check_stuck_sessions(
 
         if is_stuck {
             log::warn!("Session {} appears stuck", sid);
-            update_session_status(&app, sid, "stuck")?;
+            update_session_status(&app, sid, "attention")?;
             emit_session_changed(&app, sid);
             stuck_ids.push(sid.clone());
         }
@@ -1337,7 +1336,7 @@ mod tests {
             conn.execute(
                 "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at, dangerously_skip_permissions)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                rusqlite::params![sid, "r1", name, "idle", "2024-01-01", "2024-01-01", 0],
+                rusqlite::params![sid, "r1", name, "attention", "2024-01-01", "2024-01-01", 0],
             )
             .expect("insert session");
         }
@@ -1418,7 +1417,7 @@ mod tests {
         conn.execute(
             "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at, dangerously_skip_permissions)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            rusqlite::params!["s1", "r1", "test", "idle", "2024-01-01", "2024-01-01", 1],
+            rusqlite::params!["s1", "r1", "test", "attention", "2024-01-01", "2024-01-01", 1],
         )
         .expect("insert");
 

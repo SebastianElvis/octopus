@@ -72,7 +72,7 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
         terminal.write(chunk);
       }
     } else if (
-      ["done", "completed", "failed", "killed", "idle", "interrupted"].includes(sessionStatus)
+      sessionStatus === "done" || sessionStatus === "attention"
     ) {
       // Try to replay saved log output
       if (isTauri()) {

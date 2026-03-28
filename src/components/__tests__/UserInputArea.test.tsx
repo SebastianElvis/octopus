@@ -35,19 +35,14 @@ describe("UserInputArea", () => {
       ).toBeInTheDocument();
     });
 
-    it("shows textarea for idle state", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="idle" />);
-      expect(screen.getByPlaceholderText("Send a message...")).toBeInTheDocument();
-    });
-
-    it("shows textarea for completed state", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="completed" />);
-      expect(screen.getByPlaceholderText("Send a follow-up message...")).toBeInTheDocument();
-    });
-
-    it("shows textarea for waiting state", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="waiting" />);
+    it("shows textarea for attention state", () => {
+      render(<UserInputArea sessionId="s1" sessionStatus="attention" />);
       expect(screen.getByPlaceholderText("Type your response...")).toBeInTheDocument();
+    });
+
+    it("shows textarea for done state", () => {
+      render(<UserInputArea sessionId="s1" sessionStatus="done" />);
+      expect(screen.getByPlaceholderText("Send a follow-up message...")).toBeInTheDocument();
     });
   });
 
@@ -69,7 +64,7 @@ describe("UserInputArea", () => {
       render(
         <UserInputArea
           sessionId="s1"
-          sessionStatus="waiting"
+          sessionStatus="attention"
           blockType="permission"
           lastMessage="Claude wants to write to main.ts"
         />,
@@ -79,21 +74,21 @@ describe("UserInputArea", () => {
     });
 
     it("disables textarea when waiting for permission", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="waiting" blockType="permission" />);
+      render(<UserInputArea sessionId="s1" sessionStatus="attention" blockType="permission" />);
       expect(
         screen.getByPlaceholderText("Waiting for permission approval..."),
       ).toBeDisabled();
     });
 
     it("shows waiting status indicator", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="waiting" blockType="permission" />);
+      render(<UserInputArea sessionId="s1" sessionStatus="attention" blockType="permission" />);
       expect(screen.getByText("Waiting for your input")).toBeInTheDocument();
     });
   });
 
   describe("waiting for text input", () => {
     it("shows text input and Send button for question blockType", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="waiting" blockType="question" />);
+      render(<UserInputArea sessionId="s1" sessionStatus="attention" blockType="question" />);
       expect(screen.getByPlaceholderText("Type your response...")).toBeInTheDocument();
       expect(screen.getByTitle("Send (Enter)")).toBeInTheDocument();
     });
@@ -102,7 +97,7 @@ describe("UserInputArea", () => {
       render(
         <UserInputArea
           sessionId="s1"
-          sessionStatus="waiting"
+          sessionStatus="attention"
           blockType="question"
           lastMessage="What file should I edit?"
         />,
@@ -114,7 +109,7 @@ describe("UserInputArea", () => {
       render(
         <UserInputArea
           sessionId="s1"
-          sessionStatus="waiting"
+          sessionStatus="attention"
           blockType="confirmation"
           lastMessage="Are you sure?"
         />,
@@ -125,22 +120,22 @@ describe("UserInputArea", () => {
     });
 
     it("shows text input for input blockType", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="waiting" blockType="input" />);
+      render(<UserInputArea sessionId="s1" sessionStatus="attention" blockType="input" />);
       expect(screen.getByPlaceholderText("Type your response...")).toBeInTheDocument();
     });
 
     it("shows text input when waiting with no blockType", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="waiting" />);
+      render(<UserInputArea sessionId="s1" sessionStatus="attention" />);
       expect(screen.getByPlaceholderText("Type your response...")).toBeInTheDocument();
     });
 
     it("disables Send button when input is empty", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="waiting" />);
+      render(<UserInputArea sessionId="s1" sessionStatus="attention" />);
       expect(screen.getByTitle("Send (Enter)")).toBeDisabled();
     });
 
     it("enables Send button when input has text", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="waiting" />);
+      render(<UserInputArea sessionId="s1" sessionStatus="attention" />);
       fireEvent.change(screen.getByPlaceholderText("Type your response..."), {
         target: { value: "my response" },
       });
@@ -148,32 +143,10 @@ describe("UserInputArea", () => {
     });
   });
 
-  describe("completed states", () => {
-    it("shows 'Session completed' for completed status", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="completed" />);
-      expect(screen.getByText("Session completed")).toBeInTheDocument();
-    });
-
-    it("shows 'Session completed' for done status", () => {
+  describe("done state", () => {
+    it("shows 'Session done' for done status", () => {
       render(<UserInputArea sessionId="s1" sessionStatus="done" />);
-      expect(screen.getByText("Session completed")).toBeInTheDocument();
-    });
-
-    it("shows 'Session failed' for failed status", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="failed" />);
-      expect(screen.getByText("Session failed")).toBeInTheDocument();
-    });
-
-    it("shows 'Session killed' for killed status", () => {
-      render(<UserInputArea sessionId="s1" sessionStatus="killed" />);
-      expect(screen.getByText("Session killed")).toBeInTheDocument();
-    });
-  });
-
-  describe("paused state", () => {
-    it("renders nothing for paused status", () => {
-      const { container } = render(<UserInputArea sessionId="s1" sessionStatus="paused" />);
-      expect(container.innerHTML).toBe("");
+      expect(screen.getByText("Session done")).toBeInTheDocument();
     });
   });
 });

@@ -3,7 +3,6 @@ import { timeAgo } from "../lib/utils";
 import {
   killSession as tauriKillSession,
   resumeSession as tauriResumeSession,
-  retrySession,
   readSessionLog,
   fetchIssues,
   fetchPRs,
@@ -125,7 +124,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     if (!session) return;
     try {
       await tauriKillSession(session.id);
-      updateSession(session.id, { status: "killed", stateChangedAt: Date.now() });
+      updateSession(session.id, { status: "attention", stateChangedAt: Date.now() });
       onBack();
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to kill session:", err);
@@ -144,15 +143,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
       updateSession(session.id, { status: "running", stateChangedAt: Date.now() });
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to resume session:", err);
-    }
-  }
-
-  async function handleRetry() {
-    if (!session) return;
-    try {
-      await retrySession(session.id);
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to retry session:", err);
     }
   }
 
@@ -216,7 +206,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {session.status === "interrupted" && (
+          {session.status === "attention" && (
             <button
               onClick={() => {
                 void handleResume();
@@ -226,17 +216,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               Resume
             </button>
           )}
-          {(session.status === "failed" || session.status === "stuck") && (
-            <button
-              onClick={() => {
-                void handleRetry();
-              }}
-              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            >
-              Retry
-            </button>
-          )}
-          {(session.status === "failed" || session.status === "stuck") && (
+          {session.status === "attention" && (
             <button
               onClick={() => {
                 void handleViewLog();
@@ -247,7 +227,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               {logLoading ? "Loading..." : centerTab === "log" ? "Hide Log" : "View Full Log"}
             </button>
           )}
-          {session.status === "waiting" && recap && (
+          {session.status === "attention" && recap && (
             <button
               onClick={() => {
                 handleToggleRecap();
@@ -288,25 +268,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           )}
         </div>
       </div>
-
-      {/* Stuck warning */}
-      {session.status === "stuck" && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-orange-200 bg-orange-50 px-4 py-2 dark:border-orange-800/60 dark:bg-orange-950/30">
-          <span className="text-xs font-medium text-orange-700 dark:text-orange-400">
-            Session stuck -- no output for 20+ minutes
-          </span>
-        </div>
-      )}
-
-      {/* Interrupted warning */}
-      {session.status === "interrupted" && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800/60 dark:bg-amber-950/30">
-          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-            Session interrupted -- the app was restarted while this session was active. Click Resume
-            to continue.
-          </span>
-        </div>
-      )}
 
       {/* Main IDE area */}
       <div className="flex flex-1 overflow-hidden">
