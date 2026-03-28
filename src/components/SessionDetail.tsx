@@ -352,6 +352,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                 blockType={session.blockType}
                 lastMessage={session.lastMessage}
                 visible={centerTab === "claude"}
+                prompt={session.prompt}
               />
             </div>
 

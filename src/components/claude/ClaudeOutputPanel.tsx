@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { useSessionStore } from "../../stores/sessionStore";
 import type { SessionStatus, BlockType, ClaudeMessage } from "../../lib/types";
 import { MessageBlock } from "./MessageBlock";
@@ -13,6 +13,7 @@ interface ClaudeOutputPanelProps {
   blockType?: string;
   lastMessage?: string;
   visible?: boolean;
+  prompt?: string;
 }
 
 export function ClaudeOutputPanel({
@@ -21,6 +22,7 @@ export function ClaudeOutputPanel({
   blockType,
   lastMessage,
   visible = true,
+  prompt,
 }: ClaudeOutputPanelProps) {
   const messages = useSessionStore((s) => s.messageBuffers[sessionId] ?? EMPTY_MESSAGES);
   const streamingMessage = useSessionStore((s) => s.streamingMessage[sessionId] ?? null);
@@ -32,7 +34,27 @@ export function ClaudeOutputPanel({
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
 
-  const allMessages = streamingMessage ? [...messages, streamingMessage] : messages;
+  // Inject the initial prompt as a user message right after "Session initialized"
+  const messagesWithPrompt = useMemo(() => {
+    if (!prompt) return messages;
+    // Check if we already have a prompt message injected (avoid duplicates on re-render)
+    if (messages.some((m) => m.id === "initial-prompt")) return messages;
+    const initIdx = messages.findIndex(
+      (m) => m.role === "system" && m.blocks.some((b) => b.type === "text" && b.text === "Session initialized"),
+    );
+    if (initIdx === -1) return messages;
+    const promptMsg: ClaudeMessage = {
+      id: "initial-prompt",
+      role: "user",
+      blocks: [{ type: "text", text: prompt }],
+      timestamp: messages[initIdx].timestamp,
+    };
+    const result = [...messages];
+    result.splice(initIdx + 1, 0, promptMsg);
+    return result;
+  }, [messages, prompt]);
+
+  const allMessages = streamingMessage ? [...messagesWithPrompt, streamingMessage] : messagesWithPrompt;
   const isEmpty = allMessages.length === 0;
 
   // Load message history from log file on mount (if buffer is empty)
