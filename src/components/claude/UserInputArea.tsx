@@ -5,7 +5,7 @@ import { interruptSession, sendFollowup, saveTempImage, scanSlashCommands } from
 import { useSessionStore } from "../../stores/sessionStore";
 import type { SlashCommand } from "./SlashCommandMenu";
 import { PermissionBanner } from "./PermissionBanner";
-import { SlashCommandMenu, filterCommands } from "./SlashCommandMenu";
+import { SlashCommandMenu, filterCommands, buildCommandList } from "./SlashCommandMenu";
 
 interface AttachedImage {
   id: string;
@@ -45,11 +45,11 @@ export function UserInputArea({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addOptimisticUserMessage = useSessionStore((s) => s.addOptimisticUserMessage);
 
-  // Get the session's worktree path and tools from the store
+  // Get the session's worktree path and init info from the store
   const worktreePath = useSessionStore(
     (s) => s.sessions.find((sess) => sess.id === sessionId)?.worktreePath,
   );
-  const sessionTools = useSessionStore((s) => s.sessionTools[sessionId]);
+  const sessionInitInfo = useSessionStore((s) => s.sessionInitInfo[sessionId]);
 
   // Load filesystem-discovered commands on mount (project + personal custom commands/skills)
   useEffect(() => {
@@ -64,42 +64,11 @@ export function UserInputArea({
     });
   }, [worktreePath]);
 
-  // Merge filesystem commands with session tools into a single dynamic commands list
-  const dynamicCommands = useMemo(() => {
-    const all: SlashCommand[] = [...fsCommands];
-    if (sessionTools) {
-      console.debug(
-        `[UserInputArea] Merging ${sessionTools.length} session tools for session=${sessionId}` +
-          ` with ${fsCommands.length} fs commands`,
-      );
-      // Add tools that look like slash commands (e.g. MCP prompts)
-      // and tools not already in the built-in or fs list
-      const existing = new Set([
-        ...fsCommands.map((c) => c.command),
-      ]);
-      for (const tool of sessionTools) {
-        if (!tool || typeof tool.name !== "string") {
-          console.error(
-            `[UserInputArea] Unexpected invalid tool in sessionTools for session=${sessionId}:` +
-              ` type=${typeof tool}, value=${JSON.stringify(tool)}` +
-              ` — this should have been filtered by validSessionTools.` +
-              ` Full sessionTools: ${JSON.stringify(sessionTools)}`,
-          );
-          continue;
-        }
-        const cmd = tool.name.startsWith("/") ? tool.name : `/${tool.name}`;
-        if (!existing.has(cmd)) {
-          all.push({
-            command: cmd,
-            description: tool.description ?? `Tool: ${tool.name}`,
-            category: "tool",
-          });
-          existing.add(cmd);
-        }
-      }
-    }
-    return all.length > 0 ? all : undefined;
-  }, [fsCommands, sessionTools, sessionId]);
+  // Build command list from init info (dynamic) or fall back to hardcoded list
+  const allCommands = useMemo(
+    () => buildCommandList(sessionInitInfo, fsCommands),
+    [sessionInitInfo, fsCommands],
+  );
 
   const isRunning = sessionStatus === "running";
   const isFinished = ["completed", "done", "failed", "killed"].includes(sessionStatus);
@@ -128,7 +97,7 @@ export function UserInputArea({
   const slashQuery = slashMenuOpen && inputText.startsWith("/")
     ? inputText.slice(1).split(" ")[0]
     : "";
-  const slashFiltered = slashMenuOpen ? filterCommands(slashQuery, dynamicCommands) : [];
+  const slashFiltered = slashMenuOpen ? filterCommands(slashQuery, allCommands) : [];
 
   // Image handling
   const addImages = useCallback((files: FileList | File[]) => {
@@ -402,7 +371,7 @@ export function UserInputArea({
             selectedIndex={slashSelectedIndex}
             onSelect={handleSlashSelect}
             onHover={setSlashSelectedIndex}
-            dynamicCommands={dynamicCommands}
+            commands={allCommands}
           />
         )}
         <div className="rounded-xl border border-gray-200 bg-gray-50 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-1 focus-within:ring-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-blue-500 dark:focus-within:bg-gray-950 dark:focus-within:ring-blue-500">
