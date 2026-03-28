@@ -67,7 +67,27 @@ function processEvent(state: MessageState, event: ClaudeStreamEvent): MessageSta
     messages.push(msg);
     streaming = null;
   } else if (event.type === "user") {
-    // User message (tool results, replayed prompts)
+    // Replace optimistic user message if the text matches
+    const lastMsg = messages[messages.length - 1];
+    const incomingText = event.message.content.find((b: { type: string }) => b.type === "text");
+    if (
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- lastMsg can be undefined (empty array)
+      lastMsg?.role === "user" &&
+      lastMsg.id.startsWith("optimistic-") &&
+      incomingText &&
+      "text" in incomingText
+    ) {
+      const lastText = lastMsg.blocks.find((b) => b.type === "text");
+      if (lastText?.type === "text" && lastText.text === incomingText.text) {
+        messages[messages.length - 1] = {
+          id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          role: "user",
+          blocks: event.message.content,
+          timestamp: Date.now(),
+        };
+        return { messages, streaming };
+      }
+    }
     messages.push({
       id: `user-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       role: "user",
@@ -86,22 +106,80 @@ function processEvent(state: MessageState, event: ClaudeStreamEvent): MessageSta
         blocks: [{ type: "text", text: event.result }],
         timestamp: Date.now(),
       });
-    } else if (event.subtype === "error" && event.error) {
+    } else if (event.subtype !== "success") {
+      // Handle all error subtypes: error_max_turns, error_during_execution,
+      // error_max_budget_usd, error_max_structured_output_retries, etc.
+      const errorLabels: Record<string, string> = {
+        error_max_turns: "Max turns reached",
+        error_during_execution: "Error during execution",
+        error_max_budget_usd: "Budget limit exceeded",
+        error_max_structured_output_retries: "Max structured output retries exceeded",
+      };
+      const label = errorLabels[event.subtype] ?? "Error";
+      const detail = event.error ?? event.errors?.join("; ") ?? "";
+      const text = detail ? `${label}: ${detail}` : label;
       messages.push({
         id: `error-${Date.now()}`,
         role: "system",
-        blocks: [{ type: "text", text: `Error: ${event.error}` }],
+        blocks: [{ type: "text", text }],
         timestamp: Date.now(),
       });
     }
   } else if (event.type === "system") {
-    messages.push({
-      id: `system-${Date.now()}`,
-      role: "system",
-      blocks: [{ type: "text", text: "Session initialized" }],
-      timestamp: Date.now(),
-    });
+    const subtype = event.subtype;
+    if (subtype === "init") {
+      messages.push({
+        id: `system-${Date.now()}`,
+        role: "system",
+        blocks: [{ type: "text", text: "Session initialized" }],
+        timestamp: Date.now(),
+      });
+    } else if (subtype === "api_retry") {
+      const attempt = event.attempt ?? 0;
+      const maxRetries = event.max_retries ?? 0;
+      const reason = event.error ?? "unknown error";
+      messages.push({
+        id: `system-retry-${Date.now()}`,
+        role: "system",
+        blocks: [{ type: "text", text: `Retrying API call (${attempt}/${maxRetries}): ${reason}` }],
+        timestamp: Date.now(),
+      });
+    } else if (subtype === "status" && event.status === "compacting") {
+      messages.push({
+        id: `system-compact-${Date.now()}`,
+        role: "system",
+        blocks: [{ type: "text", text: "Compacting conversation..." }],
+        timestamp: Date.now(),
+      });
+    } else if (subtype === "task_notification") {
+      const summary = event.summary ?? "Task completed";
+      messages.push({
+        id: `system-task-${Date.now()}`,
+        role: "system",
+        blocks: [{ type: "text", text: summary }],
+        timestamp: Date.now(),
+      });
+    }
+    // Other system subtypes (hook_started, hook_progress, hook_response,
+    // task_started, task_progress, compact_boundary, files_persisted,
+    // local_command_output) are intentionally ignored — they don't need
+    // to be rendered as chat messages.
+  } else if (event.type === "rate_limit_event") {
+    const info = event.rate_limit_info;
+    if (info.status === "rejected" || info.status === "allowed_warning") {
+      const resets = info.resetsAt
+        ? ` Resets at ${new Date(info.resetsAt * 1000).toLocaleTimeString()}.`
+        : "";
+      const label = info.status === "rejected" ? "Rate limited" : "Approaching rate limit";
+      messages.push({
+        id: `system-ratelimit-${Date.now()}`,
+        role: "system",
+        blocks: [{ type: "text", text: `${label}.${resets}` }],
+        timestamp: Date.now(),
+      });
+    }
   }
+  // tool_progress, error, and unknown event types are silently ignored
 
   return { messages, streaming };
 }
@@ -110,11 +188,19 @@ function processEvent(state: MessageState, event: ClaudeStreamEvent): MessageSta
 // Store
 // ---------------------------------------------------------------------------
 
+/** Tools discovered from a session's init event */
+export interface SessionTool {
+  name: string;
+  description?: string;
+}
+
 interface SessionState {
   sessions: Session[];
   outputBuffers: Record<string, string[]>;
   messageBuffers: Record<string, ClaudeMessage[]>;
   streamingMessage: Record<string, ClaudeMessage | null>;
+  /** Tools reported by each session's system init event */
+  sessionTools: Record<string, SessionTool[]>;
   sessionsLoading: boolean;
   sessionsError: string | null;
 
@@ -124,10 +210,9 @@ interface SessionState {
   removeSession: (id: string) => void;
   appendOutput: (sessionId: string, line: string) => void;
   appendStructuredEvent: (sessionId: string, event: ClaudeStreamEvent) => void;
-  appendStructuredEvents: (
-    events: { sessionId: string; event: ClaudeStreamEvent }[],
-  ) => void;
+  appendStructuredEvents: (events: { sessionId: string; event: ClaudeStreamEvent }[]) => void;
   clearMessages: (sessionId: string) => void;
+  addOptimisticUserMessage: (sessionId: string, text: string) => void;
   loadSessionHistory: (sessionId: string) => Promise<void>;
   loadSessions: () => Promise<void>;
 }
@@ -137,6 +222,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   outputBuffers: {},
   messageBuffers: {},
   streamingMessage: {},
+  sessionTools: {},
   sessionsLoading: true,
   sessionsError: null,
 
@@ -169,10 +255,18 @@ export const useSessionStore = create<SessionState>((set) => ({
         },
         event,
       );
-      return {
+      const updates: Partial<SessionState> = {
         messageBuffers: { ...state.messageBuffers, [sessionId]: result.messages },
         streamingMessage: { ...state.streamingMessage, [sessionId]: result.streaming },
       };
+      // Capture tools from system init event
+      if (event.type === "system" && event.subtype === "init" && event.tools) {
+        updates.sessionTools = {
+          ...state.sessionTools,
+          [sessionId]: event.tools as SessionTool[],
+        };
+      }
+      return updates;
     }),
 
   // Batch version: processes many events in a single set() to avoid rapid re-renders
@@ -191,6 +285,7 @@ export const useSessionStore = create<SessionState>((set) => ({
 
       const newMessageBuffers = { ...state.messageBuffers };
       const newStreamingMessage = { ...state.streamingMessage };
+      let newSessionTools = state.sessionTools;
 
       for (const [sessionId, sessionEvents] of bySession) {
         let msgState: MessageState = {
@@ -199,12 +294,23 @@ export const useSessionStore = create<SessionState>((set) => ({
         };
         for (const event of sessionEvents) {
           msgState = processEvent(msgState, event);
+          // Capture tools from system init event
+          if (event.type === "system" && event.subtype === "init" && event.tools) {
+            newSessionTools = {
+              ...newSessionTools,
+              [sessionId]: event.tools as SessionTool[],
+            };
+          }
         }
         newMessageBuffers[sessionId] = msgState.messages;
         newStreamingMessage[sessionId] = msgState.streaming;
       }
 
-      return { messageBuffers: newMessageBuffers, streamingMessage: newStreamingMessage };
+      return {
+        messageBuffers: newMessageBuffers,
+        streamingMessage: newStreamingMessage,
+        sessionTools: newSessionTools,
+      };
     }),
 
   clearMessages: (sessionId) =>
@@ -213,10 +319,26 @@ export const useSessionStore = create<SessionState>((set) => ({
       streamingMessage: { ...state.streamingMessage, [sessionId]: null },
     })),
 
+  addOptimisticUserMessage: (sessionId, text) =>
+    set((state) => ({
+      messageBuffers: {
+        ...state.messageBuffers,
+        [sessionId]: [
+          ...(state.messageBuffers[sessionId] ?? []),
+          {
+            id: `optimistic-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            role: "user" as const,
+            blocks: [{ type: "text" as const, text }],
+            timestamp: Date.now(),
+          },
+        ],
+      },
+    })),
+
   loadSessionHistory: async (sessionId: string) => {
-    // Skip if we already have messages for this session
-    const existing = useSessionStore.getState().messageBuffers[sessionId];
-    if (existing && existing.length > 0) return;
+    // Skip if we already have messages or active streaming for this session
+    const { messageBuffers, streamingMessage: streamMap } = useSessionStore.getState();
+    if ((messageBuffers[sessionId] ?? []).length > 0 || streamMap[sessionId] != null) return;
 
     try {
       const events = await readSessionEvents(sessionId);
@@ -225,7 +347,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       // Replay all events to build message history
       let msgState: MessageState = { messages: [], streaming: null };
       for (const event of events) {
-        msgState = processEvent(msgState, event as ClaudeStreamEvent);
+        msgState = processEvent(msgState, event);
       }
 
       // Finalize any remaining streaming message
@@ -233,10 +355,18 @@ export const useSessionStore = create<SessionState>((set) => ({
         msgState.messages.push({ ...msgState.streaming, isStreaming: false });
       }
 
-      set((state) => ({
-        messageBuffers: { ...state.messageBuffers, [sessionId]: msgState.messages },
-        streamingMessage: { ...state.streamingMessage, [sessionId]: null },
-      }));
+      set((s) => {
+        // Don't overwrite if live events have populated the store while we were loading
+        const currentMessages = s.messageBuffers[sessionId] ?? [];
+        const currentStreaming = s.streamingMessage[sessionId];
+        if (currentMessages.length > 0 || currentStreaming != null) {
+          return s;
+        }
+        return {
+          messageBuffers: { ...s.messageBuffers, [sessionId]: msgState.messages },
+          streamingMessage: { ...s.streamingMessage, [sessionId]: null },
+        };
+      });
     } catch (err) {
       console.error("[sessionStore] Failed to load session history:", formatError(err));
     }

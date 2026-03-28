@@ -26,9 +26,17 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
     void load();
 
     // Auto-refresh every 5s while running
-    if (sessionStatus !== "running") return () => { cancelled = true; };
-    const interval = setInterval(() => { void load(); }, 5000);
-    return () => { cancelled = true; clearInterval(interval); };
+    if (sessionStatus !== "running")
+      return () => {
+        cancelled = true;
+      };
+    const interval = setInterval(() => {
+      void load();
+    }, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [sessionId, sessionStatus]);
 
   if (!analytics) {
@@ -59,11 +67,7 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
         />
         <StatCard
           label="Duration"
-          value={
-            analytics.totalDurationMs > 0
-              ? formatDuration(analytics.totalDurationMs)
-              : "—"
-          }
+          value={analytics.totalDurationMs > 0 ? formatDuration(analytics.totalDurationMs) : "—"}
         />
         <StatCard
           label="Input tokens"
@@ -107,22 +111,22 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
             Recent Activity
           </h4>
           <div className="space-y-0.5">
-            {analytics.toolCalls.slice(-20).reverse().map((call, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 px-2 py-0.5 text-xs"
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${call.success ? "bg-green-500" : "bg-red-500"}`}
-                />
-                <span className="font-mono text-gray-600 dark:text-gray-400">
-                  {call.toolName}
-                </span>
-                <span className="ml-auto text-gray-400 dark:text-gray-500">
-                  {formatTime(call.timestamp)}
-                </span>
-              </div>
-            ))}
+            {analytics.toolCalls
+              .slice(-20)
+              .reverse()
+              .map((call, i) => (
+                <div key={i} className="flex items-center gap-2 px-2 py-0.5 text-xs">
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${call.success ? "bg-green-500" : "bg-red-500"}`}
+                  />
+                  <span className="font-mono text-gray-600 dark:text-gray-400">
+                    {call.toolName}
+                  </span>
+                  <span className="ml-auto text-gray-400 dark:text-gray-500">
+                    {formatTime(call.timestamp)}
+                  </span>
+                </div>
+              ))}
           </div>
         </div>
       )}
@@ -149,5 +153,9 @@ function formatDuration(ms: number): string {
 }
 
 function formatTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return new Date(ts).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }

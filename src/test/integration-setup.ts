@@ -30,14 +30,25 @@ Object.defineProperty(window, "matchMedia", {
 
 // Node 21+ ships a built-in localStorage that conflicts with jsdom's.
 // Ensure a working Storage implementation is available.
-if (typeof globalThis.localStorage === "undefined" || typeof globalThis.localStorage.setItem !== "function") {
+if (
+  typeof globalThis.localStorage === "undefined" ||
+  typeof globalThis.localStorage.setItem !== "function"
+) {
   const store: Record<string, string> = {};
   const storage = {
     getItem: (key: string) => store[key] ?? null,
-    setItem: (key: string, value: string) => { store[key] = String(value); },
-    removeItem: (key: string) => { delete store[key]; },
-    clear: () => { for (const k of Object.keys(store)) delete store[k]; },
-    get length() { return Object.keys(store).length; },
+    setItem: (key: string, value: string) => {
+      store[key] = String(value);
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      for (const k of Object.keys(store)) delete store[k];
+    },
+    get length() {
+      return Object.keys(store).length;
+    },
     key: (i: number) => Object.keys(store)[i] ?? null,
   };
   Object.defineProperty(globalThis, "localStorage", { value: storage, writable: true });
@@ -61,7 +72,10 @@ const mockAudioContext = {
   destination: {},
   currentTime: 0,
 };
-vi.stubGlobal("AudioContext", vi.fn(() => mockAudioContext));
+vi.stubGlobal(
+  "AudioContext",
+  vi.fn(() => mockAudioContext),
+);
 
 // Mock @tauri-apps/plugin-notification (not available outside Tauri runtime)
 vi.mock("@tauri-apps/plugin-notification", () => ({

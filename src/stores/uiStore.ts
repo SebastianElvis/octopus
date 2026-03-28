@@ -16,6 +16,7 @@ interface UIState {
   sidebarCollapsed: boolean;
   soundEnabled: boolean;
   terminalFontSize: number;
+  activeSessionId: string | null;
 
   setPanelSize: (key: keyof PanelSizes, value: number) => void;
   setRightPanelTab: (tab: RightPanelTab) => void;
@@ -23,6 +24,7 @@ interface UIState {
   toggleSidebar: () => void;
   toggleSound: () => void;
   setTerminalFontSize: (size: number) => void;
+  setActiveSessionId: (id: string | null) => void;
 }
 
 const STORAGE_KEY = "tmt-panel-sizes";
@@ -74,6 +76,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   sidebarCollapsed: false,
   soundEnabled: loadSoundPref(),
   terminalFontSize: loadTerminalFontSize(),
+  activeSessionId: null,
 
   setPanelSize: (key, value) => {
     const newSizes = { ...get().panelSizes, [key]: value };
@@ -101,4 +104,5 @@ export const useUIStore = create<UIState>((set, get) => ({
     }
     set({ terminalFontSize: size });
   },
+  setActiveSessionId: (id) => set({ activeSessionId: id }),
 }));

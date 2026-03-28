@@ -3,29 +3,49 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { ToolUseBlock } from "../claude/ToolUseBlock";
 
 describe("ToolUseBlock", () => {
-  it("renders tool name", () => {
+  it("renders action verb for tool", () => {
     render(<ToolUseBlock name="Read" input={{ file_path: "/src/main.ts" }} />);
     expect(screen.getByText("Read")).toBeInTheDocument();
   });
 
-  it("shows file_path summary for Read tool", () => {
-    render(<ToolUseBlock name="Read" input={{ file_path: "/src/main.ts" }} />);
-    expect(screen.getByText("/src/main.ts")).toBeInTheDocument();
-  });
-
-  it("shows file_path summary for Write tool", () => {
-    render(<ToolUseBlock name="Write" input={{ file_path: "/out/bundle.js" }} />);
-    expect(screen.getByText("/out/bundle.js")).toBeInTheDocument();
-  });
-
-  it("shows file_path summary for Edit tool", () => {
+  it("renders 'Edited' verb for Edit tool", () => {
     render(
       <ToolUseBlock
         name="Edit"
-        input={{ file_path: "/src/utils.ts", old_string: "foo", new_string: "bar" }}
+        input={{ file_path: "/src/main.ts", old_string: "a", new_string: "b" }}
       />,
     );
-    expect(screen.getByText("/src/utils.ts")).toBeInTheDocument();
+    expect(screen.getByText("Edited")).toBeInTheDocument();
+  });
+
+  it("renders 'Ran' verb for Bash tool", () => {
+    render(<ToolUseBlock name="Bash" input={{ command: "npm test" }} />);
+    expect(screen.getByText("Ran")).toBeInTheDocument();
+  });
+
+  it("shortens long file paths to last 2 segments", () => {
+    render(
+      <ToolUseBlock
+        name="Read"
+        input={{ file_path: "/Users/runchao/.toomanytabs/worktrees/honolulu/src/main.ts" }}
+      />,
+    );
+    expect(screen.getByText("src/main.ts")).toBeInTheDocument();
+  });
+
+  it("shows full path for short paths", () => {
+    render(<ToolUseBlock name="Read" input={{ file_path: "/src/main.ts" }} />);
+    expect(screen.getByText("src/main.ts")).toBeInTheDocument();
+  });
+
+  it("has tooltip with full path on shortened paths", () => {
+    const fullPath = "/Users/runchao/.toomanytabs/worktrees/honolulu/src/main.ts";
+    const { container } = render(
+      <ToolUseBlock name="Read" input={{ file_path: fullPath }} />,
+    );
+    const summarySpan = container.querySelector("[title]");
+    expect(summarySpan).toBeTruthy();
+    expect(summarySpan?.getAttribute("title")).toBe(fullPath);
   });
 
   it("shows pattern summary for Glob tool", () => {
@@ -38,15 +58,25 @@ describe("ToolUseBlock", () => {
     expect(screen.getByText("TODO")).toBeInTheDocument();
   });
 
+  it("shows Grep pattern with shortened path", () => {
+    render(
+      <ToolUseBlock
+        name="Grep"
+        input={{ pattern: "TODO", path: "/Users/runchao/project/src/lib" }}
+      />,
+    );
+    expect(screen.getByText("TODO in src/lib")).toBeInTheDocument();
+  });
+
   it("shows command summary for Bash tool", () => {
     render(<ToolUseBlock name="Bash" input={{ command: "npm test" }} />);
     expect(screen.getByText("npm test")).toBeInTheDocument();
   });
 
-  it("truncates long Bash commands to 80 chars", () => {
-    const longCommand = "a".repeat(100);
+  it("truncates long Bash commands to 120 chars", () => {
+    const longCommand = "a".repeat(150);
     render(<ToolUseBlock name="Bash" input={{ command: longCommand }} />);
-    expect(screen.getByText("a".repeat(80) + "...")).toBeInTheDocument();
+    expect(screen.getByText("a".repeat(120) + "...")).toBeInTheDocument();
   });
 
   it("shows no summary for unknown tools", () => {
@@ -92,17 +122,17 @@ describe("ToolUseBlock", () => {
     expect(screen.getByText("done")).toBeInTheDocument();
   });
 
-  it("shows streaming indicator when isStreaming", () => {
+  it("renders Bash command in code-style inline", () => {
     const { container } = render(
-      <ToolUseBlock name="Read" input={{}} isStreaming />,
+      <ToolUseBlock name="Bash" input={{ command: "npm test" }} />,
     );
-    expect(container.querySelector(".animate-pulse")).toBeTruthy();
+    const codeSpan = container.querySelector(".bg-gray-100");
+    expect(codeSpan).toBeTruthy();
+    expect(codeSpan?.textContent).toBe("npm test");
   });
 
   it("expands input details on click", () => {
-    render(
-      <ToolUseBlock name="Read" input={{ file_path: "/src/main.ts", limit: 100 }} />,
-    );
+    render(<ToolUseBlock name="Read" input={{ file_path: "/src/main.ts", limit: 100 }} />);
 
     // Initially, JSON details are not visible
     expect(screen.queryByText(/"file_path"/)).not.toBeInTheDocument();

@@ -474,6 +474,7 @@ pub async fn spawn_session(
     cmd.arg("--print"); // Non-interactive single-prompt mode
     cmd.arg("--output-format").arg("stream-json");
     cmd.arg("--verbose"); // Required for stream-json in print mode
+    cmd.arg("--include-partial-messages"); // Emit stream_event messages for real-time streaming
     if skip_permissions {
         cmd.arg("--dangerously-skip-permissions");
     }
@@ -824,6 +825,7 @@ pub async fn resume_session(
         cmd.arg("--continue");
         cmd.arg("--output-format").arg("stream-json");
         cmd.arg("--verbose"); // Required for stream-json in print mode
+        cmd.arg("--include-partial-messages"); // Emit stream_event messages for real-time streaming
         if session.dangerously_skip_permissions.unwrap_or(false) {
             cmd.arg("--dangerously-skip-permissions");
         }
@@ -883,7 +885,7 @@ pub async fn resume_session(
 }
 
 /// Send a follow-up prompt to a completed/failed session.
-/// Runs `claude --print --continue --output-format stream-json --verbose <prompt>`
+/// Runs `claude --print --continue --output-format stream-json --verbose --include-partial-messages <prompt>`
 /// in the session's worktree, continuing the Claude conversation.
 #[tauri::command]
 pub async fn send_followup(
@@ -925,6 +927,7 @@ pub async fn send_followup(
     cmd.arg("--continue");
     cmd.arg("--output-format").arg("stream-json");
     cmd.arg("--verbose");
+    cmd.arg("--include-partial-messages"); // Emit stream_event messages for real-time streaming
     if session.dangerously_skip_permissions.unwrap_or(false) {
         cmd.arg("--dangerously-skip-permissions");
     }

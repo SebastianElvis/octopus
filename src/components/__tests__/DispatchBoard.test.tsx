@@ -178,6 +178,8 @@ describe("DispatchBoard", () => {
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
     expect(screen.getByText("No sessions need your attention right now.")).toBeInTheDocument();
-    expect(screen.getByText("Completed, failed, and idle sessions will appear here.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Completed, failed, and idle sessions will appear here."),
+    ).toBeInTheDocument();
   });
 });

@@ -172,9 +172,7 @@ export function DispatchBoard({
       );
     }
     if (summary.running > 0) {
-      parts.push(
-        `${String(summary.running)} actively running`,
-      );
+      parts.push(`${String(summary.running)} actively running`);
     }
     if (parts.length === 0) {
       if (summary.total === 0) return null;
@@ -514,7 +512,8 @@ export function DispatchBoard({
       {statusFilter && (
         <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 bg-blue-50/50 px-6 py-1.5 dark:border-gray-800 dark:bg-blue-950/20">
           <span className="text-xs text-gray-500 dark:text-gray-400">
-            Showing: <span className="font-medium text-gray-700 dark:text-gray-300">{statusFilter}</span>
+            Showing:{" "}
+            <span className="font-medium text-gray-700 dark:text-gray-300">{statusFilter}</span>
           </span>
           <button
             onClick={() => setStatusFilter(null)}
@@ -815,7 +814,9 @@ function Column({
         {count === 0 ? (
           <div className="flex flex-col items-center px-2 py-6 text-center">
             <EmptyIcon type={emptyIcon} />
-            <p className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">{emptyTitle}</p>
+            <p className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+              {emptyTitle}
+            </p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
               {emptyDescription}
             </p>
@@ -842,13 +843,21 @@ function EmptyIcon({ type }: { type: "check" | "pause" | "inbox" }) {
   if (type === "pause") {
     return (
       <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
       </svg>
     );
   }
   return (
     <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+      />
     </svg>
   );
 }

@@ -42,23 +42,17 @@ describe("EditorTabs", () => {
   });
 
   it("shows animated pulse on Claude tab when running", () => {
-    const { container } = render(
-      <EditorTabs {...defaultProps} sessionStatus="running" />,
-    );
+    const { container } = render(<EditorTabs {...defaultProps} sessionStatus="running" />);
     expect(container.querySelector(".animate-pulse")).toBeTruthy();
   });
 
   it("shows animated pulse on Claude tab when waiting", () => {
-    const { container } = render(
-      <EditorTabs {...defaultProps} sessionStatus="waiting" />,
-    );
+    const { container } = render(<EditorTabs {...defaultProps} sessionStatus="waiting" />);
     expect(container.querySelector(".animate-pulse")).toBeTruthy();
   });
 
   it("does not show pulse when session is idle", () => {
-    const { container } = render(
-      <EditorTabs {...defaultProps} sessionStatus="idle" />,
-    );
+    const { container } = render(<EditorTabs {...defaultProps} sessionStatus="idle" />);
     expect(container.querySelector(".animate-pulse")).toBeNull();
   });
 

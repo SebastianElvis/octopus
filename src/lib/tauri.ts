@@ -301,6 +301,19 @@ export async function readFile(path: string): Promise<string> {
   return tauriInvoke<string>("read_file", { path });
 }
 
+export interface DiscoveredCommand {
+  command: string;
+  description: string;
+  source: string;
+}
+
+export async function scanSlashCommands(worktreePath?: string): Promise<DiscoveredCommand[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<DiscoveredCommand[]>("scan_slash_commands", {
+    worktreePath: worktreePath ?? null,
+  });
+}
+
 // ── Git operations ──────────────────────────────────────────────────────────
 
 export async function getChangedFiles(worktreePath: string): Promise<ChangedFile[]> {

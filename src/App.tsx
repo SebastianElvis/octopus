@@ -60,6 +60,12 @@ function App() {
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setPanelSize = useUIStore((s) => s.setPanelSize);
+  const setActiveSessionIdInStore = useUIStore((s) => s.setActiveSessionId);
+
+  // Sync local activeSessionId to UI store (for PermissionDialog filtering)
+  useEffect(() => {
+    setActiveSessionIdInStore(activeSessionId);
+  }, [activeSessionId, setActiveSessionIdInStore]);
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const prevStatusRef = useRef<Record<string, string>>({});
@@ -284,12 +290,18 @@ function App() {
   const addPermissionRequest = useHookStore((s) => s.addPermissionRequest);
 
   useTauriEvent(
-    () => onHookEvent((payload) => { addHookEvent(payload); }),
+    () =>
+      onHookEvent((payload) => {
+        addHookEvent(payload);
+      }),
     [addHookEvent],
   );
 
   useTauriEvent(
-    () => onHookPermissionRequest((payload) => { addPermissionRequest(payload); }),
+    () =>
+      onHookPermissionRequest((payload) => {
+        addPermissionRequest(payload);
+      }),
     [addPermissionRequest],
   );
 

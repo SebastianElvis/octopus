@@ -42,9 +42,7 @@ export const useHookStore = create<HookState>((set) => ({
 
   removePermissionRequest: (requestId) =>
     set((state) => ({
-      pendingPermissions: state.pendingPermissions.filter(
-        (p) => p.requestId !== requestId,
-      ),
+      pendingPermissions: state.pendingPermissions.filter((p) => p.requestId !== requestId),
     })),
 
   addHookEvent: (payload) =>

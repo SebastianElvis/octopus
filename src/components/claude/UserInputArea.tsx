@@ -1,7 +1,11 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { SessionStatus, BlockType } from "../../lib/types";
 import { isTauri } from "../../lib/env";
-import { interruptSession, sendFollowup } from "../../lib/tauri";
+import { interruptSession, sendFollowup, scanSlashCommands } from "../../lib/tauri";
+import { useSessionStore } from "../../stores/sessionStore";
+import type { SlashCommand } from "./SlashCommandMenu";
+import { PermissionBanner } from "./PermissionBanner";
+import { SlashCommandMenu, filterCommands } from "./SlashCommandMenu";
 
 interface UserInputAreaProps {
   sessionId: string;
@@ -18,16 +22,69 @@ export function UserInputArea({
 }: UserInputAreaProps) {
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
+  const [slashMenuOpen, setSlashMenuOpen] = useState(false);
+  const [slashSelectedIndex, setSlashSelectedIndex] = useState(0);
+  const [fsCommands, setFsCommands] = useState<SlashCommand[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const addOptimisticUserMessage = useSessionStore((s) => s.addOptimisticUserMessage);
 
-  const isFinished = ["completed", "done", "failed", "killed"].includes(sessionStatus);
+  // Get the session's worktree path and tools from the store
+  const worktreePath = useSessionStore(
+    (s) => s.sessions.find((sess) => sess.id === sessionId)?.worktreePath,
+  );
+  const sessionTools = useSessionStore((s) => s.sessionTools[sessionId]);
 
-  // Auto-focus input when session finishes or is waiting
+  // Load filesystem-discovered commands on mount (project + personal custom commands/skills)
   useEffect(() => {
-    if ((isFinished || (sessionStatus === "waiting" && blockType !== "permission")) && textareaRef.current) {
+    if (!isTauri()) return;
+    void scanSlashCommands(worktreePath).then((discovered) => {
+      const mapped: SlashCommand[] = discovered.map((d) => ({
+        command: d.command,
+        description: d.description,
+        category: d.source as SlashCommand["category"],
+      }));
+      setFsCommands(mapped);
+    });
+  }, [worktreePath]);
+
+  // Merge filesystem commands with session tools into a single dynamic commands list
+  const dynamicCommands = useMemo(() => {
+    const all: SlashCommand[] = [...fsCommands];
+    if (sessionTools) {
+      // Add tools that look like slash commands (e.g. MCP prompts)
+      // and tools not already in the built-in or fs list
+      const existing = new Set([
+        ...fsCommands.map((c) => c.command),
+      ]);
+      for (const tool of sessionTools) {
+        const cmd = tool.name.startsWith("/") ? tool.name : `/${tool.name}`;
+        if (!existing.has(cmd)) {
+          all.push({
+            command: cmd,
+            description: tool.description ?? `Tool: ${tool.name}`,
+            category: "tool",
+          });
+          existing.add(cmd);
+        }
+      }
+    }
+    return all.length > 0 ? all : undefined;
+  }, [fsCommands, sessionTools]);
+
+  const isRunning = sessionStatus === "running";
+  const isFinished = ["completed", "done", "failed", "killed"].includes(sessionStatus);
+  const isWaiting = sessionStatus === "waiting";
+  const isWaitingPermission = isWaiting && blockType === "permission";
+  const isWaitingQuestion = isWaiting && (blockType === "question" || blockType === "input");
+  const isWaitingConfirmation = isWaiting && blockType === "confirmation";
+  const canType = !isWaitingPermission && !isWaitingConfirmation;
+
+  // Auto-focus input when session finishes or is waiting for text input
+  useEffect(() => {
+    if ((isFinished || isWaitingQuestion || (isWaiting && !blockType)) && textareaRef.current) {
       textareaRef.current.focus();
     }
-  }, [sessionStatus, blockType, isFinished]);
+  }, [sessionStatus, blockType, isFinished, isWaiting, isWaitingQuestion]);
 
   // Auto-resize textarea
   const adjustHeight = useCallback(() => {
@@ -37,12 +94,37 @@ export function UserInputArea({
     el.style.height = `${Math.min(el.scrollHeight, 150)}px`;
   }, []);
 
-  async function handleSendFollowup() {
+  // Slash command detection
+  const slashQuery = slashMenuOpen && inputText.startsWith("/")
+    ? inputText.slice(1).split(" ")[0]
+    : "";
+  const slashFiltered = slashMenuOpen ? filterCommands(slashQuery, dynamicCommands) : [];
+
+  function handleInputChange(value: string) {
+    setInputText(value);
+    // Open menu when typing starts with "/" and has no space yet (still typing the command)
+    if (value.startsWith("/") && !value.includes(" ")) {
+      setSlashMenuOpen(true);
+      setSlashSelectedIndex(0);
+    } else {
+      setSlashMenuOpen(false);
+    }
+  }
+
+  function handleSlashSelect(command: string) {
+    setInputText(command + " ");
+    setSlashMenuOpen(false);
+    textareaRef.current?.focus();
+  }
+
+  async function handleSend() {
     if (!inputText.trim() || sending) return;
+    const text = inputText.trim();
+    addOptimisticUserMessage(sessionId, text);
     setSending(true);
     try {
       if (isTauri()) {
-        await sendFollowup(sessionId, inputText.trim());
+        await sendFollowup(sessionId, text);
       }
       setInputText("");
       if (textareaRef.current) {
@@ -65,115 +147,238 @@ export function UserInputArea({
     }
   }
 
-  // Running state
-  if (sessionStatus === "running") {
-    return (
-      <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-2.5 dark:border-gray-800 dark:bg-gray-950">
-        <div className="flex items-center gap-2">
-          <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-green-500" />
-          <span className="text-xs text-gray-500 dark:text-gray-400">Claude is working...</span>
-        </div>
-        <button
-          onClick={() => {
-            void handleInterrupt();
-          }}
-          className="cursor-pointer rounded border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
-        >
-          Interrupt
-        </button>
-      </div>
-    );
+  // Placeholder text
+  function getPlaceholder(): string {
+    if (isRunning) return "Type a message... (sent after current turn)";
+    if (isWaitingPermission) return "Waiting for permission approval...";
+    if (isWaitingConfirmation) return "Waiting for confirmation...";
+    if (isWaitingQuestion) return "Type your response...";
+    if (isWaiting) return "Type your response...";
+    if (isFinished) return "Send a follow-up message...";
+    return "Send a message...";
   }
 
-  // Waiting for permission
-  if (sessionStatus === "waiting" && blockType === "permission") {
-    return (
-      <div className="border-t border-gray-200 bg-white px-4 py-3 dark:border-gray-800 dark:bg-gray-950">
-        {lastMessage && (
-          <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">{lastMessage}</p>
-        )}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              void handleSendFollowup();
-            }}
-            disabled={sending}
-            className="cursor-pointer rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500 active:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            Allow
-          </button>
-          <button
-            onClick={() => {
-              void handleSendFollowup();
-            }}
-            disabled={sending}
-            className="cursor-pointer rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800"
-          >
-            Deny
-          </button>
-        </div>
-      </div>
-    );
+  // Status line content
+  function getStatusInfo(): { label: string; color: string } | null {
+    if (isRunning) return { label: "Claude is working...", color: "bg-green-500" };
+    if (isFinished) {
+      const labels: Record<string, string> = {
+        completed: "Session completed",
+        done: "Session completed",
+        failed: "Session failed",
+        killed: "Session killed",
+      };
+      return { label: labels[sessionStatus] ?? "Session ended", color: "bg-gray-400" };
+    }
+    return null;
   }
 
-  // Follow-up input — shown for finished sessions AND waiting-for-input states
-  if (isFinished || sessionStatus === "waiting") {
-    const statusLabels: Record<string, string> = {
-      completed: "Session completed", done: "Session completed",
-      failed: "Session failed", killed: "Session killed",
-    };
-    const statusLabel = isFinished
-      ? statusLabels[sessionStatus] ?? "Session ended"
-      : undefined;
+  const statusInfo = getStatusInfo();
 
-    return (
-      <div className="border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
-        {statusLabel && (
-          <div className="px-4 pt-2">
-            <span className="text-xs text-gray-400 dark:text-gray-500">{statusLabel}</span>
+  // For paused with no meaningful state, hide entirely
+  if (!isRunning && !isFinished && !isWaiting && sessionStatus !== "idle") {
+    return null;
+  }
+
+  return (
+    <div className="border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+      {/* Hook-based permission banner (rich inline UI) */}
+      <PermissionBanner sessionId={sessionId} />
+
+      {/* Question / input prompt */}
+      {isWaitingQuestion && lastMessage && (
+        <div className="mx-3 mb-2 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
+          <svg
+            className="mt-0.5 h-4 w-4 shrink-0 text-blue-500"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"
+            />
+          </svg>
+          <p className="text-sm text-gray-700 dark:text-gray-300">{lastMessage}</p>
+        </div>
+      )}
+
+      {/* Confirmation prompt */}
+      {isWaitingConfirmation && (
+        <div className="mx-3 mb-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+          {lastMessage && (
+            <p className="mb-2 text-sm text-gray-700 dark:text-gray-300">{lastMessage}</p>
+          )}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                setInputText("yes");
+                void handleSend();
+              }}
+              disabled={sending}
+              className="flex cursor-pointer items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-green-500 active:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+              Yes
+            </button>
+            <button
+              onClick={() => {
+                setInputText("no");
+                void handleSend();
+              }}
+              disabled={sending}
+              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+              </svg>
+              No
+            </button>
           </div>
-        )}
-        {lastMessage && !isFinished && (
-          <div className="px-4 pt-2">
-            <p className="text-xs text-gray-500 dark:text-gray-400">{lastMessage}</p>
+        </div>
+      )}
+
+      {/* Session-level permission (fallback when no hook permissions are available) */}
+      {isWaitingPermission && lastMessage && (
+        <div className="mx-3 mb-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+          <div className="mb-2 flex items-center gap-2">
+            <svg
+              className="h-4 w-4 shrink-0 text-amber-500"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495ZM10 6a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 6Zm0 9a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+              Permission Required
+            </span>
           </div>
+          <p className="text-xs text-gray-600 dark:text-gray-400">{lastMessage}</p>
+        </div>
+      )}
+
+      {/* Text input area — always visible */}
+      <div className="relative px-3 py-2.5">
+        {/* Slash command autocomplete menu */}
+        {slashMenuOpen && slashFiltered.length > 0 && (
+          <SlashCommandMenu
+            filter={slashQuery}
+            selectedIndex={slashSelectedIndex}
+            onSelect={handleSlashSelect}
+            onHover={setSlashSelectedIndex}
+            dynamicCommands={dynamicCommands}
+          />
         )}
-        <div className="flex items-end gap-2 px-3 py-2.5">
+        <div className="flex items-end gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-1 focus-within:ring-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-blue-500 dark:focus-within:bg-gray-950 dark:focus-within:ring-blue-500">
           <textarea
             ref={textareaRef}
             value={inputText}
             onChange={(e) => {
-              setInputText(e.target.value);
+              handleInputChange(e.target.value);
               adjustHeight();
             }}
             onKeyDown={(e) => {
+              if (slashMenuOpen && slashFiltered.length > 0) {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setSlashSelectedIndex((i) => Math.min(i + 1, slashFiltered.length - 1));
+                  return;
+                }
+                if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setSlashSelectedIndex((i) => Math.max(i - 1, 0));
+                  return;
+                }
+                if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+                  e.preventDefault();
+                  handleSlashSelect(slashFiltered[slashSelectedIndex].command);
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  setSlashMenuOpen(false);
+                  return;
+                }
+              }
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                void handleSendFollowup();
+                void handleSend();
               }
             }}
-            placeholder={isFinished ? "Send a follow-up message..." : "Type your response..."}
-            disabled={sending}
+            onBlur={() => {
+              // Delay closing so clicks on menu items register
+              setTimeout(() => setSlashMenuOpen(false), 150);
+            }}
+            placeholder={getPlaceholder()}
+            disabled={sending || !canType}
             rows={1}
-            className="flex-1 resize-none rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-blue-400 dark:focus:bg-gray-950 dark:focus:ring-blue-400"
+            className="flex-1 resize-none border-0 bg-transparent text-sm text-gray-900 placeholder-gray-400 focus:outline-none disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-500"
           />
           <button
             onClick={() => {
-              void handleSendFollowup();
+              void handleSend();
             }}
-            disabled={!inputText.trim() || sending}
-            className="mb-0.5 flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 active:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-            title="Send"
+            disabled={!inputText.trim() || sending || !canType}
+            className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+            title="Send (Enter)"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-              <path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.414 4.926A1.5 1.5 0 0 0 5.135 9.25h6.115a.75.75 0 0 1 0 1.5H5.135a1.5 1.5 0 0 0-1.442 1.086l-1.414 4.926a.75.75 0 0 0 .826.95l14.095-5.927a.75.75 0 0 0 0-1.37L3.105 2.288Z" />
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+              className="h-3.5 w-3.5"
+            >
+              <path
+                fillRule="evenodd"
+                d="M10 17a.75.75 0 0 1-.75-.75V5.612L5.29 9.77a.75.75 0 0 1-1.08-1.04l5.25-5.5a.75.75 0 0 1 1.08 0l5.25 5.5a.75.75 0 1 1-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0 1 10 17Z"
+                clipRule="evenodd"
+              />
             </svg>
           </button>
         </div>
       </div>
-    );
-  }
 
-  // Default: no input area (idle, paused, etc.)
-  return null;
+      {/* Bottom status bar */}
+      <div className="flex items-center justify-between px-4 pb-2">
+        <div className="flex items-center gap-2">
+          {statusInfo && (
+            <>
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full ${statusInfo.color} ${isRunning ? "animate-pulse" : ""}`}
+              />
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                {statusInfo.label}
+              </span>
+            </>
+          )}
+          {isWaiting && (
+            <>
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
+              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                Waiting for your input
+              </span>
+            </>
+          )}
+        </div>
+        {isRunning && (
+          <button
+            onClick={() => {
+              void handleInterrupt();
+            }}
+            className="cursor-pointer rounded px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+          >
+            Interrupt
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

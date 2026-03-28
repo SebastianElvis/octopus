@@ -71,7 +71,7 @@ describe("MessageBlock", () => {
 
     render(<MessageBlock message={msg} />);
     expect(screen.getByText("Read")).toBeInTheDocument();
-    expect(screen.getByText("/src/main.ts")).toBeInTheDocument();
+    expect(screen.getByText("src/main.ts")).toBeInTheDocument();
   });
 
   it("renders assistant thinking blocks", () => {
@@ -128,7 +128,40 @@ describe("MessageBlock", () => {
     render(<MessageBlock message={msg} />);
     expect(screen.getByText("Thinking")).toBeInTheDocument();
     expect(screen.getByText("Here is my analysis")).toBeInTheDocument();
-    expect(screen.getByText("Bash")).toBeInTheDocument();
+    expect(screen.getByText("Ran")).toBeInTheDocument();
+  });
+
+  it("does not render user message with only tool_result blocks", () => {
+    const msg: ClaudeMessage = {
+      id: "msg-tool-result-only",
+      role: "user",
+      blocks: [
+        {
+          type: "tool_result",
+          tool_use_id: "tool-1",
+          content: "file contents here",
+        },
+      ],
+      timestamp: Date.now(),
+    };
+
+    const { container } = render(<MessageBlock message={msg} />);
+    // Should render nothing — no empty blue bubble
+    expect(container.querySelector(".bg-blue-600")).toBeNull();
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("renders user message when it has text content", () => {
+    const msg: ClaudeMessage = {
+      id: "msg-user-with-text",
+      role: "user",
+      blocks: [{ type: "text", text: "Hello Claude" }],
+      timestamp: Date.now(),
+    };
+
+    const { container } = render(<MessageBlock message={msg} />);
+    expect(screen.getByText("Hello Claude")).toBeInTheDocument();
+    expect(container.querySelector(".bg-blue-600")).toBeTruthy();
   });
 
   it("correlates tool_result with tool_use in the same message", () => {
