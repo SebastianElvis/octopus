@@ -6,8 +6,10 @@ import {
   killSession,
   interruptSession,
   resumeSession,
+  fetchCheckRuns,
 } from "../lib/tauri";
 import type { Session, SessionStatus } from "../lib/types";
+import type { CIStatus } from "./KanbanCard";
 import { RUNNING_PULSE } from "../lib/statusColors";
 
 type StatusFilter = "attention" | "running" | "done" | null;
@@ -33,6 +35,28 @@ export function DispatchBoard({
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(null);
   const [sortKey, setSortKey] = useState<SortKey>("recent");
+  const [ciStatuses, setCiStatuses] = useState<Record<string, CIStatus>>({});
+
+  // Fetch CI status for sessions with linked PRs
+  useEffect(() => {
+    const sessionsWithPR = sessions.filter((s) => s.linkedPR && s.repoId);
+    if (sessionsWithPR.length === 0) return;
+
+    for (const s of sessionsWithPR) {
+      if (!s.repoId || !s.branch) continue;
+      void fetchCheckRuns(s.repoId, s.branch)
+        .then((runs) => {
+          if (runs.length === 0) return;
+          const allPass = runs.every((r) => r.conclusion === "success");
+          const anyFail = runs.some((r) => r.conclusion === "failure");
+          const status: CIStatus = allPass ? "success" : anyFail ? "failure" : "pending";
+          setCiStatuses((prev) => ({ ...prev, [s.id]: status }));
+        })
+        .catch(() => {
+          /* non-critical */
+        });
+    }
+  }, [sessions]);
 
   // Keyboard shortcut for search focus
   useEffect(() => {
@@ -434,6 +458,7 @@ export function DispatchBoard({
               key={s.id}
               session={s}
               isActive={s.id === activeSessionId}
+              ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
               onResume={(id: string) => {
                 void handleResume(id);
@@ -455,6 +480,7 @@ export function DispatchBoard({
               key={s.id}
               session={s}
               isActive={s.id === activeSessionId}
+              ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
               onInterrupt={(id: string) => {
                 void handleInterrupt(id);
@@ -479,6 +505,7 @@ export function DispatchBoard({
               key={s.id}
               session={s}
               isActive={s.id === activeSessionId}
+              ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
             />
           ))}
