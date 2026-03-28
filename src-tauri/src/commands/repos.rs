@@ -166,9 +166,13 @@ pub async fn remove_repo(state: State<'_, AppState>, id: String) -> AppResult<()
         .ok()
     };
 
-    // Delete from database
+    // Delete associated sessions first, then the repo itself
     {
         let db = state.db.lock();
+        db.execute(
+            "DELETE FROM sessions WHERE repo_id = ?1",
+            rusqlite::params![id],
+        )?;
         db.execute("DELETE FROM repos WHERE id = ?1", rusqlite::params![id])?;
     }
 

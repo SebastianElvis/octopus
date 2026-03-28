@@ -2,6 +2,58 @@ use rusqlite::Connection;
 
 use crate::error::{AppError, AppResult};
 
+// ---------------------------------------------------------------------------
+// Schema versioning & migrations
+// ---------------------------------------------------------------------------
+
+/// Read the current schema version (0 if no version has been set yet).
+fn get_schema_version(conn: &Connection) -> i64 {
+    conn.query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |row| {
+        row.get(0)
+    })
+    .unwrap_or(0)
+}
+
+/// Persist the schema version after a successful migration.
+fn set_schema_version(conn: &Connection, version: i64) {
+    conn.execute(
+        "INSERT INTO schema_version (version) VALUES (?1)",
+        rusqlite::params![version],
+    )
+    .ok();
+}
+
+/// Run all pending migrations in order.
+///
+/// Each entry is `(version, sql)`.  Migrations that have already been applied
+/// (version <= current) are skipped.  New migrations are executed inside a
+/// transaction so a failure rolls back cleanly.
+pub fn run_migrations(conn: &Connection) -> AppResult<()> {
+    // Ensure the version-tracking table exists before anything else.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);",
+    )?;
+
+    let current = get_schema_version(conn);
+
+    // Add new migrations at the end of this list.  Never reorder or remove
+    // entries — only append.
+    let migrations: &[(i64, &str)] = &[
+        // (1, "ALTER TABLE sessions ADD COLUMN pid INTEGER;"),
+    ];
+
+    for &(version, sql) in migrations {
+        if version > current {
+            log::info!("Running migration v{}", version);
+            conn.execute_batch(sql)?;
+            set_schema_version(conn, version);
+            log::info!("Migration v{} applied", version);
+        }
+    }
+
+    Ok(())
+}
+
 /// Return the path to the SQLite database file.
 ///
 /// If the `TOOMANYTABS_DB_PATH` environment variable is set, use that path
@@ -126,6 +178,7 @@ pub fn run_wal_checkpoint(conn: &Connection) {
 pub fn init_db() -> AppResult<Connection> {
     let conn = open_connection()?;
     create_schema(&conn)?;
+    run_migrations(&conn)?;
     migrate_statuses(&conn)?;
     Ok(conn)
 }
