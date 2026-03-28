@@ -46,7 +46,7 @@ function ToastCard({
     requestAnimationFrame(() => setVisible(true));
 
     // Auto-dismiss
-    const duration = toast.duration ?? 8000;
+    const duration = toast.duration ?? 4000;
     if (duration > 0) {
       const timer = setTimeout(() => {
         setVisible(false);
