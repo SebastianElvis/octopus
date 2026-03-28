@@ -1,6 +1,6 @@
 [package]
 name = "toomanytabs"
-version = "0.1.0"
+version = "0.2.0"
 description = "Dispatch board for managing multiple Claude Code sessions"
 authors = ["SebastianElvis"]
 license = "MIT"

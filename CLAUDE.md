@@ -52,25 +52,31 @@ npm run tauri build  # production build
 - **Type mapping**: Rust uses snake_case with serde rename to camelCase; `mapBackendSession()` in tauri.ts handles the conversion
 
 ### State Management (Zustand)
-Each store in `src/stores/` manages a domain: `sessionStore` (sessions + output buffers), `uiStore` (panel sizes, persisted to localStorage), `editorStore` (open tabs), `gitStore` (staging/diffs), `fileBrowserStore`, `repoStore`, `themeStore`.
+Each store in `src/stores/` manages a domain: `sessionStore` (sessions + structured message buffers + streaming state), `uiStore` (panel sizes, persisted to localStorage), `editorStore` (open tabs), `gitStore` (staging/diffs), `fileBrowserStore`, `repoStore`, `themeStore`, `hookStore` (pending permission requests from Claude CLI hooks).
 
 ### Rust Backend (`src-tauri/src/`)
 - `state.rs`: `AppState` holds `parking_lot::Mutex<Connection>` (SQLite), process maps, shared `reqwest::Client`, cached GitHub token
-- `commands/sessions.rs`: PTY-based session spawning, throttled output (16ms batching via mpsc channel), prompt detection (`detect_prompt_pattern`), process group signals, graceful shutdown (SIGINT→SIGTERM→SIGKILL), 10MB output cap
+- `commands/sessions.rs`: PTY-based session spawning, throttled output (16ms batching via mpsc channel), prompt detection (`detect_prompt_pattern`), process group signals, graceful shutdown (SIGINT→SIGTERM→SIGKILL), 10MB output cap, session archiving
 - `commands/shell.rs`: Separate shell terminal management with process group signals
-- `commands/git_ops.rs` + `github.rs` + `worktree.rs`: Git and GitHub operations
+- `commands/git_ops.rs` + `worktree.rs`: Git staging, commits, diffs, and worktree lifecycle
 - `commands/github.rs`: GitHub API with shared HTTP client, token caching (5min), retry with exponential backoff, rate limit handling, CI checks, PR merge, issue close
+- `commands/repos.rs`: Repository management operations
 - `commands/ai.rs`: Claude API integration for session recaps, key-value settings store
+- `commands/hooks.rs`: HTTP hook server receiving permission request events from Claude CLI
+- `commands/filesystem.rs`: Slash command discovery with YAML frontmatter extraction
 - `db.rs`: SQLite with WAL mode, `CREATE TABLE IF NOT EXISTS` schema init, `PRAGMA busy_timeout = 5000`, periodic WAL checkpoint
 - `error.rs`: `AppError` with structured error codes (`DB_ERROR`, `IO_ERROR`, `HTTP_ERROR`, `NOT_FOUND`, `AUTH_FAILED`, `RATE_LIMITED`)
 - `lib.rs`: Crash recovery (sentinel file, session recovery, orphaned worktree scan), prerequisites check, WAL checkpoint background task
 
 ### Session Status Flow
-`idle` → `running` → `waiting` (needs user input) / `completed` / `failed`
-Special states: `stuck` (no output 20+ min), `interrupted` (process died), `paused`, `killed`
+`running` → `attention` (needs user input or has issues) / `done` (completed, failed, or archived)
+The `attention` status consolidates waiting, stuck, and orphaned states. `BlockType` discriminates waiting scenarios: `permission`, `confirmation`, `question`, `input`.
+
+### Structured Claude UI
+The frontend renders structured `ClaudeStreamEvent` JSON from the CLI rather than raw terminal output. `sessionStore` processes events into `ClaudeMessage` blocks (text, thinking, tool_use, tool_result) displayed by `ClaudeOutputPanel` and its child components in `src/components/claude/`. Permission requests from Claude CLI hooks are handled by `hookStore` → `PermissionDialog`/`PermissionBanner`.
 
 ### Database (SQLite)
-Stored at `~/.toomanytabs/toomanytabs.db`. Tables: `repos` (GitHub URL, local path), `sessions` (linked to repo, tracks status, worktree path, linked issue/PR numbers, last_message), `settings` (key-value store for API keys etc.). Schema is created on startup via `db::create_schema()` using `CREATE TABLE IF NOT EXISTS`.
+Stored at `~/.toomanytabs/toomanytabs.db`. Tables: `repos` (GitHub URL, local path), `sessions` (linked to repo, tracks status, worktree path, linked issue/PR numbers, last_message, dangerously_skip_permissions), `settings` (key-value store for API keys etc.). Schema is created on startup via `db::create_schema()` using `CREATE TABLE IF NOT EXISTS`.
 
 ## Key Patterns
 
