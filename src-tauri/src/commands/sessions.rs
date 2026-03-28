@@ -488,6 +488,16 @@ fn start_structured_reader(
             was_interrupted
         );
 
+        // Check if this session was cancelled (killed via UI)
+        let was_cancelled = {
+            let mut tokens = app_state.cancellation_tokens.lock();
+            let cancelled = tokens
+                .get(&sid)
+                .map_or(false, |t| t.load(std::sync::atomic::Ordering::Relaxed));
+            tokens.remove(&sid);
+            cancelled
+        };
+
         // Clean up state
         {
             let mut map = app_state.processes.lock();
@@ -498,10 +508,13 @@ fn start_structured_reader(
             lo.remove(&sid);
         }
 
-        if let Err(e) = update_session_status(&app2, &sid, final_status) {
-            log::error!("Failed to update session {} status: {}", sid, e);
+        // Skip status update if the kill path already handled it
+        if !was_cancelled {
+            if let Err(e) = update_session_status(&app2, &sid, final_status) {
+                log::error!("Failed to update session {} status: {}", sid, e);
+            }
+            emit_session_changed(&app2, &sid);
         }
-        emit_session_changed(&app2, &sid);
     });
 }
 
@@ -629,6 +642,15 @@ pub async fn spawn_session(
     {
         let mut map = state.processes.lock();
         map.insert(session_id.clone(), ClaudeProcess { pid });
+    }
+
+    // Register cancellation token for reader thread
+    {
+        let mut tokens = state.cancellation_tokens.lock();
+        tokens.insert(
+            session_id.clone(),
+            std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        );
     }
 
     emit_session_changed(&app, &session_id);
@@ -775,6 +797,14 @@ pub async fn kill_session(
     state: State<'_, AppState>,
     id: String,
 ) -> AppResult<()> {
+    // Signal cancellation to reader thread before killing
+    {
+        let tokens = state.cancellation_tokens.lock();
+        if let Some(token) = tokens.get(&id) {
+            token.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+    }
+
     // Kill the process with graceful shutdown
     {
         let mut map = state.processes.lock();

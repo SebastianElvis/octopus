@@ -1,4 +1,6 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use std::time::Instant;
 
 use parking_lot::Mutex;
@@ -78,6 +80,9 @@ pub struct AppState {
 
     /// Per-session analytics derived from hook events.
     pub session_analytics: Mutex<HashMap<String, SessionAnalytics>>,
+
+    /// Cancellation tokens for reader threads — set to true to signal stop.
+    pub cancellation_tokens: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 impl AppState {
@@ -94,6 +99,7 @@ impl AppState {
             hook_request_sessions: Mutex::new(HashMap::new()),
             hook_server_port: Mutex::new(None),
             session_analytics: Mutex::new(HashMap::new()),
+            cancellation_tokens: Mutex::new(HashMap::new()),
         }
     }
 }

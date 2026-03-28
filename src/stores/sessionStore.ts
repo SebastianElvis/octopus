@@ -281,6 +281,9 @@ function extractInitInfo(event: ClaudeStreamEvent): SessionInitInfo | null {
   return { slashCommands, skills, plugins };
 }
 
+// Cap buffers to prevent unbounded memory growth on long sessions
+const MAX_MESSAGES = 500;
+
 interface SessionState {
   sessions: Session[];
   outputBuffers: Record<string, string[]>;
@@ -348,8 +351,13 @@ export const useSessionStore = create<SessionState>((set) => ({
         },
         event,
       );
+      // Cap message buffer to prevent unbounded memory growth
+      const capped =
+        result.messages.length > MAX_MESSAGES
+          ? result.messages.slice(result.messages.length - MAX_MESSAGES)
+          : result.messages;
       const updates: Partial<SessionState> = {
-        messageBuffers: { ...state.messageBuffers, [sessionId]: result.messages },
+        messageBuffers: { ...state.messageBuffers, [sessionId]: capped },
         streamingMessage: { ...state.streamingMessage, [sessionId]: result.streaming },
       };
       // Capture tools and init info from system init event
