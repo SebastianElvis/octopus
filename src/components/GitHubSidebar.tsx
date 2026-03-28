@@ -175,8 +175,8 @@ export function GitHubSidebar({
     try {
       await closeIssue(repoId, linkedIssueNumber);
       setIssueClosed(true);
-    } catch {
-      // silently ignore
+    } catch (err: unknown) {
+      console.warn("Failed to close issue:", err);
     } finally {
       setClosingIssue(false);
     }

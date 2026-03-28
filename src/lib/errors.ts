@@ -19,6 +19,23 @@ export function getErrorCode(err: unknown): string | null {
   return null;
 }
 
+/** Check if error is a GitHub auth failure (needs re-auth). */
+export function isAuthError(err: unknown): boolean {
+  const code = getErrorCode(err);
+  return code === "AUTH_FAILED" || code === "GITHUB_AUTH_FAILED";
+}
+
+/** Check if error is a rate limit (should auto-retry). */
+export function isRateLimited(err: unknown): boolean {
+  return getErrorCode(err) === "RATE_LIMITED";
+}
+
+/** Check if error is retryable (rate limit, server error, network). */
+export function isRetryable(err: unknown): boolean {
+  const code = getErrorCode(err);
+  return code === "RATE_LIMITED" || code === "HTTP_ERROR";
+}
+
 /**
  * Safely extracts a human-readable message from an unknown thrown value.
  * Handles structured errors, Error objects, Tauri error strings, plain strings, and anything else.
