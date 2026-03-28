@@ -1,8 +1,8 @@
 /**
  * Integration tests for repository management.
  *
- * Covers the repos view: listing repos, adding a repo via IPC,
- * removing a repo, empty state, and error handling.
+ * Covers the add-repo dialog: opening via sidebar button, adding a repo via IPC,
+ * cancelling, and removing a repo from the sidebar.
  */
 import { render, screen, act, fireEvent, waitFor } from "@testing-library/react";
 import { mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -81,12 +81,12 @@ function setupIPC(repos = existingRepos) {
   });
 }
 
-async function navigateToRepos() {
+async function openAddRepoDialog() {
   await act(async () => {
     render(<App />);
   });
 
-  // Navigate to repos view via the + Add Repo button in the sidebar
+  // Click the + Add Repo button in the sidebar to open the dialog
   await waitFor(() => {
     expect(screen.getByTestId("add-repo-button")).toBeInTheDocument();
   });
@@ -96,40 +96,14 @@ async function navigateToRepos() {
   });
 
   await waitFor(() => {
-    expect(screen.getByText("Repositories")).toBeInTheDocument();
+    expect(screen.getByText("Add Repository")).toBeInTheDocument();
   });
 }
 
 describe("Repo management", () => {
-  it("displays existing repos with URL, path, and default branch", async () => {
+  it("opens add repo dialog when clicking + Add Repo in sidebar", async () => {
     setupIPC();
-    await navigateToRepos();
-
-    expect(screen.getByText("https://github.com/test/frontend")).toBeInTheDocument();
-    expect(screen.getByText("/Users/me/code/frontend")).toBeInTheDocument();
-    expect(screen.getByText("Default branch: main")).toBeInTheDocument();
-  });
-
-  it("shows empty state when no repos exist", async () => {
-    setupIPC([]);
-    await navigateToRepos();
-
-    expect(screen.getByText("No repositories connected yet.")).toBeInTheDocument();
-  });
-
-  it("opens add repo form when clicking + Add Repo in main content", async () => {
-    setupIPC();
-    await navigateToRepos();
-
-    // Click the + Add Repo button in the main content area (not the sidebar one)
-    const main = document.querySelector("main")!;
-    const addBtn = Array.from(main.querySelectorAll("button")).find(
-      (b) => b.textContent === "+ Add Repo",
-    )!;
-
-    await act(async () => {
-      fireEvent.click(addBtn);
-    });
+    await openAddRepoDialog();
 
     expect(screen.getByText("Add Repository")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("owner/repo")).toBeInTheDocument();
@@ -137,15 +111,7 @@ describe("Repo management", () => {
 
   it("adds a repo via IPC", async () => {
     setupIPC();
-    await navigateToRepos();
-
-    const main = document.querySelector("main")!;
-    const addBtn = Array.from(main.querySelectorAll("button")).find(
-      (b) => b.textContent === "+ Add Repo",
-    )!;
-    await act(async () => {
-      fireEvent.click(addBtn);
-    });
+    await openAddRepoDialog();
 
     const urlInput = screen.getByPlaceholderText("owner/repo");
     await act(async () => {
@@ -164,36 +130,32 @@ describe("Repo management", () => {
     });
   });
 
-  it("closes add form via Cancel button", async () => {
+  it("closes add repo dialog via Cancel button", async () => {
     setupIPC();
-    await navigateToRepos();
-
-    const main = document.querySelector("main")!;
-    const addBtn = Array.from(main.querySelectorAll("button")).find(
-      (b) => b.textContent === "+ Add Repo",
-    )!;
-    await act(async () => {
-      fireEvent.click(addBtn);
-    });
+    await openAddRepoDialog();
 
     expect(screen.getByText("Add Repository")).toBeInTheDocument();
 
     await act(async () => {
-      // There are two Cancel buttons (modal header and form), click the form one
-      const cancelButtons = screen.getAllByText("Cancel");
-      fireEvent.click(cancelButtons[cancelButtons.length - 1]);
+      fireEvent.click(screen.getByText("Cancel"));
     });
 
     expect(screen.queryByText("Add Repository")).not.toBeInTheDocument();
   });
 
-  it("shows Remove button and calls IPC on click", async () => {
+  it("removes a repo from sidebar via IPC", async () => {
     setupIPC();
-    await navigateToRepos();
+    await act(async () => {
+      render(<App />);
+    });
 
-    const removeBtn = screen.getByText("Remove");
-    expect(removeBtn).toBeInTheDocument();
+    // Wait for repo to appear in sidebar
+    await waitFor(() => {
+      expect(screen.getByText("test/frontend")).toBeInTheDocument();
+    });
 
+    // Click the remove button (X icon) on the repo in the sidebar
+    const removeBtn = screen.getByTitle("Remove repo");
     await act(async () => {
       fireEvent.click(removeBtn);
     });

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { DispatchBoard } from "./components/DispatchBoard";
 import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
-import { RepoSettings } from "./components/RepoSettings";
+import { AddRepoDialog } from "./components/AddRepoDialog";
 import { IssueBacklog } from "./components/IssueBacklog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -30,7 +30,7 @@ import { playNotificationSound } from "./lib/sound";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR, ClaudeStreamEvent } from "./lib/types";
-type View = "home" | "session" | "repos" | "tasks";
+type View = "home" | "session" | "tasks";
 
 function App() {
   const [view, setView] = useState<View>("home");
@@ -40,6 +40,7 @@ function App() {
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showAddRepo, setShowAddRepo] = useState(false);
   const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
   const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
   const [prefillPR, setPrefillPR] = useState<GitHubPR | null>(null);
@@ -461,7 +462,7 @@ function App() {
                   setTasksRepoId(repoId);
                   setView("tasks");
                 }}
-                onAddRepo={() => setView("repos")}
+                onAddRepo={() => setShowAddRepo(true)}
                 onRemoveRepo={(repoId: string) => {
                   void removeRepo(repoId);
                 }}
@@ -521,18 +522,13 @@ function App() {
               <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
             </div>
           )}
-          {view === "repos" && (
-            <div className="h-full overflow-y-auto p-6">
-              <RepoSettings />
-            </div>
-          )}
           {view === "tasks" && (
             <div className="h-full overflow-y-auto p-6">
               <IssueBacklog
                 repos={tasksRepoId ? repos.filter((r) => r.id === tasksRepoId) : repos}
                 onSelectIssue={handleSelectIssue}
                 onSelectPR={handleSelectPR}
-                onNavigateSettings={() => setView("repos")}
+                onNavigateSettings={() => setShowAddRepo(true)}
               />
             </div>
           )}
@@ -544,7 +540,7 @@ function App() {
         <OnboardingDialog
           onClose={dismissOnboarding}
           onOpenRepoSettings={() => {
-            setView("repos");
+            setShowAddRepo(true);
             dismissOnboarding();
           }}
           onOpenNewSession={() => {
@@ -565,6 +561,9 @@ function App() {
           prefillPR={prefillPR ?? undefined}
         />
       )}
+
+      {/* Add repo dialog */}
+      <AddRepoDialog open={showAddRepo} onClose={() => setShowAddRepo(false)} />
 
       {/* Command palette */}
       <CommandPalette
