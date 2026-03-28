@@ -683,35 +683,21 @@ pub async fn kill_session(
         lo.remove(&id);
     }
 
-    // Look up session info for worktree cleanup
-    let (worktree_path, branch, repo_id) = {
+    // Update status to killed
+    let now = chrono::Utc::now().to_rfc3339();
+    let session = {
         let db = state.db.lock();
-        let result: Result<(Option<String>, Option<String>, Option<String>), _> = db.query_row(
-            "SELECT worktree_path, branch, repo_id FROM sessions WHERE id = ?1",
-            rusqlite::params![id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
-        );
-        result.unwrap_or((None, None, None))
+        db.execute(
+            "UPDATE sessions SET status = 'killed', state_changed_at = ?1 WHERE id = ?2",
+            rusqlite::params![now, id],
+        )?;
+        query_session_by_id(&db, &id)?
     };
 
-    // Remove worktree and delete branch
-    if let (Some(wt_path), Some(br), Some(rid)) = (worktree_path, branch, repo_id) {
-        if let Ok(repo_local_path) = lookup_repo_local_path(&state, &rid) {
-            if let Err(e) =
-                crate::commands::worktree::remove_worktree(repo_local_path, wt_path, br).await
-            {
-                log::warn!("Failed to clean up worktree for session {}: {}", id, e);
-            }
-        }
-    }
+    // Emit state change event
+    let _ = _app.emit("session-state-changed", serde_json::json!({ "session": session }));
 
-    // Delete session from DB
-    {
-        let db = state.db.lock();
-        db.execute("DELETE FROM sessions WHERE id = ?1", rusqlite::params![id])?;
-    }
-
-    log::info!("Killed and removed session {}", id);
+    log::info!("Killed session {}", id);
     Ok(())
 }
 
@@ -771,6 +757,28 @@ pub async fn archive_session(
     {
         let mut lo = state.last_output_at.lock();
         lo.remove(&id);
+    }
+
+    // Look up session info for worktree cleanup
+    let (worktree_path, branch, repo_id) = {
+        let db = state.db.lock();
+        let result: Result<(Option<String>, Option<String>, Option<String>), _> = db.query_row(
+            "SELECT worktree_path, branch, repo_id FROM sessions WHERE id = ?1",
+            rusqlite::params![id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        );
+        result.unwrap_or((None, None, None))
+    };
+
+    // Remove worktree and delete branch
+    if let (Some(wt_path), Some(br), Some(rid)) = (worktree_path, branch, repo_id) {
+        if let Ok(repo_local_path) = lookup_repo_local_path(&state, &rid) {
+            if let Err(e) =
+                crate::commands::worktree::remove_worktree(repo_local_path, wt_path, br).await
+            {
+                log::warn!("Failed to clean up worktree for session {}: {}", id, e);
+            }
+        }
     }
 
     // Update status to archived

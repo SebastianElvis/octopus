@@ -239,7 +239,6 @@ export function DispatchBoard({
   async function handleKill(id: string) {
     try {
       await killSession(id);
-      updateSession(id, { status: "killed", stateChangedAt: Date.now() });
     } catch {
       /* ignore */
     }
@@ -258,7 +257,6 @@ export function DispatchBoard({
     for (const id of effectiveSelectedIds) {
       try {
         await killSession(id);
-        updateSession(id, { status: "killed", stateChangedAt: Date.now() });
       } catch {
         /* ignore */
       }
