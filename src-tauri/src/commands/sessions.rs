@@ -445,10 +445,10 @@ pub async fn spawn_session(
 
     let session_name = params.name.unwrap_or_else(|| params.branch.clone());
 
-    // Insert session into DB
+    // Insert session into DB — clean up worktree on failure
     {
         let db = state.db.lock();
-        db.execute(
+        if let Err(e) = db.execute(
             "INSERT INTO sessions \
              (id, repo_id, name, branch, status, worktree_path, log_path, \
               linked_issue_number, linked_pr_number, prompt, dangerously_skip_permissions, \
@@ -468,7 +468,15 @@ pub async fn spawn_session(
                 now,
                 now
             ],
-        )?;
+        ) {
+            // DB insert failed — remove the worktree we just created
+            log::error!("DB insert failed for session {}: {}. Cleaning up worktree.", session_id, e);
+            let _ = std::process::Command::new("git")
+                .args(["worktree", "remove", "--force", &worktree_path])
+                .current_dir(&repo_local_path)
+                .output();
+            return Err(e.into());
+        }
     }
 
     // Build and spawn command with piped I/O (not PTY)
