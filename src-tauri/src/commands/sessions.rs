@@ -973,7 +973,16 @@ pub async fn resume_session(
         start_structured_reader(app.clone(), id.clone(), stdout, child, log_file_path);
     }
 
-    update_session_status(&app, &id, "running")?;
+    // Clear any stale block_type/last_message from a previous permission/confirmation
+    // request before marking the session as running again.
+    {
+        let now = now_iso();
+        let db = state.db.lock();
+        db.execute(
+            "UPDATE sessions SET status = 'running', block_type = NULL, last_message = NULL, state_changed_at = ?1 WHERE id = ?2",
+            rusqlite::params![now, id],
+        )?;
+    }
     emit_session_changed(&app, &id);
     Ok(())
 }
@@ -1086,7 +1095,15 @@ pub async fn send_followup(
     let log_file_path = std::path::PathBuf::from(log_path).join("stdout.log");
     start_structured_reader(app.clone(), id.clone(), stdout, child, log_file_path);
 
-    update_session_status(&app, &id, "running")?;
+    // Clear any stale block_type/last_message when starting a follow-up
+    {
+        let now = now_iso();
+        let db = state.db.lock();
+        db.execute(
+            "UPDATE sessions SET status = 'running', block_type = NULL, last_message = NULL, state_changed_at = ?1 WHERE id = ?2",
+            rusqlite::params![now, id],
+        )?;
+    }
     emit_session_changed(&app, &id);
     Ok(())
 }
