@@ -83,6 +83,10 @@ pub struct AppState {
 
     /// Cancellation tokens for reader threads — set to true to signal stop.
     pub cancellation_tokens: Mutex<HashMap<String, Arc<AtomicBool>>>,
+
+    /// ETag cache for conditional GitHub API requests (URL → (etag, body)).
+    /// 304 responses don't count against the rate limit.
+    pub etag_cache: Mutex<HashMap<String, (String, String)>>,
 }
 
 impl AppState {
@@ -100,6 +104,7 @@ impl AppState {
             hook_server_port: Mutex::new(None),
             session_analytics: Mutex::new(HashMap::new()),
             cancellation_tokens: Mutex::new(HashMap::new()),
+            etag_cache: Mutex::new(HashMap::new()),
         }
     }
 }

@@ -368,6 +368,59 @@ async fn github_request(
     Err(last_error.unwrap_or_else(|| AppError::Custom("GitHub request failed".to_string())))
 }
 
+/// Execute a GET request with ETag caching. Returns cached body on 304.
+async fn github_get_cached(
+    client: &reqwest::Client,
+    url: &str,
+    token: &str,
+    etag_cache: &parking_lot::Mutex<std::collections::HashMap<String, (String, String)>>,
+) -> AppResult<String> {
+    let mut req = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("User-Agent", "toomanytabs/0.1")
+        .header("Accept", "application/vnd.github+json");
+
+    // Add If-None-Match header if we have a cached ETag
+    let cached_etag = {
+        let cache = etag_cache.lock();
+        cache.get(url).map(|(etag, _)| etag.clone())
+    };
+    if let Some(ref etag) = cached_etag {
+        req = req.header("If-None-Match", etag.as_str());
+    }
+
+    let resp = req.send().await?;
+
+    if resp.status() == reqwest::StatusCode::NOT_MODIFIED {
+        // Return cached body
+        let cache = etag_cache.lock();
+        if let Some((_, body)) = cache.get(url) {
+            return Ok(body.clone());
+        }
+    }
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(categorize_github_error(status, &body));
+    }
+
+    // Cache the ETag and body
+    let new_etag = resp
+        .headers()
+        .get("etag")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    let body = resp.text().await?;
+    if let Some(etag) = new_etag {
+        let mut cache = etag_cache.lock();
+        cache.insert(url.to_string(), (etag, body.clone()));
+    }
+
+    Ok(body)
+}
+
 // ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
@@ -621,10 +674,9 @@ pub async fn fetch_check_runs(
         owner, repo, git_ref
     );
 
-    let client = &state.http_client;
-    let resp = github_request(client, || client.get(&url), &token).await?;
+    let body = github_get_cached(&state.http_client, &url, &token, &state.etag_cache).await?;
 
-    let api_response: ApiCheckRunsResponse = resp.json().await?;
+    let api_response: ApiCheckRunsResponse = serde_json::from_str(&body)?;
 
     log::info!(
         "Fetched {} check runs for {}/{} ref {}",
