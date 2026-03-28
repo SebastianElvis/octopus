@@ -145,6 +145,8 @@ export interface ChangedFile {
   status: string;
   staged: boolean;
   oldPath: string | null;
+  insertions: number | null;
+  deletions: number | null;
 }
 
 export interface EditorTab {
@@ -153,6 +155,7 @@ export interface EditorTab {
   fileName: string;
   language: string;
   isDirty: boolean;
+  isDiff?: boolean;
 }
 
 export interface CheckRun {

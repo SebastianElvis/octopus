@@ -60,8 +60,8 @@ describe("GitChangesPanel", () => {
     act(() => {
       useGitStore.setState({
         changedFiles: [
-          { path: "src/main.ts", status: "modified", staged: false, oldPath: null },
-          { path: "README.md", status: "added", staged: false, oldPath: null },
+          { path: "src/main.ts", status: "modified", staged: false, oldPath: null, insertions: null, deletions: null },
+          { path: "README.md", status: "added", staged: false, oldPath: null, insertions: null, deletions: null },
         ],
       });
     });
@@ -75,8 +75,8 @@ describe("GitChangesPanel", () => {
     act(() => {
       useGitStore.setState({
         changedFiles: [
-          { path: "src/main.ts", status: "modified", staged: true, oldPath: null },
-          { path: "test.ts", status: "added", staged: false, oldPath: null },
+          { path: "src/main.ts", status: "modified", staged: true, oldPath: null, insertions: null, deletions: null },
+          { path: "test.ts", status: "added", staged: false, oldPath: null, insertions: null, deletions: null },
         ],
       });
     });
@@ -122,7 +122,7 @@ describe("GitChangesPanel", () => {
     await act(async () => {});
     act(() => {
       useGitStore.setState({
-        changedFiles: [{ path: "a.ts", status: "modified", staged: true, oldPath: null }],
+        changedFiles: [{ path: "a.ts", status: "modified", staged: true, oldPath: null, insertions: null, deletions: null }],
         commitMessage: "",
       });
     });
@@ -135,7 +135,7 @@ describe("GitChangesPanel", () => {
     await act(async () => {});
     act(() => {
       useGitStore.setState({
-        changedFiles: [{ path: "a.ts", status: "modified", staged: true, oldPath: null }],
+        changedFiles: [{ path: "a.ts", status: "modified", staged: true, oldPath: null, insertions: null, deletions: null }],
         commitMessage: "test",
         pushing: true,
       });

@@ -12,12 +12,12 @@ interface GitChangesPanelProps {
 }
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
-  modified: { label: "M", cls: "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400" },
-  added: { label: "A", cls: "bg-green-500/20 text-green-600 dark:text-green-400" },
-  deleted: { label: "D", cls: "bg-red-500/20 text-red-600 dark:text-red-400" },
-  renamed: { label: "R", cls: "bg-blue-500/20 text-blue-600 dark:text-blue-400" },
-  untracked: { label: "U", cls: "bg-gray-500/20 text-gray-500 dark:text-gray-400" },
-  copied: { label: "C", cls: "bg-purple-500/20 text-purple-600 dark:text-purple-400" },
+  modified: { label: "M", cls: "text-yellow-600 dark:text-yellow-400" },
+  added: { label: "A", cls: "text-green-600 dark:text-green-400" },
+  deleted: { label: "D", cls: "text-red-600 dark:text-red-400" },
+  renamed: { label: "R", cls: "text-blue-600 dark:text-blue-400" },
+  untracked: { label: "U", cls: "text-gray-500 dark:text-gray-400" },
+  copied: { label: "C", cls: "text-purple-600 dark:text-purple-400" },
 };
 
 export function GitChangesPanel({
@@ -33,7 +33,6 @@ export function GitChangesPanel({
     pushing,
     committing,
     error,
-    selectedFile,
     setWorktreePath,
     refreshChanges,
     stageFiles,
@@ -52,6 +51,15 @@ export function GitChangesPanel({
   useEffect(() => {
     setWorktreePath(worktreePath ?? null);
   }, [worktreePath, setWorktreePath]);
+
+  // Auto-poll for changes every 3s while the panel is mounted and has a worktree
+  useEffect(() => {
+    if (!worktreePath) return;
+    const interval = setInterval(() => {
+      void refreshChanges();
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [worktreePath, refreshChanges]);
 
   // Pre-populate commit message
   useEffect(() => {
@@ -168,7 +176,6 @@ export function GitChangesPanel({
           <FileSection
             title="Staged"
             files={staged}
-            selectedFile={selectedFile}
             onSelect={(f) => {
               void selectFile(f.path, true);
             }}
@@ -187,7 +194,6 @@ export function GitChangesPanel({
           <FileSection
             title="Changes"
             files={unstaged}
-            selectedFile={selectedFile}
             onSelect={(f) => {
               void selectFile(f.path, false);
             }}
@@ -261,7 +267,6 @@ export function GitChangesPanel({
 function FileSection({
   title,
   files,
-  selectedFile,
   onSelect,
   actionLabel,
   actionTitle,
@@ -277,7 +282,6 @@ function FileSection({
 }: {
   title: string;
   files: ChangedFile[];
-  selectedFile: string | null;
   onSelect: (f: ChangedFile) => void;
   actionLabel: string;
   actionTitle: string;
@@ -301,7 +305,7 @@ function FileSection({
           {onDiscardAll && (
             <button
               onClick={onDiscardAll}
-              className={`text-xs ${
+              className={`cursor-pointer text-xs ${
                 discardAllConfirm
                   ? "font-medium text-red-600 dark:text-red-400"
                   : "text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
@@ -320,61 +324,68 @@ function FileSection({
       </div>
       {files.map((f) => {
         const badge = STATUS_BADGE[f.status] ?? STATUS_BADGE.modified;
-        const isSelected = f.path === selectedFile;
+        const dirPath = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/") + 1) : "";
         const fileName = f.path.split("/").pop() ?? f.path;
-        const dirPath = f.path.includes("/") ? f.path.slice(0, f.path.lastIndexOf("/")) : "";
         const isConfirmingDiscard = discardConfirmPath === f.path;
 
         return (
           <div
             key={`${f.path}-${f.staged}`}
-            className={`group flex items-center gap-1.5 px-3 py-1 text-xs ${
-              isSelected
-                ? "bg-blue-50 dark:bg-blue-950/30"
-                : "hover:bg-gray-50 dark:hover:bg-gray-800/30"
-            }`}
+            className="group flex cursor-pointer items-center gap-2 border-b border-gray-100 px-3 py-1.5 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/30"
+            onClick={() => onSelect(f)}
           >
-            <button
-              onClick={() => onSelect(f)}
-              className="flex flex-1 cursor-pointer items-center gap-1.5 truncate text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            >
-              <span
-                className={`shrink-0 rounded px-1 py-0.5 text-xs font-mono leading-none ${badge.cls}`}
-              >
-                {badge.label}
-              </span>
-              <span className="truncate text-gray-700 dark:text-gray-300">{fileName}</span>
-              {dirPath && (
-                <span className="truncate text-gray-400 dark:text-gray-500">{dirPath}</span>
+            {/* File path: dir in muted, filename in bold */}
+            <div className="flex-1 truncate text-xs">
+              {dirPath && <span className="text-gray-400 dark:text-gray-500">{dirPath}</span>}
+              <span className="font-medium text-gray-800 dark:text-gray-200">{fileName}</span>
+            </div>
+
+            {/* Right side: stats + badge + actions */}
+            <div className="flex shrink-0 items-center gap-1.5">
+              {/* Diff stats */}
+              {f.insertions != null && f.insertions > 0 && (
+                <span className="text-xs font-medium text-green-600 dark:text-green-500">
+                  +{f.insertions}
+                </span>
               )}
-            </button>
-            <div className="flex shrink-0 gap-0.5 opacity-0 group-hover:opacity-100">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAction(f);
-                }}
-                className="rounded px-1 py-0.5 text-xs font-bold text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
-                title={actionTitle}
-              >
-                {actionLabel}
-              </button>
-              {secondActionLabel && onSecondAction && (
+              {f.deletions != null && f.deletions > 0 && (
+                <span className="text-xs font-medium text-red-600 dark:text-red-500">
+                  -{f.deletions}
+                </span>
+              )}
+
+              {/* Status badge */}
+              <span className={`font-mono text-xs font-medium ${badge.cls}`}>{badge.label}</span>
+
+              {/* Action buttons - visible on hover */}
+              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100">
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onSecondAction(f);
+                    onAction(f);
                   }}
-                  className={`rounded px-1 py-0.5 text-xs ${
-                    isConfirmingDiscard
-                      ? "font-medium text-red-600 dark:text-red-400"
-                      : "text-gray-400 hover:bg-red-100 hover:text-red-600 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                  }`}
-                  title={isConfirmingDiscard ? "Click again to confirm" : secondActionTitle}
+                  className="rounded px-1 py-0.5 text-xs font-bold text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  title={actionTitle}
                 >
-                  {isConfirmingDiscard ? "Confirm?" : secondActionLabel}
+                  {actionLabel}
                 </button>
-              )}
+                {secondActionLabel && onSecondAction && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSecondAction(f);
+                    }}
+                    className={`rounded px-1 py-0.5 text-xs ${
+                      isConfirmingDiscard
+                        ? "font-medium text-red-600 dark:text-red-400"
+                        : "text-gray-400 hover:bg-red-100 hover:text-red-600 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                    }`}
+                    title={isConfirmingDiscard ? "Click again to confirm" : secondActionTitle}
+                  >
+                    {isConfirmingDiscard ? "Confirm?" : secondActionLabel}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         );

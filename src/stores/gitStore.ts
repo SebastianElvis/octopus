@@ -10,6 +10,7 @@ import {
   gitPush,
 } from "../lib/tauri";
 import type { ChangedFile } from "../lib/types";
+import { useEditorStore } from "./editorStore";
 
 interface GitState {
   worktreePath: string | null;
@@ -62,12 +63,15 @@ export const useGitStore = create<GitState>((set, get) => ({
   },
 
   refreshChanges: async () => {
-    const { worktreePath } = get();
+    const { worktreePath, changedFiles: existing } = get();
     if (!worktreePath) return;
-    set({ loading: true, error: null });
+    // Only show loading spinner on first fetch (when list is empty)
+    if (existing.length === 0) {
+      set({ loading: true, error: null });
+    }
     try {
       const files = await getChangedFiles(worktreePath);
-      set({ changedFiles: files, loading: false });
+      set({ changedFiles: files, loading: false, error: null });
     } catch (err) {
       const msg = String(err);
       // Don't log as error if worktree was simply cleaned up
@@ -118,6 +122,9 @@ export const useGitStore = create<GitState>((set, get) => ({
     try {
       const diff = await getFileDiff(worktreePath, path, staged);
       set({ selectedFileDiff: diff });
+      if (diff) {
+        useEditorStore.getState().openDiff(path, diff);
+      }
     } catch (err) {
       console.error("[gitStore] Failed to get diff:", err);
       set({ selectedFileDiff: null });

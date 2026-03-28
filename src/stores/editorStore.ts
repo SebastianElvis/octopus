@@ -47,6 +47,7 @@ interface EditorState {
   loading: boolean;
 
   openFile: (filePath: string) => Promise<void>;
+  openDiff: (filePath: string, diff: string) => void;
   closeTab: (id: string) => void;
   setActiveTab: (id: string) => void;
   closeAllTabs: () => void;
@@ -87,6 +88,34 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       console.error("[editorStore] Failed to open file:", err);
       set({ loading: false });
     }
+  },
+
+  openDiff: (filePath: string, diff: string) => {
+    const id = `diff:${filePath}`;
+    const state = get();
+    const existing = state.tabs.find((t) => t.id === id);
+    if (existing) {
+      set((s) => ({
+        activeTabId: id,
+        contents: { ...s.contents, [id]: diff },
+      }));
+      return;
+    }
+    const fileName = filePath.split("/").pop() ?? filePath;
+    const tab: EditorTab = {
+      id,
+      filePath,
+      fileName: `${fileName} (diff)`,
+      language: detectLanguage(filePath),
+      isDirty: false,
+      isDiff: true,
+    };
+    set((s) => ({
+      tabs: [...s.tabs, tab],
+      activeTabId: id,
+      contents: { ...s.contents, [id]: diff },
+      loading: false,
+    }));
   },
 
   closeTab: (id: string) => {

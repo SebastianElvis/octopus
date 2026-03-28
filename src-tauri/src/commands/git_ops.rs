@@ -49,6 +49,8 @@ pub struct ChangedFile {
     pub status: String,
     pub staged: bool,
     pub old_path: Option<String>,
+    pub insertions: Option<u32>,
+    pub deletions: Option<u32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -71,10 +73,34 @@ fn status_char_to_string(c: char) -> &'static str {
 // Commands
 // ---------------------------------------------------------------------------
 
+/// Parse `git diff --numstat` output into a map of path → (insertions, deletions).
+fn parse_numstat(output: &str) -> std::collections::HashMap<String, (u32, u32)> {
+    let mut map = std::collections::HashMap::new();
+    for line in output.lines() {
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() >= 3 {
+            // Binary files show "-" for insertions/deletions
+            let ins = parts[0].parse::<u32>().unwrap_or(0);
+            let del = parts[1].parse::<u32>().unwrap_or(0);
+            map.insert(parts[2].to_string(), (ins, del));
+        }
+    }
+    map
+}
+
 /// Get all changed files (staged + unstaged + untracked) using git status --porcelain=v2.
 #[tauri::command]
 pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFile>> {
     let output = run_git(&worktree_path, &["status", "--porcelain=v2"])?;
+
+    // Get numstat for staged and unstaged changes
+    let staged_numstat = parse_numstat(
+        &run_git_allow_failure(&worktree_path, &["diff", "--cached", "--numstat"]),
+    );
+    let unstaged_numstat = parse_numstat(
+        &run_git_allow_failure(&worktree_path, &["diff", "--numstat"]),
+    );
+
     let mut files: Vec<ChangedFile> = Vec::new();
 
     for line in output.lines() {
@@ -90,19 +116,25 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
             let y = xy.chars().nth(1).unwrap_or('.');
 
             if x != '.' {
+                let (ins, del) = staged_numstat.get(&path).copied().unwrap_or((0, 0));
                 files.push(ChangedFile {
                     path: path.clone(),
                     status: status_char_to_string(x).to_string(),
                     staged: true,
                     old_path: None,
+                    insertions: Some(ins),
+                    deletions: Some(del),
                 });
             }
             if y != '.' {
+                let (ins, del) = unstaged_numstat.get(&path).copied().unwrap_or((0, 0));
                 files.push(ChangedFile {
                     path,
                     status: status_char_to_string(y).to_string(),
                     staged: false,
                     old_path: None,
+                    insertions: Some(ins),
+                    deletions: Some(del),
                 });
             }
         } else if line.starts_with("2 ") {
@@ -121,19 +153,25 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
             let y = xy.chars().nth(1).unwrap_or('.');
 
             if x != '.' {
+                let (ins, del) = staged_numstat.get(&new_path).copied().unwrap_or((0, 0));
                 files.push(ChangedFile {
                     path: new_path.clone(),
                     status: status_char_to_string(x).to_string(),
                     staged: true,
                     old_path: old_path.clone(),
+                    insertions: Some(ins),
+                    deletions: Some(del),
                 });
             }
             if y != '.' {
+                let (ins, del) = unstaged_numstat.get(&new_path).copied().unwrap_or((0, 0));
                 files.push(ChangedFile {
                     path: new_path,
                     status: status_char_to_string(y).to_string(),
                     staged: false,
                     old_path,
+                    insertions: Some(ins),
+                    deletions: Some(del),
                 });
             }
         } else if line.starts_with("? ") {
@@ -144,6 +182,8 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
                 status: "untracked".to_string(),
                 staged: false,
                 old_path: None,
+                insertions: None,
+                deletions: None,
             });
         }
         // Skip '!' (ignored) and other header lines
@@ -223,7 +263,8 @@ pub async fn get_file_diff(
     file_path: String,
     staged: bool,
 ) -> AppResult<String> {
-    let mut args = vec!["diff"];
+    // Use full-file context so the frontend can show the entire file with diff highlights
+    let mut args = vec!["diff", "-U99999"];
     if staged {
         args.push("--cached");
     }
@@ -491,6 +532,8 @@ mod tests {
             status: "modified".to_string(),
             staged: true,
             old_path: Some("src/old_main.rs".to_string()),
+            insertions: Some(5),
+            deletions: Some(3),
         };
         let json = serde_json::to_value(&file).unwrap();
         assert!(json.get("oldPath").is_some());
