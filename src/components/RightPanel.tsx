@@ -3,6 +3,7 @@ import { GitChangesPanel } from "./GitChangesPanel";
 import type { Session } from "../lib/types";
 import { useUIStore } from "../stores/uiStore";
 import { useEditorStore } from "../stores/editorStore";
+import { useGitStore } from "../stores/gitStore";
 
 interface RightPanelProps {
   session: Session | null;
@@ -15,10 +16,11 @@ export function RightPanel({ session, onCommitted }: RightPanelProps) {
   const activeTab = useUIStore((s) => s.rightPanelTab);
   const setTab = useUIStore((s) => s.setRightPanelTab);
   const openFile = useEditorStore((s) => s.openFile);
+  const changedFileCount = useGitStore((s) => s.changedFiles.length);
 
   const tabs: { id: Tab; label: string; count?: number }[] = [
     { id: "files", label: "Files" },
-    { id: "changes", label: "Changes" },
+    { id: "changes", label: "Changes", count: changedFileCount },
   ];
 
   // Fall back to "changes" if the stored tab is no longer valid

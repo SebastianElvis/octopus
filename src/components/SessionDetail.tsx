@@ -14,6 +14,7 @@ import { useUIStore } from "../stores/uiStore";
 import { ClaudeOutputPanel } from "./claude/ClaudeOutputPanel";
 import { AnalyticsPanel } from "./claude/AnalyticsPanel";
 import { CodeEditor } from "./CodeEditor";
+import { DiffViewer } from "./DiffViewer";
 import { EditorTabs } from "./EditorTabs";
 import { RightPanel } from "./RightPanel";
 import { ResizeHandle } from "./ResizeHandle";
@@ -365,18 +366,22 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               {hasGitHubLink && <GitHubDetailView issue={ghIssue} pr={ghPR} />}
             </div>
 
-            {/* Code editor — absolute positioned like terminal */}
+            {/* Code editor / diff viewer — absolute positioned like terminal */}
             <div
               className={showEditor ? "absolute inset-0 z-10" : "invisible absolute inset-0 z-0"}
             >
               {activeTab != null && activeContent != null && (
                 <div className="h-full">
-                  <CodeEditor
-                    content={activeContent}
-                    language={activeTab.language}
-                    readOnly
-                    darkMode
-                  />
+                  {activeTab.isDiff ? (
+                    <DiffViewer diff={activeContent} filePath={activeTab.filePath} />
+                  ) : (
+                    <CodeEditor
+                      content={activeContent}
+                      language={activeTab.language}
+                      readOnly
+                      darkMode
+                    />
+                  )}
                 </div>
               )}
             </div>

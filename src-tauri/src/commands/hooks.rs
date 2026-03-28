@@ -110,8 +110,6 @@ pub struct ToolCallRecord {
 
 pub struct HookServerState {
     app: AppHandle,
-    pending_responses:
-        parking_lot::Mutex<HashMap<String, oneshot::Sender<HookResponse>>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -148,10 +146,12 @@ async fn hook_handler(
         // Emit a specific permission-request event
         let _ = state.app.emit("hook-permission-request", &payload);
 
-        // Create a oneshot channel and wait for the frontend's decision
+        // Create a oneshot channel and wait for the frontend's decision.
+        // Store in AppState so respond_to_hook (Tauri command) can find it.
+        let app_state = state.app.state::<crate::state::AppState>();
         let (tx, rx) = oneshot::channel::<HookResponse>();
         {
-            let mut pending = state.pending_responses.lock();
+            let mut pending = app_state.pending_hook_responses.lock();
             pending.insert(request_id.clone(), tx);
         }
 
@@ -164,7 +164,7 @@ async fn hook_handler(
             }
             Err(_) => {
                 // Timeout — clean up and allow
-                let mut pending = state.pending_responses.lock();
+                let mut pending = app_state.pending_hook_responses.lock();
                 pending.remove(&request_id);
                 (StatusCode::OK, Json(HookResponse::default()))
             }
@@ -257,7 +257,6 @@ fn find_session_by_cwd(app: &AppHandle, cwd: &str) -> Option<String> {
 pub async fn start_hook_server(app: AppHandle) -> Result<u16, String> {
     let server_state = Arc::new(HookServerState {
         app: app.clone(),
-        pending_responses: parking_lot::Mutex::new(HashMap::new()),
     });
 
     let router = axum::Router::new()
