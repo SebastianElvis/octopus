@@ -206,6 +206,16 @@ export interface SessionTool {
   description?: string;
 }
 
+/** Info extracted from a session's stream-json `system.init` event */
+export interface SessionInitInfo {
+  /** Slash command names (without "/" prefix) reported by the CLI */
+  slashCommands: string[];
+  /** Skill names reported by the CLI */
+  skills: string[];
+  /** Plugin descriptors reported by the CLI */
+  plugins: { name: string; source?: string }[];
+}
+
 /**
  * Filter raw tool entries from CLI events, keeping only valid ones with a name string.
  * Logs detailed diagnostics when invalid entries are encountered so the full context
@@ -252,6 +262,25 @@ function validSessionTools(raw: unknown[], sessionId?: string): SessionTool[] {
   return valid;
 }
 
+/** Extract SessionInitInfo from a system.init event's extra fields */
+function extractInitInfo(event: ClaudeStreamEvent): SessionInitInfo | null {
+  if (event.type !== "system" || event.subtype !== "init") return null;
+  const slashCommands = Array.isArray(event.slash_commands)
+    ? (event.slash_commands as string[]).filter((s) => typeof s === "string")
+    : [];
+  const skills = Array.isArray(event.skills)
+    ? (event.skills as string[]).filter((s) => typeof s === "string")
+    : [];
+  const plugins = Array.isArray(event.plugins)
+    ? (event.plugins as { name: string; source?: string }[]).filter(
+        (p) => p && typeof p === "object" && typeof p.name === "string",
+      )
+    : [];
+  // Only return if at least one field is populated (avoids storing empty info for old CLIs)
+  if (slashCommands.length === 0 && skills.length === 0 && plugins.length === 0) return null;
+  return { slashCommands, skills, plugins };
+}
+
 interface SessionState {
   sessions: Session[];
   outputBuffers: Record<string, string[]>;
@@ -259,6 +288,8 @@ interface SessionState {
   streamingMessage: Record<string, ClaudeMessage | null>;
   /** Tools reported by each session's system init event */
   sessionTools: Record<string, SessionTool[]>;
+  /** Init info (slash commands, skills, plugins) reported by each session */
+  sessionInitInfo: Record<string, SessionInitInfo>;
   sessionsLoading: boolean;
   sessionsError: string | null;
 
@@ -281,6 +312,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   messageBuffers: {},
   streamingMessage: {},
   sessionTools: {},
+  sessionInitInfo: {},
   sessionsLoading: true,
   sessionsError: null,
 
@@ -320,17 +352,30 @@ export const useSessionStore = create<SessionState>((set) => ({
         messageBuffers: { ...state.messageBuffers, [sessionId]: result.messages },
         streamingMessage: { ...state.streamingMessage, [sessionId]: result.streaming },
       };
-      // Capture tools from system init event
-      if (event.type === "system" && event.subtype === "init" && event.tools) {
-        const validated = validSessionTools(event.tools, sessionId);
-        console.debug(
-          `[sessionStore:appendStructuredEvent] Storing ${validated.length} tools for session=${sessionId}` +
-            ` (names: ${validated.map((t) => t.name).join(", ")})`,
-        );
-        updates.sessionTools = {
-          ...state.sessionTools,
-          [sessionId]: validated,
-        };
+      // Capture tools and init info from system init event
+      if (event.type === "system" && event.subtype === "init") {
+        if (event.tools) {
+          const validated = validSessionTools(event.tools, sessionId);
+          console.debug(
+            `[sessionStore:appendStructuredEvent] Storing ${validated.length} tools for session=${sessionId}` +
+              ` (names: ${validated.map((t) => t.name).join(", ")})`,
+          );
+          updates.sessionTools = {
+            ...state.sessionTools,
+            [sessionId]: validated,
+          };
+        }
+        const initInfo = extractInitInfo(event);
+        if (initInfo) {
+          console.debug(
+            `[sessionStore:appendStructuredEvent] Storing init info for session=${sessionId}:` +
+              ` ${initInfo.slashCommands.length} slash_commands, ${initInfo.skills.length} skills, ${initInfo.plugins.length} plugins`,
+          );
+          updates.sessionInitInfo = {
+            ...state.sessionInitInfo,
+            [sessionId]: initInfo,
+          };
+        }
       }
       return updates;
     }),
@@ -355,6 +400,7 @@ export const useSessionStore = create<SessionState>((set) => ({
       const newMessageBuffers = { ...state.messageBuffers };
       const newStreamingMessage = { ...state.streamingMessage };
       let newSessionTools = state.sessionTools;
+      let newSessionInitInfo = state.sessionInitInfo;
 
       for (const [sessionId, sessionEvents] of bySession) {
         let msgState: MessageState = {
@@ -363,17 +409,30 @@ export const useSessionStore = create<SessionState>((set) => ({
         };
         for (const event of sessionEvents) {
           msgState = processEvent(msgState, event);
-          // Capture tools from system init event
-          if (event.type === "system" && event.subtype === "init" && event.tools) {
-            const validated = validSessionTools(event.tools, sessionId);
-            console.debug(
-              `[sessionStore:appendStructuredEvents] Storing ${validated.length} tools for session=${sessionId}` +
-                ` (names: ${validated.map((t) => t.name).join(", ")})`,
-            );
-            newSessionTools = {
-              ...newSessionTools,
-              [sessionId]: validated,
-            };
+          // Capture tools and init info from system init event
+          if (event.type === "system" && event.subtype === "init") {
+            if (event.tools) {
+              const validated = validSessionTools(event.tools, sessionId);
+              console.debug(
+                `[sessionStore:appendStructuredEvents] Storing ${validated.length} tools for session=${sessionId}` +
+                  ` (names: ${validated.map((t) => t.name).join(", ")})`,
+              );
+              newSessionTools = {
+                ...newSessionTools,
+                [sessionId]: validated,
+              };
+            }
+            const initInfo = extractInitInfo(event);
+            if (initInfo) {
+              console.debug(
+                `[sessionStore:appendStructuredEvents] Storing init info for session=${sessionId}:` +
+                  ` ${initInfo.slashCommands.length} slash_commands, ${initInfo.skills.length} skills, ${initInfo.plugins.length} plugins`,
+              );
+              newSessionInitInfo = {
+                ...newSessionInitInfo,
+                [sessionId]: initInfo,
+              };
+            }
           }
         }
         newMessageBuffers[sessionId] = msgState.messages;
@@ -384,6 +443,7 @@ export const useSessionStore = create<SessionState>((set) => ({
         messageBuffers: newMessageBuffers,
         streamingMessage: newStreamingMessage,
         sessionTools: newSessionTools,
+        sessionInitInfo: newSessionInitInfo,
       };
     }),
 

@@ -739,7 +739,7 @@ pub async fn kill_session(
     Ok(())
 }
 
-/// Return all sessions from the database.
+/// Return all non-archived sessions from the database.
 #[tauri::command]
 pub async fn list_sessions(state: State<'_, AppState>) -> AppResult<Vec<Session>> {
     let db = state.db.lock();
@@ -748,9 +748,71 @@ pub async fn list_sessions(state: State<'_, AppState>) -> AppResult<Vec<Session>
         "SELECT id, repo_id, name, branch, status, block_type, worktree_path, log_path, \
          linked_issue_number, linked_pr_number, prompt, created_at, state_changed_at, \
          dangerously_skip_permissions, last_message \
-         FROM sessions ORDER BY created_at DESC",
+         FROM sessions WHERE status != 'archived' ORDER BY created_at DESC",
         &[],
     )
+}
+
+/// Archive a session: stop its process (if running) and set status to "archived".
+/// Unlike kill_session, this preserves the session record and worktree.
+#[tauri::command]
+pub async fn archive_session(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    id: String,
+) -> AppResult<()> {
+    // Stop the process if it's running (graceful shutdown)
+    {
+        let mut map = state.processes.lock();
+        if let Some(process) = map.remove(&id) {
+            log::info!("Stopping session {} (pid {}) for archival", id, process.pid);
+            #[cfg(unix)]
+            {
+                use nix::sys::signal::{kill, Signal};
+                use nix::unistd::Pid;
+
+                let pgid = -(process.pid as i32);
+                let pid = Pid::from_raw(process.pid as i32);
+                let pg_pid = Pid::from_raw(pgid);
+
+                let _ = kill(pg_pid, Signal::SIGINT).or_else(|_| kill(pid, Signal::SIGINT));
+
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                if kill(pid, None).is_ok() {
+                    let _ = kill(pg_pid, Signal::SIGTERM).or_else(|_| kill(pid, Signal::SIGTERM));
+
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                    if kill(pid, None).is_ok() {
+                        let _ =
+                            kill(pg_pid, Signal::SIGKILL).or_else(|_| kill(pid, Signal::SIGKILL));
+                    }
+                }
+            }
+        }
+    }
+
+    // Clean up last_output_at
+    {
+        let mut lo = state.last_output_at.lock();
+        lo.remove(&id);
+    }
+
+    // Update status to archived
+    let now = chrono::Utc::now().to_rfc3339();
+    let session = {
+        let db = state.db.lock();
+        db.execute(
+            "UPDATE sessions SET status = 'archived', state_changed_at = ?1 WHERE id = ?2",
+            rusqlite::params![now, id],
+        )?;
+        query_session_by_id(&db, &id)?
+    };
+
+    // Emit state change event
+    let _ = app.emit("session-state-changed", serde_json::json!({ "session": session }));
+
+    log::info!("Archived session {}", id);
+    Ok(())
 }
 
 /// Return a single session by id.

@@ -8,7 +8,8 @@ export type SessionStatus =
   | "killed"
   | "paused"
   | "stuck"
-  | "interrupted";
+  | "interrupted"
+  | "archived";
 export type BlockType = "permission" | "confirmation" | "question" | "input";
 
 /** Raw session shape returned by the Tauri backend (camelCase of Rust fields). */

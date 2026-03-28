@@ -52,6 +52,7 @@ function App() {
 
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const updateSession = useSessionStore((s) => s.updateSession);
+  const removeSession = useSessionStore((s) => s.removeSession);
   const appendStructuredEvents = useSessionStore((s) => s.appendStructuredEvents);
   const loadRepos = useRepoStore((s) => s.loadRepos);
   const repos = useRepoStore((s) => s.repos);
@@ -188,6 +189,11 @@ function App() {
         const prevStatus = prevStatusRef.current[session.id];
         prevStatusRef.current[session.id] = session.status;
 
+        if (session.status === "archived") {
+          removeSession(session.id);
+          return;
+        }
+
         updateSession(session.id, session);
 
         // Notify on important status transitions
@@ -250,7 +256,7 @@ function App() {
           }
         }
       }),
-    [updateSession, soundEnabled],
+    [updateSession, removeSession, soundEnabled],
   );
 
   // Batch structured events to avoid overwhelming React with rapid updates.

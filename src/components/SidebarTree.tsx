@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { Session, Repo } from "../lib/types";
 import { STATUS_DOT } from "../lib/statusColors";
+import { archiveSession } from "../lib/tauri";
+import { useSessionStore } from "../stores/sessionStore";
 
 /** Sidebar status dots use the centralized STATUS_DOT from statusColors.ts,
  *  with running animation appended. */
@@ -238,31 +240,54 @@ function SessionNode({
 }) {
   const statusTint = STATUS_ROW_TINT[session.status] ?? "";
   const statusLabel = STATUS_ICON_LABEL[session.status] ?? session.status;
+  const removeSession = useSessionStore((s) => s.removeSession);
+
+  async function handleArchive(e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      await archiveSession(session.id);
+      removeSession(session.id);
+    } catch (err) {
+      console.error("Failed to archive session:", err);
+    }
+  }
 
   return (
-    <button
-      onClick={onClick}
-      title={statusLabel}
-      className={`flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left transition-colors ${statusTint} ${
-        isActive
-          ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-          : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
-      }`}
-    >
-      {/* First line: status dot + session name */}
-      <div className="flex items-center gap-2">
-        <span
-          className={`h-2 w-2 shrink-0 rounded-full ${SIDEBAR_DOT[session.status] ?? "bg-gray-400"}`}
-          aria-label={statusLabel}
-        />
-        <span className="line-clamp-2 text-xs leading-snug">{session.name}</span>
-      </div>
-      {/* Second line: branch name below */}
-      {session.branch && (
-        <span className="ml-4 truncate font-mono text-[10px] text-gray-400 dark:text-gray-500">
-          {session.branch}
-        </span>
-      )}
-    </button>
+    <div className="group/session relative">
+      <button
+        onClick={onClick}
+        title={statusLabel}
+        className={`flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left transition-colors ${statusTint} ${
+          isActive
+            ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
+            : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+        }`}
+      >
+        {/* First line: status dot + session name */}
+        <div className="flex items-center gap-2">
+          <span
+            className={`h-2 w-2 shrink-0 rounded-full ${SIDEBAR_DOT[session.status] ?? "bg-gray-400"}`}
+            aria-label={statusLabel}
+          />
+          <span className="line-clamp-2 text-xs leading-snug">{session.name}</span>
+        </div>
+        {/* Second line: branch name below */}
+        {session.branch && (
+          <span className="ml-4 truncate font-mono text-[10px] text-gray-400 dark:text-gray-500">
+            {session.branch}
+          </span>
+        )}
+      </button>
+      {/* Archive button (visible on hover) */}
+      <button
+        onClick={(e) => { void handleArchive(e); }}
+        title="Archive"
+        className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-200 hover:text-gray-600 group-hover/session:opacity-100 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+      >
+        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-2-3H6L4 7m16 0v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7m16 0H4m4 4h8" />
+        </svg>
+      </button>
+    </div>
   );
 }

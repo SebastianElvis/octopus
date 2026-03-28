@@ -98,6 +98,11 @@ export async function killSession(id: string): Promise<void> {
   return tauriInvoke<void>("kill_session", { id });
 }
 
+export async function archiveSession(id: string): Promise<void> {
+  requireTauri("archive_session");
+  return tauriInvoke<void>("archive_session", { id });
+}
+
 export async function listSessions(): Promise<Session[]> {
   if (!isTauri()) return [];
   const raw = await tauriInvoke<BackendSession[]>("list_sessions");
