@@ -69,6 +69,7 @@ export function RightPanel({ session, onCommitted }: RightPanelProps) {
         {effectiveTab === "changes" && (
           <GitChangesPanel
             worktreePath={session?.worktreePath}
+            sessionId={session?.id}
             sessionName={session?.name}
             sessionStatus={session?.status}
             repoId={session?.repoId}

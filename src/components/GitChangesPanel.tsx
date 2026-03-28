@@ -1,9 +1,28 @@
 import { useEffect, useState } from "react";
 import { useGitStore } from "../stores/gitStore";
+import { useSessionStore } from "../stores/sessionStore";
 import type { ChangedFile } from "../lib/types";
+
+/** Extract a conventional commit message from Claude's output text. */
+function extractCommitMessage(messages: { role: string; blocks: { type: string; text?: string }[] }[]): string | null {
+  // Scan assistant messages from newest to oldest for conventional commit patterns
+  const pattern = /^(feat|fix|chore|docs|refactor|test|style|perf|ci|build|revert)(\([\w-]+\))?:\s*.+/m;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const msg = messages[i];
+    if (msg.role !== "assistant") continue;
+    for (const block of msg.blocks) {
+      if (block.type === "text" && block.text) {
+        const match = block.text.match(pattern);
+        if (match) return match[0];
+      }
+    }
+  }
+  return null;
+}
 
 interface GitChangesPanelProps {
   worktreePath: string | undefined;
+  sessionId?: string;
   sessionName?: string;
   sessionStatus?: string;
   repoId?: string;
@@ -22,6 +41,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 
 export function GitChangesPanel({
   worktreePath,
+  sessionId,
   sessionName,
   sessionStatus,
   onCommitted,
@@ -61,12 +81,17 @@ export function GitChangesPanel({
     return () => clearInterval(interval);
   }, [worktreePath, refreshChanges]);
 
-  // Pre-populate commit message
+  // Smart commit message: extract from Claude output, fall back to session name
+  const messages = useSessionStore((s) => s.messageBuffers[sessionId ?? ""] ?? []);
   useEffect(() => {
-    if (sessionName && !commitMessage) {
+    if (commitMessage) return; // Don't override user-edited message
+    const extracted = extractCommitMessage(messages);
+    if (extracted) {
+      setCommitMessage(extracted);
+    } else if (sessionName) {
       setCommitMessage(sessionName);
     }
-  }, [sessionName]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionName, messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isSessionDone = sessionStatus === "done" || sessionStatus === "attention";
 
