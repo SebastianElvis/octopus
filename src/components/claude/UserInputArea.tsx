@@ -6,10 +6,6 @@ import { useSessionStore } from "../../stores/sessionStore";
 import type { SlashCommand } from "./SlashCommandMenu";
 import { PermissionBanner } from "./PermissionBanner";
 import { SlashCommandMenu, filterCommands, buildCommandList } from "./SlashCommandMenu";
-import type { ClaudeMessage } from "../../lib/types";
-
-/** Stable empty array to avoid new-reference-per-render in Zustand selectors */
-const EMPTY_MESSAGES: ClaudeMessage[] = [];
 
 interface AttachedImage {
   id: string;
@@ -54,12 +50,6 @@ export function UserInputArea({
     (s) => s.sessions.find((sess) => sess.id === sessionId)?.worktreePath,
   );
   const sessionInitInfo = useSessionStore((s) => s.sessionInitInfo[sessionId]);
-
-  // Last few messages for waiting context
-  const allMessages = useSessionStore(
-    (s) => s.messageBuffers[sessionId] ?? EMPTY_MESSAGES,
-  );
-  const recentMessages = useMemo(() => allMessages.slice(-5), [allMessages]);
 
   // Load filesystem-discovered commands on mount (project + personal custom commands/skills)
   useEffect(() => {
@@ -264,27 +254,6 @@ export function UserInputArea({
     <div className="border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
       {/* Hook-based permission banner (rich inline UI) */}
       <PermissionBanner sessionId={sessionId} />
-
-      {/* Recent context when waiting */}
-      {isWaiting && !isWaitingPermission && recentMessages.length > 0 && (
-        <div className="mx-3 mb-2 max-h-32 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50/50 p-2 dark:border-gray-800 dark:bg-gray-900/30">
-          <p className="mb-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
-            Recent context
-          </p>
-          {recentMessages.map((msg) => (
-            <div key={msg.id} className="text-xs text-gray-600 dark:text-gray-400">
-              <span className="font-medium text-gray-500 dark:text-gray-500">
-                {msg.role === "user" ? "You: " : "Claude: "}
-              </span>
-              {msg.blocks
-                .filter((b): b is { type: "text"; text: string } => b.type === "text")
-                .map((b) => b.text)
-                .join("")
-                .slice(0, 150)}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Question / input prompt */}
       {isWaitingQuestion && lastMessage && (
