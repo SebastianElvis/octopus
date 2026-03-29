@@ -45,14 +45,14 @@ export function EditorTabs({
   const isRunning = sessionStatus === "running" || sessionStatus === "attention";
 
   const tabClass = (active: boolean) =>
-    `flex cursor-pointer items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-800 ${
+    `flex cursor-pointer items-center gap-1.5 border-r border-outline px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 ${
       active
-        ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
-        : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+        ? "bg-surface text-on-surface"
+        : "text-on-surface-muted hover:bg-hover"
     }`;
 
   return (
-    <div className="flex shrink-0 items-center gap-0 overflow-x-auto border-b border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
+    <div className="flex shrink-0 items-center gap-0 overflow-x-auto border-b border-outline bg-surface-sunken">
       {/* Claude structured output tab */}
       <button onClick={onSelectClaude} className={tabClass(claudeActive)}>
         <span
@@ -104,10 +104,10 @@ export function EditorTabs({
         return (
           <div
             key={tab.id}
-            className={`group flex items-center gap-1.5 border-r border-gray-200 px-3 py-1.5 text-xs dark:border-gray-800 ${
+            className={`group flex items-center gap-1.5 border-r border-outline px-3 py-1.5 text-xs ${
               isActive
-                ? "bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100"
-                : "text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+                ? "bg-surface text-on-surface"
+                : "text-on-surface-muted hover:bg-hover"
             }`}
           >
             <button
@@ -123,7 +123,7 @@ export function EditorTabs({
                 e.stopPropagation();
                 closeTab(tab.id);
               }}
-              className="shrink-0 rounded p-0.5 text-gray-400 opacity-0 hover:bg-gray-200 hover:text-gray-600 group-hover:opacity-100 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+              className="shrink-0 rounded p-0.5 text-on-surface-faint opacity-0 hover:bg-active hover:text-on-surface-muted group-hover:opacity-100"
             >
               <svg
                 className="h-3 w-3"

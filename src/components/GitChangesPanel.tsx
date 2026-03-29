@@ -48,7 +48,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   added: { label: "A", cls: "text-green-600 dark:text-green-400" },
   deleted: { label: "D", cls: "text-red-600 dark:text-red-400" },
   renamed: { label: "R", cls: "text-blue-600 dark:text-blue-400" },
-  untracked: { label: "U", cls: "text-gray-500 dark:text-gray-400" },
+  untracked: { label: "U", cls: "text-on-surface-muted" },
   copied: { label: "C", cls: "text-purple-600 dark:text-purple-400" },
 };
 
@@ -123,7 +123,7 @@ export function GitChangesPanel({
   if (!worktreePath) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-xs text-gray-400 dark:text-gray-500">No worktree</p>
+        <p className="text-xs text-on-surface-faint">No worktree</p>
       </div>
     );
   }
@@ -132,7 +132,7 @@ export function GitChangesPanel({
   if (isSessionDone && error?.includes("No such file or directory")) {
     return (
       <div className="flex h-full items-center justify-center px-4">
-        <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-center text-xs text-on-surface-faint">
           Session completed. Worktree has been cleaned up.
         </p>
       </div>
@@ -188,13 +188,13 @@ export function GitChangesPanel({
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-3 py-2 dark:border-gray-800">
-        <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">Changes</h3>
+      <div className="flex shrink-0 items-center justify-between border-b border-outline px-3 py-2">
+        <h3 className="text-xs font-semibold text-on-surface">Changes</h3>
         <button
           onClick={() => {
             void refreshChanges();
           }}
-          className="cursor-pointer rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300 dark:active:bg-gray-700"
+          className="cursor-pointer rounded p-1 text-on-surface-faint hover:bg-hover hover:text-on-surface-muted active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           title="Refresh"
         >
           <svg
@@ -215,7 +215,7 @@ export function GitChangesPanel({
 
       {loading && changedFiles.length === 0 && (
         <div className="flex h-20 items-center justify-center">
-          <span className="text-xs text-gray-400 dark:text-gray-500">Loading...</span>
+          <span className="text-xs text-on-surface-faint">Loading...</span>
         </div>
       )}
 
@@ -265,13 +265,13 @@ export function GitChangesPanel({
 
         {!loading && changedFiles.length === 0 && (
           <div className="flex h-20 items-center justify-center">
-            <span className="text-xs text-gray-400 dark:text-gray-500">No changes</span>
+            <span className="text-xs text-on-surface-faint">No changes</span>
           </div>
         )}
       </div>
 
       {/* Commit area */}
-      <div className="shrink-0 border-t border-gray-200 p-3 dark:border-gray-800">
+      <div className="shrink-0 border-t border-outline p-3">
         {error && <p className="mb-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
         {successMessage && !error && (
           <p className="mb-1 flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
@@ -294,7 +294,7 @@ export function GitChangesPanel({
           onChange={(e) => setCommitMessage(e.target.value)}
           placeholder="Commit message..."
           rows={2}
-          className="mb-2 w-full resize-none rounded border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+          className="mb-2 w-full resize-none rounded border border-outline bg-surface-raised px-2 py-1.5 text-xs text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
         />
         <div className="flex gap-1.5">
           <button
@@ -302,7 +302,7 @@ export function GitChangesPanel({
               void handleCommit();
             }}
             disabled={committing || pushing || !commitMessage.trim() || staged.length === 0}
-            className="flex-1 cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex-1 cursor-pointer rounded bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {committing ? "Committing..." : "Commit"}
           </button>
@@ -311,11 +311,11 @@ export function GitChangesPanel({
               void handlePush();
             }}
             disabled={pushing || committing}
-            className="cursor-pointer rounded border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 active:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-500 dark:text-blue-400 dark:hover:bg-blue-950/30 dark:active:bg-blue-950/50"
+            className="cursor-pointer rounded border border-brand px-3 py-1.5 text-xs font-medium text-brand hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pushing ? "Pushing..." : "Push"}
             {!pushing && syncStatus && syncStatus.ahead > 0 && (
-              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white dark:bg-blue-500">
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-none text-white">
                 {syncStatus.ahead}
               </span>
             )}
@@ -325,7 +325,7 @@ export function GitChangesPanel({
               void handleCommitAndPush();
             }}
             disabled={pushing || committing || !commitMessage.trim() || staged.length === 0}
-            className="cursor-pointer rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+            className="cursor-pointer rounded border border-outline px-3 py-1.5 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pushing ? "..." : "Commit & Push"}
           </button>
@@ -369,7 +369,7 @@ function FileSection({
   return (
     <div>
       <div className="flex items-center justify-between px-3 py-2">
-        <span className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+        <span className="text-xs font-semibold uppercase tracking-wide text-on-surface-muted">
           {title} ({files.length})
         </span>
         <div className="flex items-center gap-2">
@@ -379,7 +379,7 @@ function FileSection({
               className={`cursor-pointer text-xs ${
                 discardAllConfirm
                   ? "font-medium text-red-600 dark:text-red-400"
-                  : "text-gray-400 hover:text-red-600 dark:text-gray-500 dark:hover:text-red-400"
+                  : "text-on-surface-faint hover:text-red-600 dark:hover:text-red-400"
               }`}
             >
               {discardAllConfirm ? "Confirm discard all?" : "Discard all"}
@@ -387,7 +387,7 @@ function FileSection({
           )}
           <button
             onClick={onBulkAction}
-            className="cursor-pointer text-xs text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-400"
+            className="cursor-pointer text-xs text-on-surface-faint hover:text-on-surface-muted focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             {bulkLabel}
           </button>
@@ -402,13 +402,13 @@ function FileSection({
         return (
           <div
             key={`${f.path}-${f.staged}`}
-            className="group flex cursor-pointer items-center gap-2 border-b border-gray-100 px-3 py-1.5 hover:bg-gray-50 dark:border-gray-800/50 dark:hover:bg-gray-800/30"
+            className="group flex cursor-pointer items-center gap-2 border-b border-outline-muted px-3 py-1.5 hover:bg-hover"
             onClick={() => onSelect(f)}
           >
             {/* File path: dir in muted, filename in bold */}
             <div className="flex-1 truncate text-xs">
-              {dirPath && <span className="text-gray-400 dark:text-gray-500">{dirPath}</span>}
-              <span className="font-medium text-gray-800 dark:text-gray-200">{fileName}</span>
+              {dirPath && <span className="text-on-surface-faint">{dirPath}</span>}
+              <span className="font-medium text-on-surface">{fileName}</span>
             </div>
 
             {/* Right side: stats + badge + actions */}
@@ -435,7 +435,7 @@ function FileSection({
                     e.stopPropagation();
                     onAction(f);
                   }}
-                  className="rounded px-1 py-0.5 text-xs font-bold text-gray-400 hover:bg-gray-200 hover:text-gray-700 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                  className="rounded px-1 py-0.5 text-xs font-bold text-on-surface-faint hover:bg-active hover:text-on-surface"
                   title={actionTitle}
                 >
                   {actionLabel}
@@ -449,7 +449,7 @@ function FileSection({
                     className={`rounded px-1 py-0.5 text-xs ${
                       isConfirmingDiscard
                         ? "font-medium text-red-600 dark:text-red-400"
-                        : "text-gray-400 hover:bg-red-100 hover:text-red-600 dark:text-gray-500 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                        : "text-on-surface-faint hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
                     }`}
                     title={isConfirmingDiscard ? "Click again to confirm" : secondActionTitle}
                   >

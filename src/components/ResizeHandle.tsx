@@ -56,7 +56,7 @@ export function ResizeHandle({ direction, onResize, onResizeEnd }: ResizeHandleP
         isHorizontal
           ? "w-1 cursor-col-resize hover:bg-blue-500/40 active:bg-blue-500/60"
           : "h-1 cursor-row-resize hover:bg-blue-500/40 active:bg-blue-500/60"
-      } bg-gray-200 transition-colors dark:bg-gray-800`}
+      } bg-active transition-colors`}
     />
   );
 }

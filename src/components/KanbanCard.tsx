@@ -20,6 +20,8 @@ interface KanbanCardProps {
   onKill?: (id: string) => void;
   ciStatus?: CIStatus;
   isActive?: boolean;
+  /** Index within column for staggered entrance animation */
+  index?: number;
 }
 
 export function KanbanCard({
@@ -30,6 +32,7 @@ export function KanbanCard({
   onKill,
   ciStatus,
   isActive,
+  index = 0,
 }: KanbanCardProps) {
   const isClosed = session.status === "done";
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
@@ -48,28 +51,31 @@ export function KanbanCard({
     <div
       data-testid={`session-card-${session.id}`}
       onClick={() => onView(session.id)}
-      className={`group cursor-pointer rounded-md border bg-white px-3 py-2.5 pl-7 shadow-sm transition-all hover:shadow-md dark:bg-gray-950 ${closedBorder} ${isClosed ? "opacity-75" : ""} ${
+      style={{ animationDelay: `${index * 40}ms` }}
+      className={`group animate-entrance cursor-pointer rounded-sm border bg-surface px-3 py-2.5 pl-7 transition-all ${closedBorder} ${isClosed ? "opacity-75" : ""} ${
+        session.status === "running" ? "animate-pulse-glow" : ""
+      } ${
         isActive
-          ? "border-blue-400 ring-1 ring-blue-400/50 dark:border-blue-600 dark:ring-blue-600/40"
-          : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
+          ? "border-brand ring-1 ring-brand/50"
+          : "border-outline hover:border-outline-strong"
       }`}
     >
       {/* Title */}
-      <span className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 dark:text-gray-100">
+      <span className="line-clamp-2 text-sm font-semibold leading-snug text-on-surface">
         {session.name}
       </span>
 
       {/* Metadata line: branch, issue, time */}
-      <div className="mt-1 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+      <div className="mt-1 flex items-center gap-1 text-xs text-on-surface-muted">
         {session.branch && (
-          <span className="truncate font-mono text-[11px] text-gray-400 dark:text-gray-500">
+          <span className="truncate font-mono text-[11px] text-on-surface-faint">
             {session.branch}
           </span>
         )}
         {(session.linkedIssue ?? session.linkedPR) && (
           <>
-            {session.branch && <span className="text-gray-300 dark:text-gray-600">&middot;</span>}
-            <span className="text-[11px] text-gray-400 dark:text-gray-500">
+            {session.branch && <span className="text-on-surface-faint">&middot;</span>}
+            <span className="text-[11px] text-on-surface-faint">
               {session.linkedIssue
                 ? `#${String(session.linkedIssue.number)}`
                 : session.linkedPR
@@ -88,14 +94,14 @@ export function KanbanCard({
       </div>
 
       {/* Last active */}
-      <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">
+      <p className="mt-1 text-[11px] text-on-surface-faint">
         Active {timeAgo(session.stateChangedAt)}
       </p>
 
       {/* Inline blocking prompt for waiting sessions */}
       {session.status === "attention" && session.lastMessage && (
-        <div className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1.5 dark:border-amber-800/50 dark:bg-amber-950/20">
-          <p className="line-clamp-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-300">
+        <div className="mt-2 rounded border border-status-attention/30 bg-status-attention-muted px-2 py-1.5">
+          <p className="line-clamp-2 text-[11px] leading-relaxed text-status-attention">
             {session.lastMessage}
           </p>
         </div>
@@ -130,14 +136,14 @@ export function KanbanCard({
       >
         <button
           onClick={() => onView(session.id)}
-          className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200 dark:active:bg-gray-800"
+          className="cursor-pointer rounded border border-outline px-2 py-1 text-xs font-medium text-on-surface-muted hover:border-outline-strong hover:text-on-surface active:bg-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           View
         </button>
         {session.status === "running" && (
           <button
             onClick={() => onInterrupt?.(session.id)}
-            className="cursor-pointer rounded bg-yellow-600 px-2 py-1 text-xs font-medium text-white hover:bg-yellow-500 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-1"
+            className="cursor-pointer rounded bg-status-attention px-2 py-1 text-xs font-medium text-white hover:bg-accent active:bg-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1"
           >
             Interrupt
           </button>
@@ -146,7 +152,7 @@ export function KanbanCard({
         {session.status === "attention" && onResume && (
           <button
             onClick={() => onResume(session.id)}
-            className="cursor-pointer rounded bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            className="cursor-pointer rounded bg-brand px-3 py-1 text-[11px] font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             Resume
           </button>
@@ -157,19 +163,19 @@ export function KanbanCard({
           !showKillConfirm && (
             <button
               onClick={() => setShowKillConfirm(true)}
-              className="cursor-pointer rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 active:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:active:bg-red-950/50"
+              className="cursor-pointer rounded border border-danger/30 px-2 py-1 text-xs font-medium text-danger hover:bg-danger-muted active:bg-danger-muted focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
             >
               Kill
             </button>
           )}
         {showKillConfirm && onKill && (
           <>
-            <span className="text-xs text-red-600 dark:text-red-400">
+            <span className="text-xs text-danger">
               Kill &quot;{session.name}&quot;?
             </span>
             <button
               onClick={() => setShowKillConfirm(false)}
-              className="cursor-pointer rounded px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+              className="cursor-pointer rounded px-1.5 py-0.5 text-xs text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
               No
             </button>
@@ -178,7 +184,7 @@ export function KanbanCard({
                 setShowKillConfirm(false);
                 onKill(session.id);
               }}
-              className="cursor-pointer rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+              className="cursor-pointer rounded bg-danger px-2 py-1 text-xs font-medium text-white hover:bg-danger active:bg-danger focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
             >
               Yes
             </button>

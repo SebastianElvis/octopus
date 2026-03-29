@@ -42,16 +42,16 @@ export function KeyboardShortcutsOverlay({ open, onClose }: KeyboardShortcutsOve
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900"
+        className="w-full max-w-md rounded-xl border border-outline bg-surface p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-lg font-semibold text-on-surface">
             Keyboard Shortcuts
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
+            className="text-on-surface-faint hover:text-on-surface-muted"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -67,14 +67,14 @@ export function KeyboardShortcutsOverlay({ open, onClose }: KeyboardShortcutsOve
         <div className="space-y-5">
           {SHORTCUTS.map((section) => (
             <div key={section.section}>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-on-surface-muted">
                 {section.section}
               </h3>
               <div className="space-y-1.5">
                 {section.items.map((item) => (
                   <div key={item.keys} className="flex items-center justify-between py-0.5">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">{item.action}</span>
-                    <kbd className="rounded border border-gray-300 px-2 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                    <span className="text-sm text-on-surface-muted">{item.action}</span>
+                    <kbd className="rounded border border-outline px-2 py-0.5 text-xs font-mono text-on-surface-muted">
                       {item.keys}
                     </kbd>
                   </div>

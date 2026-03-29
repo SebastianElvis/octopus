@@ -76,7 +76,7 @@ export function SyntaxHighlighter({ code, language }: SyntaxHighlighterProps) {
   if (!html) {
     // Fallback while loading or for unsupported languages
     return (
-      <code className="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200">
+      <code className="font-mono text-xs leading-relaxed text-on-surface">
         {code}
       </code>
     );

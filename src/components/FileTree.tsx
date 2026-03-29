@@ -46,14 +46,14 @@ function gitStatusColor(status: string): string {
   switch (status) {
     case "A":
     case "U":
-      return "text-green-500 dark:text-green-400";
+      return "text-green-500";
     case "M":
     case "R":
-      return "text-yellow-600 dark:text-yellow-400";
+      return "text-yellow-500";
     case "D":
-      return "text-red-500 dark:text-red-400";
+      return "text-red-500";
     default:
-      return "text-green-500 dark:text-green-400";
+      return "text-green-500";
   }
 }
 
@@ -121,7 +121,7 @@ export function FileTree({ rootPath, onFileSelect }: FileTreeProps) {
   if (rootLoading && rootEntries.length === 0) {
     return (
       <div className="flex h-20 items-center justify-center">
-        <span className="text-xs text-gray-400 dark:text-gray-500">Loading…</span>
+        <span className="text-xs text-on-surface-faint">Loading…</span>
       </div>
     );
   }
@@ -129,7 +129,7 @@ export function FileTree({ rootPath, onFileSelect }: FileTreeProps) {
   if (rootEntries.length === 0) {
     return (
       <div className="flex h-20 items-center justify-center">
-        <span className="text-xs text-gray-400 dark:text-gray-500">Empty directory</span>
+        <span className="text-xs text-on-surface-faint">Empty directory</span>
       </div>
     );
   }
@@ -185,11 +185,11 @@ function FileTreeNode({
           onClick={() => {
             void toggleDir(entry.path);
           }}
-          className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+          className="flex w-full items-center gap-1 rounded px-1 py-0.5 text-left text-on-surface-muted hover:bg-hover"
           style={{ paddingLeft: `${depth * 12 + 4}px` }}
         >
           <svg
-            className={`h-3 w-3 shrink-0 text-gray-400 transition-transform dark:text-gray-500 ${isExpanded ? "rotate-90" : ""}`}
+            className={`h-3 w-3 shrink-0 text-on-surface-faint transition-transform ${isExpanded ? "rotate-90" : ""}`}
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -197,7 +197,7 @@ function FileTreeNode({
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
-          <span className={`truncate font-medium ${hasChanges ? "text-yellow-600 dark:text-yellow-400" : ""}`}>
+          <span className={`truncate font-medium ${hasChanges ? "text-yellow-500" : ""}`}>
             {entry.name}
           </span>
         </button>
@@ -206,7 +206,7 @@ function FileTreeNode({
             {isLoading && children.length === 0 && (
               <div
                 style={{ paddingLeft: `${(depth + 1) * 12 + 4}px` }}
-                className="py-0.5 text-gray-400 dark:text-gray-500"
+                className="py-0.5 text-on-surface-faint"
               >
                 Loading…
               </div>
@@ -236,8 +236,8 @@ function FileTreeNode({
   return (
     <button
       onClick={() => onFileSelect(entry.path)}
-      className={`flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50 ${
-        status ? colorClass : "text-gray-600 dark:text-gray-400"
+      className={`flex w-full items-center gap-1.5 rounded px-1 py-0.5 text-left hover:bg-hover ${
+        status ? colorClass : "text-on-surface-muted"
       }`}
       style={{ paddingLeft: `${depth * 12 + 18}px` }}
     >

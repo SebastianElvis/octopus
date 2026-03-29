@@ -83,13 +83,13 @@ export function AddRepoDialog({ open, onClose }: AddRepoDialogProps) {
         if (e.target === e.currentTarget) handleClose();
       }}
     >
-      <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-700 dark:bg-gray-900">
-        <h2 className="mb-4 text-base font-semibold text-gray-900 dark:text-gray-100">
+      <div className="w-full max-w-md rounded-sm border border-outline bg-surface p-6 shadow-xl">
+        <h2 className="mb-4 text-base font-semibold text-on-surface">
           Add Repository
         </h2>
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className="mb-1 block text-xs font-medium text-on-surface-muted">
               GitHub URL or owner/repo
             </label>
             <input
@@ -102,13 +102,13 @@ export function AddRepoDialog({ open, onClose }: AddRepoDialogProps) {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !adding) void handleAdd();
               }}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+              className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none disabled:opacity-50"
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className="mb-1 block text-xs font-medium text-on-surface-muted">
               Local Path{" "}
-              <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+              <span className="font-normal text-on-surface-faint">(optional)</span>
             </label>
             <input
               type="text"
@@ -119,14 +119,14 @@ export function AddRepoDialog({ open, onClose }: AddRepoDialogProps) {
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !adding) void handleAdd();
               }}
-              className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+              className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none disabled:opacity-50"
             />
           </div>
         </div>
-        {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {error && <p className="mt-2 text-xs text-danger">{error}</p>}
         <div className="mt-4 flex items-center justify-between">
           {adding ? (
-            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-xs text-on-surface-muted">
               <svg
                 className="h-3.5 w-3.5 animate-spin text-blue-600"
                 viewBox="0 0 24 24"
@@ -155,7 +155,7 @@ export function AddRepoDialog({ open, onClose }: AddRepoDialogProps) {
             <button
               onClick={handleClose}
               disabled={adding}
-              className="cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:active:bg-gray-800"
+              className="cursor-pointer rounded-sm border border-outline px-3 py-1.5 text-sm text-on-surface-muted hover:border-outline-strong active:bg-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancel
             </button>
@@ -164,7 +164,7 @@ export function AddRepoDialog({ open, onClose }: AddRepoDialogProps) {
                 void handleAdd();
               }}
               disabled={adding}
-              className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded-sm bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {adding ? "Adding…" : "Add"}
             </button>

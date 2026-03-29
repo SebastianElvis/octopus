@@ -223,8 +223,8 @@ export function SlashCommandMenu({
 
   if (filtered.length === 0) {
     return (
-      <div className="absolute bottom-full left-0 right-0 mb-1 rounded-lg border border-gray-200 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-gray-900">
-        <p className="text-center text-xs text-gray-400 dark:text-gray-500">
+      <div className="absolute bottom-full left-0 right-0 mb-1 rounded-sm border border-outline bg-surface p-3 shadow-lg">
+        <p className="text-center text-xs text-on-surface-faint">
           No matching commands
         </p>
       </div>
@@ -238,7 +238,7 @@ export function SlashCommandMenu({
   return (
     <div
       ref={listRef}
-      className="absolute bottom-full left-0 right-0 mb-1 max-h-64 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-900"
+      className="absolute bottom-full left-0 right-0 mb-1 max-h-64 overflow-y-auto rounded-sm border border-outline bg-surface shadow-lg"
     >
       {filtered.map((cmd) => {
         globalIndex++;
@@ -250,7 +250,7 @@ export function SlashCommandMenu({
         return (
           <div key={cmd.command}>
             {showCategory && (
-              <div className="sticky top-0 bg-gray-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 dark:bg-gray-800/80 dark:text-gray-500">
+              <div className="sticky top-0 bg-surface-sunken px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-on-surface-faint">
                 {CATEGORY_LABELS[cmd.category] ?? cmd.category}
               </div>
             )}
@@ -260,20 +260,20 @@ export function SlashCommandMenu({
               onClick={() => onSelect(cmd.command)}
               className={`flex w-full cursor-pointer items-center gap-3 px-3 py-1.5 text-left ${
                 isSelected
-                  ? "bg-blue-50 dark:bg-blue-950/30"
-                  : "hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                  ? "bg-brand/10"
+                  : "hover:bg-hover"
               }`}
             >
               <code
                 className={`shrink-0 text-xs font-medium ${
                   isSelected
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-700 dark:text-gray-300"
+                    ? "text-brand"
+                    : "text-on-surface"
                 }`}
               >
                 {cmd.command}
               </code>
-              <span className="min-w-0 flex-1 truncate text-xs text-gray-400 dark:text-gray-500">
+              <span className="min-w-0 flex-1 truncate text-xs text-on-surface-faint">
                 {cmd.description}
               </span>
             </button>

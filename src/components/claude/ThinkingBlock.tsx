@@ -19,10 +19,10 @@ export function ThinkingBlock({ thinking, isStreaming }: ThinkingBlockProps) {
   }, [thinking, isStreaming, expanded]);
 
   return (
-    <div className="my-1 rounded-md border border-gray-200/60 bg-gray-50/50 dark:border-gray-800/60 dark:bg-gray-900/30">
+    <div className="my-1 rounded-sm border border-outline-muted bg-surface-sunken/50">
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
+        className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-on-surface-faint hover:text-on-surface-muted"
       >
         <svg
           className={`h-3 w-3 shrink-0 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
@@ -39,10 +39,10 @@ export function ThinkingBlock({ thinking, isStreaming }: ThinkingBlockProps) {
         )}
       </button>
       <AnimatedCollapse expanded={expanded}>
-        <div className="border-t border-gray-200/60 px-3 py-2 dark:border-gray-800/60">
+        <div className="border-t border-outline-muted px-3 py-2">
           <pre
             ref={contentRef}
-            className="max-h-60 overflow-auto whitespace-pre-wrap font-mono text-xs italic leading-relaxed text-gray-400 dark:text-gray-500"
+            className="max-h-60 overflow-auto whitespace-pre-wrap font-mono text-xs italic leading-relaxed text-on-surface-faint"
           >
             {thinking}
             {isStreaming && (

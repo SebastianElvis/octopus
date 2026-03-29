@@ -1,30 +1,33 @@
 ## Design Context
 
 ### Users
-Power users of Claude Code who need to run many AI sessions in parallel. Core audience includes ADHD developers who thrive on high-stimulus, fast-switching workflows. They want to dispatch, monitor, and coordinate multiple sessions without losing track of anything. The app should feel like a mission control center — everything visible, everything reachable, zero waiting.
+Power users of Claude Code who need to run many AI sessions in parallel. Core audience includes ADHD developers who benefit from calm, focused interfaces that reduce cognitive load. They want to dispatch, monitor, and coordinate multiple sessions without distraction. The app should feel like a quiet control room — essential information visible at a glance, everything else out of the way.
 
 ### Brand Personality
-**ADHD-native. Fast execution. Fast iteration.**
+**Calm focus. Fast execution. Zero noise.**
 
-The interface should feel like it keeps up with a racing mind. No unnecessary friction, no slow animations, no hidden states. Information density is a feature, not a problem. The UI should reward fast switching and parallel thinking.
+The interface should feel like it keeps up with the user without overwhelming them. No unnecessary friction, no slow animations, no hidden states — but also no clutter, no competing signals, no visual noise. Minimal is a feature: show only what matters, hide what doesn't. The UI should reward fast switching while keeping the mind clear.
 
 ### Aesthetic Direction
-- **Technical and utilitarian by design** — not polished for polish's sake, but sharp and functional
+- **Sharp and minimal** — utilitarian, not decorative. Every element earns its space
 - **Dark-theme-first** — dark mode is the primary experience; light mode is supported but secondary
 - **Monospace everywhere** — JetBrains Mono as the universal typeface reinforces the developer-tool identity
-- **Reference:** Conductor (multi-session orchestration), pushed further toward extreme multitasking density
-- **Status-color-driven:** Blue (running), amber (attention), green (done) — consistent, scannable, instant recognition
-- **Information-dense layouts** — kanban cards, split panes, inline actions, badges, and pills pack maximum signal into minimum space
+- **Borders over shadows** — 1px subtle outlines instead of soft shadows; `rounded-sm` over `rounded-lg`
+- **Status-color-driven:** Cyan (running), gold (attention), green (done) — consistent, scannable, instant recognition
+- **Minimal layouts** — show the essential state of each session cleanly; progressive disclosure for details
 - **Yin-yang brand mark** (cyan + gold) — balance of many things in motion
+- **OKLCH color space** — perceptually uniform colors with `color-mix()` for programmatic variants
 
 ### Design Principles
 
-1. **Scannable over beautiful** — Every pixel should communicate state. Favor information density, status indicators, and at-a-glance comprehension over whitespace and decoration. A user should know the state of 10+ sessions without clicking anything.
+1. **Minimal over dense** — Show only what the user needs to make a decision. Whitespace is not waste — it reduces cognitive load. A user should know the state of 10+ sessions at a glance because each card is clean and scannable, not because everything is crammed in.
 
 2. **Zero-friction interaction** — Command palette (Cmd+K), keyboard shortcuts, inline actions on hover, auto-generated defaults. Never make the user fill out a form when a smart default will do. Reduce clicks to reach any action.
 
-3. **Keep up with the user** — Fast transitions (< 200ms), no blocking modals where inline will do, streaming updates, pulse animations for active work. The UI should never feel like it's making the user wait.
+3. **Keep up with the user** — Fast transitions (< 200ms), no blocking modals where inline will do, streaming updates, subtle pulse on active work. The UI should never feel like it's making the user wait.
 
-4. **Consistent status language** — The color system (blue/amber/green + block-type variants) is sacred. Every component that shows state must use `statusColors.ts` as the single source of truth. New states get new entries there, not ad-hoc colors.
+4. **Consistent status language** — The color system (cyan/gold/green + block-type variants) is sacred. Every component that shows state must use `statusColors.ts` as the single source of truth. New states get new entries there, not ad-hoc colors.
 
-5. **Dark-first, contrast-aware** — Design for dark backgrounds first. Ensure all text, borders, and interactive elements have sufficient contrast in dark mode. Light mode adapts from dark, not the other way around.
+5. **Dark-first, contrast-aware** — Design for dark backgrounds first. All CSS custom properties default to dark-mode values. Light mode adapts via `.light` class override, not the other way around. WCAG AA minimum contrast throughout.
+
+6. **Alive but calm** — Subtle motion communicates state: a glow on streaming sessions, a flash on status changes, staggered card entrance. But never competing animations, never distracting movement. Respect `prefers-reduced-motion` always.

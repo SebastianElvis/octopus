@@ -13,6 +13,7 @@ import { ToastContainer, type ToastItem } from "./components/Toast";
 import { OnboardingDialog, useOnboarding } from "./components/OnboardingDialog";
 import { SettingsModal } from "./components/SettingsModal";
 import { KeyboardShortcutsOverlay } from "./components/KeyboardShortcutsOverlay";
+import { BrandMark } from "./components/BrandMark";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { useUIStore } from "./stores/uiStore";
@@ -336,28 +337,31 @@ function App() {
   const isSessionView = view === "session" && activeSessionId;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+    <div className="flex h-screen overflow-hidden bg-surface text-on-surface">
       {/* Sidebar */}
       {!sidebarCollapsed && (
         <>
           <aside
             style={{ width: `${sidebarWidth}px` }}
-            className="flex shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
+            className="flex shrink-0 flex-col overflow-hidden border-r border-outline bg-surface"
           >
             {/* Brand */}
             <div className="flex shrink-0 items-center justify-between px-4 py-3">
-              <div>
-                <h1 className="text-base font-bold tracking-tight text-gray-900 dark:text-gray-100">
-                  TooManyTabs
-                </h1>
-                <p className="text-[11px] text-gray-400 dark:text-gray-500">dispatch board</p>
+              <div className="flex items-center gap-2.5">
+                <BrandMark size={22} />
+                <div>
+                  <h1 className="text-base font-bold tracking-tight text-on-surface">
+                    TooManyTabs
+                  </h1>
+                  <p className="text-[11px] text-on-surface-faint">dispatch board</p>
+                </div>
               </div>
               <div className="flex items-center gap-1">
                 {/* Settings gear */}
                 <button
                   onClick={() => setShowSettings(true)}
                   title="Settings"
-                  className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+                  className="rounded-sm p-1.5 text-on-surface-muted hover:bg-hover"
                 >
                   <svg
                     className="h-4 w-4"
@@ -384,7 +388,7 @@ function App() {
                 <button
                   onClick={toggleSidebar}
                   title="Collapse sidebar"
-                  className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+                  className="rounded-sm p-1.5 text-on-surface-muted hover:bg-hover"
                 >
                   <svg
                     className="h-4 w-4"
@@ -447,11 +451,11 @@ function App() {
 
       {/* Sidebar collapsed: show expand button + attention indicator */}
       {sidebarCollapsed && (
-        <div className="flex shrink-0 flex-col items-center gap-2 border-r border-gray-200 bg-white py-3 dark:border-gray-800 dark:bg-gray-950">
+        <div className="flex shrink-0 flex-col items-center gap-2 border-r border-outline bg-surface py-3">
           <button
             onClick={toggleSidebar}
             title="Expand sidebar"
-            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+            className="rounded-sm p-1.5 text-on-surface-muted hover:bg-hover"
           >
             <svg
               className="h-4 w-4"
@@ -578,15 +582,15 @@ function NavItem({
     <button
       data-testid={`nav-${label.toLowerCase()}`}
       onClick={onClick}
-      className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+      className={`flex items-center justify-between rounded-sm px-3 py-2 text-sm font-medium transition-colors ${
         active
-          ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-          : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200"
+          ? "bg-hover text-on-surface"
+          : "text-on-surface-muted hover:bg-hover hover:text-on-surface"
       }`}
     >
       {label}
       {badge !== undefined && (
-        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-bold text-white">
+        <span className="rounded-full bg-danger px-1.5 py-0.5 text-xs font-bold text-white">
           {badge}
         </span>
       )}
@@ -602,7 +606,7 @@ function SoundToggle() {
     <button
       onClick={toggleSound}
       title={soundEnabled ? "Mute notifications" : "Unmute notifications"}
-      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+      className="rounded-sm p-1.5 text-on-surface-muted hover:bg-hover"
     >
       {soundEnabled ? (
         <svg

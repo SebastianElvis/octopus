@@ -251,15 +251,15 @@ export function UserInputArea({
   const statusInfo = getStatusInfo();
 
   return (
-    <div className="border-t border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950">
+    <div className="border-t border-outline bg-surface">
       {/* Hook-based permission banner (rich inline UI) */}
       <PermissionBanner sessionId={sessionId} />
 
       {/* Question / input prompt */}
       {isWaitingQuestion && lastMessage && (
-        <div className="mx-3 mb-2 flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20">
+        <div className="mx-3 mb-2 flex items-start gap-2 rounded-sm border border-brand/30 bg-brand/5 p-3">
           <svg
-            className="mt-0.5 h-4 w-4 shrink-0 text-blue-500"
+            className="mt-0.5 h-4 w-4 shrink-0 text-brand"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -271,15 +271,15 @@ export function UserInputArea({
               d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z"
             />
           </svg>
-          <p className="text-sm text-gray-700 dark:text-gray-300">{lastMessage}</p>
+          <p className="text-sm text-on-surface">{lastMessage}</p>
         </div>
       )}
 
       {/* Confirmation prompt */}
       {isWaitingConfirmation && (
-        <div className="mx-3 mb-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+        <div className="mx-3 mb-2 rounded-sm border border-status-attention/30 bg-status-attention-muted p-3">
           {lastMessage && (
-            <p className="mb-2 text-sm text-gray-700 dark:text-gray-300">{lastMessage}</p>
+            <p className="mb-2 text-sm text-on-surface">{lastMessage}</p>
           )}
           <div className="flex items-center gap-2">
             <button
@@ -288,7 +288,7 @@ export function UserInputArea({
                 void handleSend();
               }}
               disabled={sending}
-              className="flex cursor-pointer items-center gap-1.5 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white shadow-sm hover:bg-green-500 active:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex cursor-pointer items-center gap-1.5 rounded-sm bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500 active:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
@@ -301,7 +301,7 @@ export function UserInputArea({
                 void handleSend();
               }}
               disabled={sending}
-              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 shadow-sm hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+              className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-outline-strong bg-surface-raised px-3 py-1.5 text-xs font-medium text-on-surface-muted hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -314,10 +314,10 @@ export function UserInputArea({
 
       {/* Session-level permission (fallback when no hook permissions are available) */}
       {isWaitingPermission && lastMessage && (
-        <div className="mx-3 mb-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-900 dark:bg-amber-950/20">
+        <div className="mx-3 mb-2 rounded-sm border border-status-attention/30 bg-status-attention-muted p-3">
           <div className="mb-2 flex items-center gap-2">
             <svg
-              className="h-4 w-4 shrink-0 text-amber-500"
+              className="h-4 w-4 shrink-0 text-status-attention"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -327,11 +327,11 @@ export function UserInputArea({
                 clipRule="evenodd"
               />
             </svg>
-            <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+            <span className="text-sm font-medium text-status-attention">
               Permission Required
             </span>
           </div>
-          <p className="text-xs text-gray-600 dark:text-gray-400">{lastMessage}</p>
+          <p className="text-xs text-on-surface-muted">{lastMessage}</p>
         </div>
       )}
 
@@ -344,8 +344,8 @@ export function UserInputArea({
       >
         {/* Drag overlay */}
         {isDragOver && (
-          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-blue-400 bg-blue-50/80 dark:bg-blue-950/60">
-            <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
+          <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-brand bg-brand/10">
+            <span className="text-sm font-medium text-brand">
               Drop image here
             </span>
           </div>
@@ -361,7 +361,7 @@ export function UserInputArea({
             commands={allCommands}
           />
         )}
-        <div className="rounded-xl border border-gray-200 bg-gray-50 focus-within:border-blue-400 focus-within:bg-white focus-within:ring-1 focus-within:ring-blue-400 dark:border-gray-700 dark:bg-gray-900 dark:focus-within:border-blue-500 dark:focus-within:bg-gray-950 dark:focus-within:ring-blue-500">
+        <div className="rounded-xl border border-outline bg-surface-sunken focus-within:border-brand focus-within:bg-surface focus-within:ring-1 focus-within:ring-brand">
           {/* Image thumbnails */}
           {attachedImages.length > 0 && (
             <div className="flex flex-wrap gap-2 px-3 pt-2">
@@ -370,11 +370,11 @@ export function UserInputArea({
                   <img
                     src={img.previewUrl}
                     alt={img.file.name}
-                    className="h-16 w-16 rounded-md border border-gray-200 object-cover dark:border-gray-700"
+                    className="h-16 w-16 rounded-sm border border-outline object-cover"
                   />
                   <button
                     onClick={() => removeImage(img.id)}
-                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-gray-800 text-white opacity-0 transition-opacity hover:bg-red-600 group-hover:opacity-100 dark:bg-gray-200 dark:text-gray-900 dark:hover:bg-red-400"
+                    className="absolute -right-1.5 -top-1.5 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-on-surface text-surface opacity-0 transition-opacity hover:bg-danger group-hover:opacity-100"
                     title="Remove image"
                   >
                     <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
@@ -404,7 +404,7 @@ export function UserInputArea({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={sending || !canType}
-              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-on-surface-faint transition-colors hover:bg-active hover:text-on-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
               title="Attach image"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -455,14 +455,14 @@ export function UserInputArea({
               placeholder={getPlaceholder()}
               disabled={sending || !canType}
               rows={1}
-              className="flex-1 resize-none border-0 bg-transparent text-sm text-gray-900 placeholder-gray-400 focus:outline-none disabled:opacity-50 dark:text-gray-100 dark:placeholder-gray-500"
+              className="flex-1 resize-none border-0 bg-transparent text-sm text-on-surface placeholder-on-surface-faint focus:outline-none disabled:opacity-50"
             />
             <button
               onClick={() => {
                 void handleSend();
               }}
               disabled={(!inputText.trim() && attachedImages.length === 0) || sending || !canType}
-              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-white transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300 dark:disabled:bg-gray-700 dark:disabled:text-gray-500"
+              className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm bg-on-surface text-surface transition-colors hover:bg-on-surface/80 disabled:cursor-not-allowed disabled:bg-active disabled:text-on-surface-muted"
               title="Send (Enter)"
             >
               <svg
@@ -490,7 +490,7 @@ export function UserInputArea({
               <span
                 className={`inline-block h-1.5 w-1.5 rounded-full ${statusInfo.color} ${isRunning ? "animate-pulse" : ""}`}
               />
-              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+              <span className="text-[11px] text-on-surface-faint">
                 {statusInfo.label}
               </span>
             </>
@@ -498,7 +498,7 @@ export function UserInputArea({
           {isWaiting && (
             <>
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-              <span className="text-[11px] text-gray-400 dark:text-gray-500">
+              <span className="text-[11px] text-on-surface-faint">
                 Waiting for your input
               </span>
             </>
@@ -509,7 +509,7 @@ export function UserInputArea({
             onClick={() => {
               void handleInterrupt();
             }}
-            className="cursor-pointer rounded px-2 py-0.5 text-[11px] font-medium text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800 dark:hover:text-gray-300"
+            className="cursor-pointer rounded px-2 py-0.5 text-[11px] font-medium text-on-surface-faint hover:bg-hover hover:text-on-surface-muted"
           >
             Interrupt
           </button>

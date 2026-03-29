@@ -77,15 +77,15 @@ function SettingsModalInner({
     >
       <div
         data-testid="settings-modal"
-        className="w-full max-w-lg rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-900"
+        className="w-full max-w-lg rounded-xl border border-outline bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-800">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Settings</h2>
+        <div className="flex items-center justify-between border-b border-outline px-6 py-4">
+          <h2 className="text-lg font-semibold text-on-surface">Settings</h2>
           <button
             onClick={onClose}
-            className="cursor-pointer text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-300"
+            className="cursor-pointer text-on-surface-faint hover:text-on-surface-muted focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -99,15 +99,15 @@ function SettingsModalInner({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-6 dark:border-gray-800">
+        <div className="flex border-b border-outline px-6">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`cursor-pointer px-3 py-2.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+              className={`cursor-pointer px-3 py-2.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 ${
                 activeTab === tab.id
-                  ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
-                  : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+                  ? "border-b-2 border-brand text-brand"
+                  : "text-on-surface-muted hover:text-on-surface"
               }`}
             >
               {tab.label}
@@ -120,13 +120,13 @@ function SettingsModalInner({
           {activeTab === "appearance" && (
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                <label className="mb-1 block text-xs font-medium text-on-surface-muted">
                   Theme
                 </label>
                 <select
                   value={theme}
                   onChange={(e) => setTheme(e.target.value as "system" | "light" | "dark")}
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                  className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface focus:border-brand focus:outline-none"
                 >
                   <option value="system">System</option>
                   <option value="light">Light</option>
@@ -134,7 +134,7 @@ function SettingsModalInner({
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                <label className="mb-1 block text-xs font-medium text-on-surface-muted">
                   Terminal Font Size ({terminalFontSize}px)
                 </label>
                 <input
@@ -145,7 +145,7 @@ function SettingsModalInner({
                   onChange={(e) => setTerminalFontSize(parseInt(e.target.value, 10))}
                   className="w-full"
                 />
-                <div className="flex justify-between text-xs text-gray-400">
+                <div className="flex justify-between text-xs text-on-surface-faint">
                   <span>8px</span>
                   <span>24px</span>
                 </div>
@@ -157,17 +157,17 @@ function SettingsModalInner({
             <div className="space-y-4">
               <label className="flex cursor-pointer items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-on-surface">
                     Sound Notifications
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-on-surface-muted">
                     Play a sound when sessions need attention
                   </p>
                 </div>
                 <button
                   onClick={toggleSound}
                   className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                    soundEnabled ? "bg-blue-600" : "bg-gray-300 dark:bg-gray-600"
+                    soundEnabled ? "bg-brand" : "bg-active"
                   }`}
                 >
                   <span
@@ -178,10 +178,10 @@ function SettingsModalInner({
                 </button>
               </label>
               <div>
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                <p className="text-sm font-medium text-on-surface">
                   System Notifications
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-on-surface-muted">
                   Desktop notifications are managed by your OS settings
                 </p>
               </div>
@@ -191,10 +191,10 @@ function SettingsModalInner({
           {activeTab === "api" && (
             <div className="space-y-4">
               <div>
-                <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+                <label className="mb-1 block text-xs font-medium text-on-surface-muted">
                   Claude API Key
                 </label>
-                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                <p className="mb-2 text-xs text-on-surface-muted">
                   Claude API key. Optional if you have Claude CLI configured.
                 </p>
                 <input
@@ -202,16 +202,16 @@ function SettingsModalInner({
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
                   placeholder="sk-ant-..."
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                  className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
                 />
                 {apiKeyError && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{apiKeyError}</p>
+                  <p className="mt-1 text-xs text-danger">{apiKeyError}</p>
                 )}
                 <button
                   onClick={() => {
                     void handleSaveApiKey();
                   }}
-                  className="mt-2 cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                  className="mt-2 cursor-pointer rounded-sm bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
                 >
                   {apiKeySaved ? "Saved" : "Save"}
                 </button>
@@ -234,7 +234,7 @@ function SettingsModalInner({
                   onShowShortcuts();
                   onClose();
                 }}
-                className="mt-3 cursor-pointer text-xs text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-blue-500"
+                className="mt-3 cursor-pointer text-xs text-brand hover:underline focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               >
                 View full shortcuts overlay
               </button>
@@ -249,8 +249,8 @@ function SettingsModalInner({
 function ShortcutRow({ keys, action }: { keys: string; action: string }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-xs text-gray-600 dark:text-gray-400">{action}</span>
-      <kbd className="rounded border border-gray-300 px-2 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-400">
+      <span className="text-xs text-on-surface-muted">{action}</span>
+      <kbd className="rounded border border-outline px-2 py-0.5 text-xs font-mono text-on-surface-muted">
         {keys}
       </kbd>
     </div>

@@ -41,16 +41,16 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
-        <div className="flex flex-col items-center justify-center gap-4 rounded-lg border border-red-200 bg-red-50 p-8 text-center dark:border-red-800/60 dark:bg-red-950/20">
-          <p className="text-sm font-medium text-red-600 dark:text-red-400">
+        <div className="flex flex-col items-center justify-center gap-4 rounded-sm border border-danger bg-danger-muted p-8 text-center">
+          <p className="text-sm font-medium text-danger">
             Something went wrong while rendering this component.
           </p>
-          <p className="max-w-sm break-all font-mono text-xs text-red-500/70 dark:text-red-300/70">
+          <p className="max-w-sm break-all font-mono text-xs text-danger/70">
             {error.message}
           </p>
           <button
             onClick={this.handleReset}
-            className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-600 hover:border-red-400 hover:text-red-700 dark:border-red-700 dark:text-red-300 dark:hover:border-red-500 dark:hover:text-red-100"
+            className="rounded-sm border border-danger px-3 py-1.5 text-xs font-medium text-danger hover:border-red-400 hover:text-red-700"
           >
             Try again
           </button>

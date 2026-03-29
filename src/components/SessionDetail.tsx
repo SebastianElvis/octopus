@@ -119,7 +119,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   if (!session) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-gray-500">Session not found.</p>
+        <p className="text-on-surface-muted">Session not found.</p>
       </div>
     );
   }
@@ -181,16 +181,16 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Session header bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-950">
+      <div className="flex shrink-0 items-center justify-between border-b border-outline bg-surface px-4 py-2">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="cursor-pointer text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-300"
+            className="cursor-pointer text-xs text-on-surface-muted hover:text-on-surface focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             &larr; Board
           </button>
-          <span className="text-gray-300 dark:text-gray-700">|</span>
-          <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{session.name}</h1>
+          <span className="text-on-surface-faint">|</span>
+          <h1 className="text-sm font-semibold text-on-surface">{session.name}</h1>
           <span
             className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
           >
@@ -200,11 +200,11 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             {session.status}
           </span>
           {session.branch && (
-            <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+            <span className="font-mono text-xs text-on-surface-muted">
               {session.branch}
             </span>
           )}
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-on-surface-faint">
             {timeAgo(session.stateChangedAt)}
           </span>
         </div>
@@ -214,7 +214,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               onClick={() => {
                 void handleResume();
               }}
-              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              className="cursor-pointer rounded bg-brand px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
               Resume
             </button>
@@ -224,7 +224,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               onClick={() => {
                 handleToggleRecap();
               }}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+              className="cursor-pointer rounded border border-outline px-2 py-1 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
               {centerTab === "recap" ? "Hide Recap" : "Show Recap"}
             </button>
@@ -236,7 +236,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   void navigator.clipboard.writeText(patch);
                 });
               }}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+              className="cursor-pointer rounded border border-outline px-2 py-1 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               title="Copy git diff to clipboard"
             >
               Save Patch
@@ -244,12 +244,12 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           )}
           {showKillConfirm ? (
             <>
-              <span className="text-xs text-red-600 dark:text-red-400">
+              <span className="text-xs text-danger">
                 Kill &quot;{session.name}&quot;?
               </span>
               <button
                 onClick={() => setShowKillConfirm(false)}
-                className="cursor-pointer rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+                className="cursor-pointer rounded px-2 py-1 text-xs text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               >
                 Cancel
               </button>
@@ -258,7 +258,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   setShowKillConfirm(false);
                   void handleKill();
                 }}
-                className="cursor-pointer rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+                className="cursor-pointer rounded bg-danger px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
               >
                 Confirm Kill
               </button>
@@ -266,7 +266,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           ) : (
             <button
               onClick={() => setShowKillConfirm(true)}
-              className="cursor-pointer rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 active:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:active:bg-red-950/50"
+              className="cursor-pointer rounded border border-danger/30 px-2 py-1 text-xs font-medium text-danger hover:bg-danger-muted active:bg-danger-muted focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
             >
               Kill
             </button>
@@ -359,14 +359,14 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             {/* No file selected fallback */}
             {centerTab === "editor" && !showEditor && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0d1117]">
-                <p className="text-sm text-gray-500">No file open</p>
+                <p className="text-sm text-on-surface-muted">No file open</p>
               </div>
             )}
 
             {/* Full log panel */}
             {centerTab === "log" && fullLog && (
-              <div className="absolute inset-0 z-10 overflow-y-auto bg-gray-900 px-4 py-3">
-                <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-gray-300">
+              <div className="absolute inset-0 z-10 overflow-y-auto bg-surface-sunken px-4 py-3">
+                <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-on-surface">
                   {fullLog}
                 </pre>
               </div>
@@ -374,22 +374,22 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
             {/* Recap panel */}
             {centerTab === "recap" && (
-              <div className="absolute inset-0 z-10 overflow-y-auto bg-white px-6 py-4 dark:bg-gray-950">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
+              <div className="absolute inset-0 z-10 overflow-y-auto bg-surface px-6 py-4">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-on-surface-faint">
                   Session Recap
                 </h3>
                 {recapLoading && (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-on-surface-muted">
                     Generating recap…
                   </p>
                 )}
                 {recapError && (
                   <div className="space-y-2">
-                    <p className="text-sm text-red-600 dark:text-red-400">
+                    <p className="text-sm text-danger">
                       {recapError}
                     </p>
                     <button
-                      className="rounded bg-gray-100 px-3 py-1 text-xs text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                      className="rounded bg-hover px-3 py-1 text-xs text-on-surface hover:bg-active"
                       onClick={() => {
                         setRecapError(null);
                         setRecapLoading(true);
@@ -408,13 +408,13 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   </div>
                 )}
                 {recap && (
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-gray-700 dark:text-gray-300">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">
                     {recap}
                   </p>
                 )}
                 {!recap && !recapLoading && !recapError && (
                   <button
-                    className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    className="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
                     onClick={() => {
                       setRecapLoading(true);
                       void tauriGenerateRecap(session.id)
@@ -435,7 +435,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
             {/* Analytics panel */}
             {centerTab === "analytics" && (
-              <div className="absolute inset-0 z-10 overflow-hidden bg-white dark:bg-gray-950">
+              <div className="absolute inset-0 z-10 overflow-hidden bg-surface">
                 <AnalyticsPanel sessionId={session.id} sessionStatus={session.status} />
               </div>
             )}
@@ -458,7 +458,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               <ResizeHandle direction="vertical" onResize={handleOutputResize} />
               <div
                 style={{ height: `${rightOutputHeight}px` }}
-                className="shrink-0 overflow-hidden border-t border-gray-200 dark:border-gray-800"
+                className="shrink-0 overflow-hidden border-t border-outline"
               >
                 <ShellPanel cwd={session.worktreePath ?? ""} shellKey={session.id} />
               </div>
@@ -469,7 +469,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
       {/* PR Review Comments */}
       {session.linkedPR && (
-        <div className="min-h-0 shrink border-t border-gray-200 dark:border-gray-800">
+        <div className="min-h-0 shrink border-t border-outline">
           <ReviewComments repoId={session.repoId} prNumber={session.linkedPR.number} />
         </div>
       )}

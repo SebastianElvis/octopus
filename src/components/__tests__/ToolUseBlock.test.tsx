@@ -89,22 +89,22 @@ describe("ToolUseBlock", () => {
 
   it("applies blue accent for read tools", () => {
     const { container } = render(<ToolUseBlock name="Read" input={{}} />);
-    expect(container.firstChild).toHaveClass("border-l-blue-400");
+    expect(container.firstChild).toHaveClass("border-l-brand");
   });
 
   it("applies amber accent for write tools", () => {
     const { container } = render(<ToolUseBlock name="Write" input={{}} />);
-    expect(container.firstChild).toHaveClass("border-l-amber-400");
+    expect(container.firstChild).toHaveClass("border-l-status-attention");
   });
 
   it("applies red accent for danger tools", () => {
     const { container } = render(<ToolUseBlock name="Bash" input={{}} />);
-    expect(container.firstChild).toHaveClass("border-l-red-400");
+    expect(container.firstChild).toHaveClass("border-l-danger");
   });
 
   it("applies gray accent for unknown tools", () => {
     const { container } = render(<ToolUseBlock name="Unknown" input={{}} />);
-    expect(container.firstChild).toHaveClass("border-l-gray-400");
+    expect(container.firstChild).toHaveClass("border-l-on-surface-faint");
   });
 
   it("shows 'done' badge when tool result is present", () => {
@@ -126,7 +126,7 @@ describe("ToolUseBlock", () => {
     const { container } = render(
       <ToolUseBlock name="Bash" input={{ command: "npm test" }} />,
     );
-    const codeSpan = container.querySelector(".bg-gray-100");
+    const codeSpan = container.querySelector(".bg-hover");
     expect(codeSpan).toBeTruthy();
     expect(codeSpan?.textContent).toBe("npm test");
   });

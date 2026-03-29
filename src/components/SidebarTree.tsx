@@ -98,10 +98,10 @@ export function SidebarTree({
             <div className="group flex items-center">
               <button
                 onClick={() => toggleRepo(repo.id)}
-                className="flex min-w-0 flex-1 items-center gap-1.5 rounded-l px-2 py-1.5 text-left text-xs font-medium text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+                className="flex min-w-0 flex-1 items-center gap-1.5 rounded-l px-2 py-1.5 text-left text-xs font-medium text-on-surface-muted hover:bg-hover"
               >
                 <svg
-                  className={`h-3 w-3 shrink-0 text-gray-400 transition-transform dark:text-gray-500 ${isExpanded ? "rotate-90" : ""}`}
+                  className={`h-3 w-3 shrink-0 text-on-surface-faint transition-transform ${isExpanded ? "rotate-90" : ""}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -115,7 +115,7 @@ export function SidebarTree({
               <button
                 onClick={() => onRemoveRepo(repo.id)}
                 title="Remove repo"
-                className="mr-1 shrink-0 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 hover:text-gray-600 group-hover:opacity-100 dark:text-gray-500 dark:hover:bg-gray-800/50 dark:hover:text-gray-300"
+                className="mr-1 shrink-0 rounded p-1 text-on-surface-faint opacity-0 transition-opacity hover:bg-hover hover:text-on-surface-muted group-hover:opacity-100"
               >
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -125,15 +125,15 @@ export function SidebarTree({
 
             {/* Expanded repo content */}
             {isExpanded && (
-              <div className="ml-3 flex flex-col gap-0.5 border-l border-gray-200 pl-2 dark:border-gray-800">
+              <div className="ml-3 flex flex-col gap-0.5 border-l border-outline pl-2">
                 {/* Issues & PRs row */}
                 <button
                   data-testid={`repo-tasks-${repo.id}`}
                   onClick={() => onViewRepoTasks(repo.id)}
                   className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs transition-colors ${
                     isTasksActive
-                      ? "bg-blue-50 font-medium text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-                      : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200"
+                      ? "bg-brand-muted font-medium text-brand"
+                      : "text-on-surface-muted hover:bg-hover hover:text-on-surface"
                   }`}
                 >
                   <span className="flex items-center gap-1.5">
@@ -146,8 +146,8 @@ export function SidebarTree({
                   {issueCount > 0 && (
                     <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
                       isTasksActive
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                        : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                        ? "bg-brand-muted text-brand"
+                        : "bg-hover text-on-surface-muted"
                     }`}>
                       {issueCount}
                     </span>
@@ -176,7 +176,7 @@ export function SidebarTree({
                 {/* Per-repo + New Session */}
                 <button
                   onClick={() => onNewSession(repo)}
-                  className="mt-0.5 rounded px-2 py-1 text-left text-xs text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800/50 dark:hover:text-gray-300"
+                  className="mt-0.5 rounded px-2 py-1 text-left text-xs text-on-surface-faint transition-colors hover:bg-hover hover:text-on-surface-muted"
                 >
                   + New Session
                 </button>
@@ -188,8 +188,8 @@ export function SidebarTree({
 
       {unlinked.length > 0 && (
         <div>
-          <div className="px-2 py-1 text-xs text-gray-400 dark:text-gray-500">Other</div>
-          <div className="ml-3 flex flex-col gap-0.5 border-l border-gray-200 pl-2 dark:border-gray-800">
+          <div className="px-2 py-1 text-xs text-on-surface-faint">Other</div>
+          <div className="ml-3 flex flex-col gap-0.5 border-l border-outline pl-2">
             {unlinked.map((s) => (
               <SessionNode
                 key={s.id}
@@ -203,14 +203,14 @@ export function SidebarTree({
       )}
 
       {sessions.length === 0 && repos.length === 0 && (
-        <p className="px-2 py-2 text-xs text-gray-400 dark:text-gray-500">No repos yet.</p>
+        <p className="px-2 py-2 text-xs text-on-surface-faint">No repos yet.</p>
       )}
 
       {/* + Add Repo */}
       <button
         data-testid="add-repo-button"
         onClick={onAddRepo}
-        className="mx-2 mt-2 rounded-md border border-dashed border-gray-300 px-2 py-1.5 text-center text-xs font-medium text-gray-500 hover:border-blue-400 hover:bg-blue-50 hover:text-blue-600 dark:border-gray-700 dark:text-gray-500 dark:hover:border-blue-600 dark:hover:bg-blue-950/30 dark:hover:text-blue-400"
+        className="mx-2 mt-2 rounded-sm border border-dashed border-outline px-2 py-1.5 text-center text-xs font-medium text-on-surface-muted hover:border-brand hover:bg-brand-muted hover:text-brand"
       >
         + Add Repo
       </button>
@@ -235,10 +235,10 @@ function DoneGroup({
     <div>
       <button
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:text-gray-500 dark:hover:bg-gray-800/50 dark:hover:text-gray-300"
+        className="flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-[11px] text-on-surface-faint transition-colors hover:bg-hover hover:text-on-surface-muted"
       >
         <svg
-          className={`h-2.5 w-2.5 shrink-0 text-gray-400 transition-transform dark:text-gray-500 ${expanded ? "rotate-90" : ""}`}
+          className={`h-2.5 w-2.5 shrink-0 text-on-surface-faint transition-transform ${expanded ? "rotate-90" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -294,21 +294,21 @@ function SessionNode({
         title={statusLabel}
         className={`flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left transition-colors ${statusTint} ${
           isActive
-            ? "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-            : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+            ? "bg-brand-muted text-brand"
+            : "text-on-surface-muted hover:bg-hover"
         }`}
       >
         {/* First line: status dot + session name */}
         <div className="flex items-center gap-2">
           <span
-            className={`h-2 w-2 shrink-0 rounded-full ${SIDEBAR_DOT[session.status] ?? "bg-gray-400"}`}
+            className={`h-2 w-2 shrink-0 rounded-full ${SIDEBAR_DOT[session.status] ?? "bg-on-surface-faint"}`}
             aria-label={statusLabel}
           />
           <span className="line-clamp-2 text-xs leading-snug">{session.name}</span>
         </div>
         {/* Second line: branch name below */}
         {session.branch && (
-          <span className="ml-4 truncate font-mono text-[10px] text-gray-400 dark:text-gray-500">
+          <span className="ml-4 truncate font-mono text-[10px] text-on-surface-faint">
             {session.branch}
           </span>
         )}
@@ -317,7 +317,7 @@ function SessionNode({
       <button
         onClick={(e) => { void handleArchive(e); }}
         title="Archive"
-        className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 opacity-0 transition-opacity hover:bg-gray-200 hover:text-gray-600 group-hover/session:opacity-100 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+        className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-on-surface-faint opacity-0 transition-opacity hover:bg-active hover:text-on-surface-muted group-hover/session:opacity-100"
       >
         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-2-3H6L4 7m16 0v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7m16 0H4m4 4h8" />

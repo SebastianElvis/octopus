@@ -20,16 +20,16 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
   }, [lines, mode]);
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-[#0d1117]">
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-3 py-1.5 dark:border-gray-800/60">
-        <h3 className="text-xs font-semibold text-gray-700 dark:text-green-400/80">Output</h3>
-        <div className="flex rounded-md border border-gray-300 text-xs dark:border-gray-700">
+    <div className="flex h-full flex-col overflow-hidden bg-surface">
+      <div className="flex shrink-0 items-center justify-between border-b border-outline px-3 py-1.5">
+        <h3 className="text-xs font-semibold text-on-surface">Output</h3>
+        <div className="flex rounded-sm border border-outline text-xs">
           <button
             onClick={() => setMode("live")}
             className={`px-2.5 py-1 ${
               mode === "live"
-                ? "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-                : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+                ? "bg-active text-on-surface"
+                : "text-on-surface-muted hover:text-on-surface"
             }`}
           >
             Live
@@ -38,8 +38,8 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
             onClick={() => setMode("full")}
             className={`px-2.5 py-1 ${
               mode === "full"
-                ? "bg-gray-200 text-gray-900 dark:bg-gray-700 dark:text-gray-100"
-                : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+                ? "bg-active text-on-surface"
+                : "text-on-surface-muted hover:text-on-surface"
             }`}
           >
             Full Log
@@ -49,11 +49,11 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
 
       <div className="flex-1 overflow-y-auto p-2">
         {displayedLines.length === 0 ? (
-          <p className="text-xs text-gray-400 dark:text-gray-500">No output yet.</p>
+          <p className="text-xs text-on-surface-faint">No output yet.</p>
         ) : (
           <div className="space-y-0">
             {mode === "live" && lines.length > 20 && (
-              <p className="mb-2 text-xs text-gray-400 dark:text-gray-500">
+              <p className="mb-2 text-xs text-on-surface-faint">
                 Showing last 20 lines. Switch to Full Log for complete output.
               </p>
             )}
@@ -62,7 +62,7 @@ export function OutputPanel({ sessionId }: OutputPanelProps) {
               // <pre> preserves whitespace without bypassing React's escaping.
               <pre
                 key={i}
-                className="whitespace-pre-wrap break-all font-mono text-xs leading-5 text-gray-700 dark:text-green-400/90"
+                className="whitespace-pre-wrap break-all font-mono text-xs leading-5 text-on-surface"
               >
                 {line}
               </pre>

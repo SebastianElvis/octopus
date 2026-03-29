@@ -27,22 +27,22 @@ export function RightPanel({ session, onCommitted }: RightPanelProps) {
   const effectiveTab = tabs.some((t) => t.id === activeTab) ? activeTab : "changes";
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-white dark:bg-gray-950">
+    <div className="flex h-full flex-col overflow-hidden bg-surface">
       {/* Tab bar */}
-      <div className="flex shrink-0 border-b border-gray-200 dark:border-gray-800">
+      <div className="flex shrink-0 border-b border-outline">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setTab(tab.id)}
             className={`flex items-center gap-1 px-3 py-2 text-xs font-medium transition-colors ${
               effectiveTab === tab.id
-                ? "border-b-2 border-blue-600 text-blue-600 dark:text-blue-400"
-                : "text-gray-500 hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"
+                ? "border-b-2 border-brand text-brand"
+                : "text-on-surface-muted hover:text-on-surface"
             }`}
           >
             {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
-              <span className="rounded-full bg-gray-200 px-1.5 text-xs dark:bg-gray-700">
+              <span className="rounded-full bg-active px-1.5 text-xs">
                 {tab.count}
               </span>
             )}
@@ -62,7 +62,7 @@ export function RightPanel({ session, onCommitted }: RightPanelProps) {
         )}
         {effectiveTab === "files" && !session?.worktreePath && (
           <div className="flex h-full items-center justify-center">
-            <p className="text-xs text-gray-400 dark:text-gray-500">No worktree</p>
+            <p className="text-xs text-on-surface-faint">No worktree</p>
           </div>
         )}
 

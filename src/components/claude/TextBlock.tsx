@@ -28,7 +28,7 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
   if (!text.trim()) return null;
 
   return (
-    <div className="claude-markdown my-1 text-sm leading-relaxed text-gray-800 dark:text-gray-200">
+    <div className="claude-markdown my-1 text-sm leading-relaxed text-on-surface">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -40,7 +40,7 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
             if (isInline) {
               return (
                 <code
-                  className="rounded bg-gray-100 px-1 py-0.5 font-mono text-xs text-gray-800 dark:bg-gray-800 dark:text-gray-200"
+                  className="rounded bg-hover px-1 py-0.5 font-mono text-xs text-on-surface"
                   {...props}
                 >
                   {children}
@@ -52,18 +52,18 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
             const codeText = extractText(children).replace(/\n$/, "");
 
             return (
-              <div className="my-2 overflow-hidden rounded-md border border-gray-200 dark:border-gray-700">
+              <div className="my-2 overflow-hidden rounded-sm border border-outline">
                 {lang && (
-                  <div className="border-b border-gray-200 bg-gray-50 px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-gray-400 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-500">
+                  <div className="border-b border-outline bg-surface-sunken px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-on-surface-faint">
                     {lang}
                   </div>
                 )}
-                <pre className="overflow-x-auto bg-gray-50 p-3 dark:bg-gray-900">
+                <pre className="overflow-x-auto bg-surface-sunken p-3">
                   {lang ? (
                     <SyntaxHighlighter code={codeText} language={lang} />
                   ) : (
                     <code
-                      className="font-mono text-xs leading-relaxed text-gray-800 dark:text-gray-200"
+                      className="font-mono text-xs leading-relaxed text-on-surface"
                       {...props}
                     >
                       {children}
@@ -76,7 +76,7 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
           // Links
           a: ({ children, ...props }) => (
             <a
-              className="text-blue-600 underline decoration-blue-300 hover:text-blue-700 dark:text-blue-400 dark:decoration-blue-700 dark:hover:text-blue-300"
+              className="text-brand underline decoration-brand/40 hover:text-brand/80"
               target="_blank"
               rel="noopener noreferrer"
               {...props}
@@ -93,7 +93,7 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
           ),
           // Blockquotes
           blockquote: ({ children }) => (
-            <blockquote className="my-2 border-l-2 border-gray-300 pl-3 italic text-gray-600 dark:border-gray-600 dark:text-gray-400">
+            <blockquote className="my-2 border-l-2 border-outline-strong pl-3 italic text-on-surface-muted">
               {children}
             </blockquote>
           ),
@@ -104,37 +104,37 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
             </div>
           ),
           th: ({ children }) => (
-            <th className="border border-gray-200 bg-gray-50 px-3 py-1.5 text-left font-semibold dark:border-gray-700 dark:bg-gray-800">
+            <th className="border border-outline bg-surface-sunken px-3 py-1.5 text-left font-semibold">
               {children}
             </th>
           ),
           td: ({ children }) => (
-            <td className="border border-gray-200 px-3 py-1.5 dark:border-gray-700">{children}</td>
+            <td className="border border-outline px-3 py-1.5">{children}</td>
           ),
           // Headings
           h1: ({ children }) => (
-            <h1 className="mb-2 mt-4 text-lg font-bold text-gray-900 dark:text-gray-100">
+            <h1 className="mb-2 mt-4 text-lg font-bold text-on-surface">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="mb-1.5 mt-3 text-base font-bold text-gray-900 dark:text-gray-100">
+            <h2 className="mb-1.5 mt-3 text-base font-bold text-on-surface">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="mb-1 mt-2.5 text-sm font-bold text-gray-900 dark:text-gray-100">
+            <h3 className="mb-1 mt-2.5 text-sm font-bold text-on-surface">
               {children}
             </h3>
           ),
           // Horizontal rule
-          hr: () => <hr className="my-3 border-gray-200 dark:border-gray-700" />,
+          hr: () => <hr className="my-3 border-outline" />,
         }}
       >
         {text}
       </ReactMarkdown>
       {isStreaming && (
-        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-gray-600 dark:bg-gray-300" />
+        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-on-surface-muted" />
       )}
     </div>
   );

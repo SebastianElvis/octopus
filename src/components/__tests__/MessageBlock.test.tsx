@@ -37,7 +37,7 @@ describe("MessageBlock", () => {
     // User messages are right-aligned
     expect(container.querySelector(".justify-end")).toBeTruthy();
     // Blue background
-    expect(container.querySelector(".bg-blue-600")).toBeTruthy();
+    expect(container.querySelector(".bg-brand")).toBeTruthy();
   });
 
   it("renders assistant text blocks", () => {
@@ -147,7 +147,7 @@ describe("MessageBlock", () => {
 
     const { container } = render(<MessageBlock message={msg} />);
     // Should render nothing — no empty blue bubble
-    expect(container.querySelector(".bg-blue-600")).toBeNull();
+    expect(container.querySelector(".bg-brand")).toBeNull();
     expect(container.innerHTML).toBe("");
   });
 
@@ -161,7 +161,7 @@ describe("MessageBlock", () => {
 
     const { container } = render(<MessageBlock message={msg} />);
     expect(screen.getByText("Hello Claude")).toBeInTheDocument();
-    expect(container.querySelector(".bg-blue-600")).toBeTruthy();
+    expect(container.querySelector(".bg-brand")).toBeTruthy();
   });
 
   it("correlates tool_result with tool_use in the same message", () => {

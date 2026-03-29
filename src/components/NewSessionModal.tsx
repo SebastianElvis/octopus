@@ -272,13 +272,13 @@ export function NewSessionModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
       <div
         data-testid="new-session-modal"
-        className="w-full max-w-lg rounded-md border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900"
+        className="w-full max-w-lg rounded-sm border border-outline bg-surface p-6 shadow-xl"
       >
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Session</h2>
+          <h2 className="text-lg font-semibold text-on-surface">New Session</h2>
           <button
             onClick={onClose}
-            className="cursor-pointer text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-300"
+            className="cursor-pointer text-on-surface-faint hover:text-on-surface-muted focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -299,7 +299,7 @@ export function NewSessionModal({
               done={creationStep === "spawning"}
               label="Creating worktree"
             />
-            <div className="h-px flex-1 bg-gray-200 dark:bg-gray-700" />
+            <div className="h-px flex-1 bg-active" />
             <StepIndicator
               active={creationStep === "spawning"}
               done={false}
@@ -311,11 +311,11 @@ export function NewSessionModal({
         <div className="space-y-4">
           {/* Repo selector */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className="mb-1 block text-xs font-medium text-on-surface-muted">
               Repository
             </label>
             {repos.length === 0 ? (
-              <p className="text-xs text-gray-400 dark:text-gray-500">No repositories added yet.</p>
+              <p className="text-xs text-on-surface-faint">No repositories added yet.</p>
             ) : (
               <select
                 value={repoId}
@@ -324,7 +324,7 @@ export function NewSessionModal({
                   setLinked(null);
                   setQuery("");
                 }}
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface focus:border-brand focus:outline-none"
               >
                 {repos.map((r) => (
                   <option key={r.id} value={r.id}>
@@ -337,13 +337,13 @@ export function NewSessionModal({
 
           {/* Unified source input */}
           <div className="relative">
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
-              Link Issue or PR <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+            <label className="mb-1 block text-xs font-medium text-on-surface-muted">
+              Link Issue or PR <span className="text-on-surface-faint">(optional)</span>
             </label>
 
             {/* Show linked item card */}
             {linked ? (
-              <div className="rounded-md border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-800">
+              <div className="rounded-sm border border-outline bg-surface-sunken p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -356,11 +356,11 @@ export function NewSessionModal({
                       >
                         {linked.kind === "issue" ? "Issue" : "PR"}
                       </span>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                      <span className="text-xs text-on-surface-faint">
                         #{linked.kind === "issue" ? linked.issue.number : linked.pr.number}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <p className="mt-1 text-sm font-medium text-on-surface">
                       {linked.kind === "issue" ? linked.issue.title : linked.pr.title}
                     </p>
                     {linked.kind === "issue" && linked.issue.labels.length > 0 && (
@@ -381,14 +381,14 @@ export function NewSessionModal({
                       </div>
                     )}
                     {linked.kind === "pr" && (
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+                      <p className="mt-1 text-xs text-on-surface-muted">
                         {linked.pr.headRef} &rarr; {linked.pr.baseRef}
                       </p>
                     )}
                   </div>
                   <button
                     onClick={clearLinked}
-                    className="shrink-0 cursor-pointer rounded p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:bg-gray-700 dark:hover:text-gray-400"
+                    className="shrink-0 cursor-pointer rounded p-0.5 text-on-surface-faint hover:bg-active hover:text-on-surface-muted focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
                     title="Remove"
                   >
                     <svg
@@ -415,19 +415,19 @@ export function NewSessionModal({
                     setTimeout(() => setShowDropdown(false), 200);
                   }}
                   placeholder="Paste URL, type #number, or search..."
-                  className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                  className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
                 />
 
                 {/* Dropdown */}
                 {showDropdown && (
-                  <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-md border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                  <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-sm border border-outline bg-surface-raised shadow-lg">
                     {loadingItems && (
-                      <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
+                      <div className="px-3 py-2 text-xs text-on-surface-faint">
                         Loading...
                       </div>
                     )}
                     {!loadingItems && filteredItems.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-gray-400 dark:text-gray-500">
+                      <div className="px-3 py-2 text-xs text-on-surface-faint">
                         {query ? "No matches" : "No open issues or PRs"}
                       </div>
                     )}
@@ -443,7 +443,7 @@ export function NewSessionModal({
                           }
                           setQuery(`#${item.number}`);
                         }}
-                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700"
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-hover"
                       >
                         <span
                           className={`shrink-0 rounded px-1 py-0.5 text-xs font-medium ${
@@ -454,10 +454,10 @@ export function NewSessionModal({
                         >
                           {item.kind === "issue" ? "I" : "PR"}
                         </span>
-                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                        <span className="text-xs text-on-surface-faint">
                           #{item.number}
                         </span>
-                        <span className="truncate text-gray-700 dark:text-gray-300">
+                        <span className="truncate text-on-surface">
                           {item.title}
                         </span>
                       </button>
@@ -470,7 +470,7 @@ export function NewSessionModal({
 
           {/* Prompt */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+            <label className="mb-1 block text-xs font-medium text-on-surface-muted">
               Prompt
             </label>
             <textarea
@@ -478,10 +478,10 @@ export function NewSessionModal({
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Describe the task for Claude..."
               rows={4}
-              className="w-full resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+              className="w-full resize-none rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
             />
             {/* Branch name preview */}
-            <div className="mt-1 flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
+            <div className="mt-1 flex items-center gap-1.5 text-xs text-on-surface-faint">
               <span>Branch:</span>
               {generatingBranch ? (
                 <span className="inline-flex items-center gap-1">
@@ -489,7 +489,7 @@ export function NewSessionModal({
                   <span className="italic">generating...</span>
                 </span>
               ) : (
-                <code className="rounded bg-gray-100 px-1 py-0.5 font-mono dark:bg-gray-800">
+                <code className="rounded bg-hover px-1 py-0.5 font-mono">
                   {branchPreview}
                 </code>
               )}
@@ -497,7 +497,7 @@ export function NewSessionModal({
                 <button
                   type="button"
                   onClick={triggerBranchGeneration}
-                  className="cursor-pointer rounded border border-gray-300 px-1.5 py-0.5 text-[11px] font-medium text-gray-500 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 dark:border-gray-600 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:text-blue-400 dark:active:bg-blue-950/30"
+                  className="cursor-pointer rounded border border-outline px-1.5 py-0.5 text-[11px] font-medium text-on-surface-muted hover:border-brand hover:text-brand active:bg-hover"
                   title="Generate a semantic branch name from the prompt"
                 >
                   ✨ Generate
@@ -507,18 +507,18 @@ export function NewSessionModal({
           </div>
 
           {/* Skip permissions — danger zone */}
-          <label className="flex cursor-pointer items-start gap-3 rounded border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-800/50 dark:bg-red-950/20">
+          <label className="flex cursor-pointer items-start gap-3 rounded border border-danger/30 bg-danger-muted px-3 py-2.5">
             <input
               type="checkbox"
               checked={dangerouslySkipPermissions}
               onChange={(e) => setDangerouslySkipPermissions(e.target.checked)}
-              className="mt-0.5 h-4 w-4 shrink-0 rounded border-red-300 accent-red-500 focus:ring-red-500 dark:border-red-700"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-danger/30 accent-red-500 focus:ring-danger"
             />
             <div>
-              <span className="text-sm font-medium text-red-700 dark:text-red-400">
+              <span className="text-sm font-medium text-danger">
                 Dangerously skip permissions
               </span>
-              <p className="mt-0.5 text-xs text-red-600/70 dark:text-red-500/60">
+              <p className="mt-0.5 text-xs text-danger/70">
                 Disables Claude&apos;s permission prompts — use only in trusted environments
               </p>
             </div>
@@ -527,9 +527,9 @@ export function NewSessionModal({
 
         {error && (
           <div className="mt-3">
-            <p className="text-xs text-red-600 dark:text-red-400">{error}</p>
+            <p className="text-xs text-danger">{error}</p>
             {worktreeConflict && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p className="mt-1 text-xs text-on-surface-muted">
                 The existing worktree will be removed and a new one created.
               </p>
             )}
@@ -539,7 +539,7 @@ export function NewSessionModal({
         <div className="mt-5 flex justify-end gap-3">
           <button
             onClick={onClose}
-            className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gray-400 hover:text-gray-900 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:hover:text-gray-100 dark:active:bg-gray-800"
+            className="cursor-pointer rounded-sm border border-outline px-4 py-2 text-sm font-medium text-on-surface-muted hover:border-outline-strong hover:text-on-surface active:bg-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             Cancel
           </button>
@@ -559,7 +559,7 @@ export function NewSessionModal({
                 void handleSubmit();
               }}
               disabled={!canSubmit}
-              className="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+              className="cursor-pointer rounded-sm bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? "Creating..." : "Create Session"}
             </button>
@@ -578,15 +578,15 @@ function StepIndicator({ active, done, label }: { active: boolean; done: boolean
           done
             ? "bg-green-500"
             : active
-              ? "animate-pulse bg-blue-500"
-              : "bg-gray-300 dark:bg-gray-600"
+              ? "animate-pulse bg-brand"
+              : "bg-active"
         }`}
       />
       <span
         className={`text-xs ${
           active || done
-            ? "font-medium text-gray-700 dark:text-gray-300"
-            : "text-gray-400 dark:text-gray-500"
+            ? "font-medium text-on-surface"
+            : "text-on-surface-faint"
         }`}
       >
         {label}

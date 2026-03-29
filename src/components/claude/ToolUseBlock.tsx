@@ -13,10 +13,10 @@ function getToolAccent(name: string): string {
   const readTools = ["Read", "Glob", "Grep", "LS", "WebFetch", "WebSearch"];
   const writeTools = ["Write", "Edit", "NotebookEdit"];
   const dangerTools = ["Bash", "BashExec"];
-  if (readTools.includes(name)) return "border-l-blue-400 dark:border-l-blue-500";
-  if (writeTools.includes(name)) return "border-l-amber-400 dark:border-l-amber-500";
-  if (dangerTools.includes(name)) return "border-l-red-400 dark:border-l-red-500";
-  return "border-l-gray-400 dark:border-l-gray-500";
+  if (readTools.includes(name)) return "border-l-brand";
+  if (writeTools.includes(name)) return "border-l-status-attention";
+  if (dangerTools.includes(name)) return "border-l-danger";
+  return "border-l-on-surface-faint";
 }
 
 /** Map tool name to an action verb + SVG icon for scannability */
@@ -127,7 +127,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
 
   return (
     <div
-      className={`my-1.5 rounded-md border border-l-[3px] border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900/50 ${accent}`}
+      className={`my-1.5 rounded-sm border border-l-[3px] border-outline bg-surface ${accent}`}
     >
       {/* Header */}
       <button
@@ -135,7 +135,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
         className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left"
       >
         <svg
-          className={`h-3 w-3 shrink-0 text-gray-400 transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+          className={`h-3 w-3 shrink-0 text-on-surface-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -144,7 +144,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
         </svg>
         <svg
-          className="h-3.5 w-3.5 shrink-0 text-gray-500 dark:text-gray-400"
+          className="h-3.5 w-3.5 shrink-0 text-on-surface-muted"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -152,15 +152,15 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
         >
           <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
         </svg>
-        <span className="shrink-0 text-xs font-semibold text-gray-700 dark:text-gray-300">
+        <span className="shrink-0 text-xs font-semibold text-on-surface">
           {verb}
         </span>
         {summary && (
           <span
             className={`min-w-0 flex-1 truncate text-xs ${
               isBash
-                ? "rounded bg-gray-100 px-1.5 py-0.5 font-mono text-gray-600 dark:bg-gray-800 dark:text-gray-400"
-                : "font-mono text-gray-500 dark:text-gray-400"
+                ? "rounded bg-hover px-1.5 py-0.5 font-mono text-on-surface-muted"
+                : "font-mono text-on-surface-muted"
             }`}
             title={summary.tooltip}
           >
@@ -168,7 +168,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
           </span>
         )}
         {toolResult && (
-          <span className="shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700 dark:bg-green-900/40 dark:text-green-400">
+          <span className="shrink-0 rounded bg-status-done-muted px-1.5 py-0.5 text-[10px] font-medium text-status-done">
             done
           </span>
         )}
@@ -176,8 +176,8 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
 
       {/* Input details */}
       <AnimatedCollapse expanded={expanded}>
-        <div className="border-t border-gray-100 px-3 py-2 dark:border-gray-800">
-          <pre className="max-h-60 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-600 dark:text-gray-400">
+        <div className="border-t border-outline-muted px-3 py-2">
+          <pre className="max-h-60 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-on-surface-muted">
             {JSON.stringify(input, null, 2)}
           </pre>
         </div>
@@ -185,10 +185,10 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
 
       {/* Tool result */}
       {resultText && (
-        <div className="border-t border-gray-100 dark:border-gray-800">
+        <div className="border-t border-outline-muted">
           <button
             onClick={() => setResultExpanded((v) => !v)}
-            className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
+            className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-on-surface-faint hover:text-on-surface-muted"
           >
             <svg
               className={`h-2.5 w-2.5 shrink-0 transition-transform duration-200 ${resultExpanded ? "rotate-90" : ""}`}
@@ -201,12 +201,12 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
             </svg>
             <span>Output</span>
             {isLongResult && !resultExpanded && (
-              <span className="text-gray-300 dark:text-gray-600">({resultLines.length} lines)</span>
+              <span className="text-on-surface-faint">({resultLines.length} lines)</span>
             )}
           </button>
           <AnimatedCollapse expanded={resultExpanded}>
             <div className="px-3 pb-2">
-              <pre className="max-h-80 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+              <pre className="max-h-80 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-on-surface-muted">
                 {isLongResult && !expanded
                   ? resultLines.slice(0, 15).join("\n") +
                     `\n... (${resultLines.length - 15} more lines)`

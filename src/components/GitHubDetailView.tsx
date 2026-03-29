@@ -9,8 +9,8 @@ export function GitHubDetailView({ issue, pr }: GitHubDetailViewProps) {
   const item = issue ?? pr;
   if (!item) {
     return (
-      <div className="flex h-full items-center justify-center bg-white dark:bg-gray-950">
-        <p className="text-sm text-gray-400">No issue or PR linked.</p>
+      <div className="flex h-full items-center justify-center bg-surface">
+        <p className="text-sm text-on-surface-faint">No issue or PR linked.</p>
       </div>
     );
   }
@@ -18,7 +18,7 @@ export function GitHubDetailView({ issue, pr }: GitHubDetailViewProps) {
   const url = item.htmlUrl;
 
   return (
-    <div className="h-full bg-white dark:bg-gray-950">
+    <div className="h-full bg-surface">
       <iframe
         src={url}
         className="h-full w-full border-0"

@@ -52,9 +52,9 @@ export function PermissionDialog() {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="mx-4 w-full max-w-lg rounded-lg border border-gray-200 bg-white shadow-xl dark:border-gray-700 dark:bg-gray-900">
+      <div className="mx-4 w-full max-w-lg rounded-sm border border-outline bg-surface shadow-xl">
         {/* Header */}
-        <div className="flex items-center gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+        <div className="flex items-center gap-2 border-b border-outline px-4 py-3">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 20 20"
@@ -67,11 +67,11 @@ export function PermissionDialog() {
               clipRule="evenodd"
             />
           </svg>
-          <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <h3 className="text-sm font-semibold text-on-surface">
             Permission Request
           </h3>
           {unviewedPermissions.length > 1 && (
-            <span className="ml-auto text-xs text-gray-400">
+            <span className="ml-auto text-xs text-on-surface-faint">
               +{unviewedPermissions.length - 1} more
             </span>
           )}
@@ -79,28 +79,28 @@ export function PermissionDialog() {
 
         {/* Body */}
         <div className="px-4 py-3">
-          <p className="text-sm text-gray-700 dark:text-gray-300">
+          <p className="text-sm text-on-surface">
             Claude wants to use{" "}
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-gray-800 dark:text-blue-400">
+            <code className="rounded bg-hover px-1.5 py-0.5 text-xs font-medium text-brand">
               {current.toolName}
             </code>
           </p>
 
           {inputSummary && (
-            <pre className="mt-2 max-h-40 overflow-auto rounded bg-gray-50 p-2.5 text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+            <pre className="mt-2 max-h-40 overflow-auto rounded bg-surface-sunken p-2.5 text-xs text-on-surface-muted">
               {inputSummary}
             </pre>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-4 py-3 dark:border-gray-700">
+        <div className="flex items-center justify-end gap-2 border-t border-outline px-4 py-3">
           <button
             onClick={() => {
               void handleDecision("deny");
             }}
             disabled={isResponding}
-            className="cursor-pointer rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800"
+            className="cursor-pointer rounded border border-outline-strong px-3 py-1.5 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active disabled:cursor-not-allowed disabled:opacity-50"
           >
             Deny
           </button>

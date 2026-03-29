@@ -36,6 +36,7 @@ export function DispatchBoard({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(null);
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [ciStatuses, setCiStatuses] = useState<Record<string, CIStatus>>({});
+  const [doneCollapsed, setDoneCollapsed] = useState(false);
 
   // Fetch CI status for sessions with linked PRs
   useEffect(() => {
@@ -223,20 +224,20 @@ export function DispatchBoard({
         {[1, 2, 3].map((n) => (
           <div
             key={n}
-            className="flex min-w-[280px] flex-1 animate-pulse flex-col rounded-lg bg-gray-50 dark:bg-gray-900"
+            className="flex min-w-[280px] flex-1 animate-pulse flex-col rounded-sm bg-surface"
           >
             <div className="flex items-center gap-2 px-4 py-3">
-              <div className="h-2 w-2 rounded-full bg-gray-200 dark:bg-gray-700" />
-              <div className="h-3 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="h-2 w-2 rounded-full bg-active" />
+              <div className="h-3 w-20 rounded bg-active" />
             </div>
             <div className="flex flex-col gap-2 px-3 pb-3">
               {[1, 2].map((m) => (
                 <div
                   key={m}
-                  className="rounded-md border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-950"
+                  className="rounded-sm border border-outline p-3 bg-surface"
                 >
-                  <div className="h-3 w-36 rounded bg-gray-200 dark:bg-gray-700" />
-                  <div className="mt-2 h-2.5 w-24 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-3 w-36 rounded bg-active" />
+                  <div className="mt-2 h-2.5 w-24 rounded bg-hover" />
                 </div>
               ))}
             </div>
@@ -250,9 +251,9 @@ export function DispatchBoard({
   if (sessionsError) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger-muted">
           <svg
-            className="h-6 w-6 text-red-600 dark:text-red-400"
+            className="h-6 w-6 text-danger"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -265,15 +266,15 @@ export function DispatchBoard({
             />
           </svg>
         </div>
-        <p className="text-sm font-medium text-red-600 dark:text-red-400">
+        <p className="text-sm font-medium text-danger">
           Failed to load sessions
         </p>
-        <p className="mt-1 max-w-sm text-xs text-gray-500 dark:text-gray-400">{sessionsError}</p>
+        <p className="mt-1 max-w-sm text-xs text-on-surface-muted">{sessionsError}</p>
         <button
           onClick={() => {
             void loadSessions();
           }}
-          className="mt-4 cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+          className="mt-4 cursor-pointer rounded-sm bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           Retry
         </button>
@@ -286,10 +287,10 @@ export function DispatchBoard({
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-6">
         <div className="w-full max-w-xs">
-          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500">
+          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-on-surface-faint">
             no sessions
           </p>
-          <div className="flex flex-col gap-3 border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/60">
+          <div className="flex flex-col gap-3 border border-outline bg-surface px-4 py-3">
             <WorkflowStep cmd="repos add <github-url>" desc="connect a repository" />
             <WorkflowStep cmd="session new" desc="link an issue, write a prompt" />
             <WorkflowStep cmd="monitor" desc="watch output, respond to prompts" />
@@ -297,7 +298,7 @@ export function DispatchBoard({
           </div>
           <button
             onClick={onNewSession}
-            className="mt-3 w-full cursor-pointer border border-gray-300 py-1.5 text-xs font-medium text-gray-500 hover:border-blue-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:text-blue-400"
+            className="mt-3 w-full cursor-pointer border border-outline py-1.5 text-xs font-medium text-on-surface-muted hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             + new session
           </button>
@@ -309,9 +310,9 @@ export function DispatchBoard({
   return (
     <div data-testid="dispatch-board" className="flex flex-1 flex-col overflow-hidden">
       {/* Fleet summary bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-3 dark:border-gray-800 dark:bg-gray-900/50">
+      <div className="flex shrink-0 items-center justify-between border-b border-outline bg-surface px-6 py-3">
         <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Fleet</span>
+          <span className="text-sm font-semibold text-on-surface">Fleet</span>
           <div className="flex items-center gap-1.5">
             <SummaryPill
               color="amber"
@@ -336,13 +337,13 @@ export function DispatchBoard({
               onClick={() => toggleStatusFilter("done")}
             />
           </div>
-          <span className="rounded-full bg-gray-200 px-2 py-0.5 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+          <span className="rounded-full bg-active px-2 py-0.5 text-xs font-semibold text-on-surface-muted">
             {summary.total} total
           </span>
         </div>
         <button
           onClick={onNewSession}
-          className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+          className="cursor-pointer rounded-sm bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           + New Session
         </button>
@@ -350,16 +351,16 @@ export function DispatchBoard({
 
       {/* Status sentence */}
       {statusSentence && (
-        <div className="shrink-0 border-b border-gray-100 bg-gray-50/50 px-6 py-1.5 dark:border-gray-800/50 dark:bg-gray-900/30">
-          <p className="text-xs text-gray-500 dark:text-gray-400">{statusSentence}</p>
+        <div className="shrink-0 border-b border-outline-muted bg-surface px-6 py-1.5">
+          <p className="text-xs text-on-surface-muted">{statusSentence}</p>
         </div>
       )}
 
       {/* Search, filter & sort bar */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-2 dark:border-gray-800">
-        <div className="flex flex-1 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+      <div className="flex shrink-0 items-center gap-3 border-b border-outline px-6 py-2">
+        <div className="flex flex-1 items-center gap-2 rounded-sm border border-outline bg-surface px-3 py-1.5">
           <svg
-            className="h-3.5 w-3.5 text-gray-400"
+            className="h-3.5 w-3.5 text-on-surface-faint"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -377,12 +378,12 @@ export function DispatchBoard({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter sessions... (press / to focus)"
-            className="flex-1 bg-transparent text-xs text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-500"
+            className="flex-1 bg-transparent text-xs text-on-surface placeholder-on-surface-faint outline-none"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="cursor-pointer text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:text-gray-300"
+              className="cursor-pointer text-on-surface-faint hover:text-on-surface-muted focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
               <svg
                 className="h-3 w-3"
@@ -401,7 +402,7 @@ export function DispatchBoard({
         <select
           value={sortKey}
           onChange={(e) => setSortKey(e.target.value as SortKey)}
-          className="cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs text-gray-600 outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-400"
+          className="cursor-pointer rounded-sm border border-outline bg-surface px-2 py-1.5 text-xs text-on-surface-muted outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           <option value="recent">Most recent</option>
           <option value="created">Oldest first</option>
@@ -412,14 +413,14 @@ export function DispatchBoard({
 
       {/* Active filter indicator */}
       {statusFilter && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 bg-blue-50/50 px-6 py-1.5 dark:border-gray-800 dark:bg-blue-950/20">
-          <span className="text-xs text-gray-500 dark:text-gray-400">
+        <div className="flex shrink-0 items-center gap-2 border-b border-outline bg-brand-muted px-6 py-1.5">
+          <span className="text-xs text-on-surface-muted">
             Showing:{" "}
-            <span className="font-medium text-gray-700 dark:text-gray-300">{statusFilter}</span>
+            <span className="font-medium text-on-surface">{statusFilter}</span>
           </span>
           <button
             onClick={() => setStatusFilter(null)}
-            className="cursor-pointer text-xs text-blue-600 hover:text-blue-700 focus:outline-none dark:text-blue-400 dark:hover:text-blue-300"
+            className="cursor-pointer text-xs text-brand hover:text-brand focus:outline-none"
           >
             Clear filter
           </button>
@@ -436,10 +437,11 @@ export function DispatchBoard({
           emptyTitle="All clear"
           emptyDescription="No sessions need your attention right now."
         >
-          {needsInput.map((s) => (
+          {needsInput.map((s, i) => (
             <KanbanCard
               key={s.id}
               session={s}
+              index={i}
               isActive={s.id === activeSessionId}
               ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
@@ -458,10 +460,11 @@ export function DispatchBoard({
           emptyTitle="No active sessions"
           emptyDescription="All sessions are paused or waiting. Resume one to continue."
         >
-          {running.map((s) => (
+          {running.map((s, i) => (
             <KanbanCard
               key={s.id}
               session={s}
+              index={i}
               isActive={s.id === activeSessionId}
               ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
@@ -482,11 +485,14 @@ export function DispatchBoard({
           emptyIcon="inbox"
           emptyTitle="Nothing here yet"
           emptyDescription="Finished sessions will appear here."
+          collapsed={doneCollapsed}
+          onToggleCollapse={() => setDoneCollapsed((v) => !v)}
         >
-          {closed.map((s) => (
+          {closed.map((s, i) => (
             <KanbanCard
               key={s.id}
               session={s}
+              index={i}
               isActive={s.id === activeSessionId}
               ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
@@ -503,8 +509,8 @@ export function DispatchBoard({
 function WorkflowStep({ cmd, desc }: { cmd: string; desc: string }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-xs text-blue-500 dark:text-blue-400">$ {cmd}</span>
-      <span className="pl-2 text-xs text-gray-400 dark:text-gray-500">{desc}</span>
+      <span className="font-mono text-xs text-brand">$ {cmd}</span>
+      <span className="pl-2 text-xs text-on-surface-faint">{desc}</span>
     </div>
   );
 }
@@ -527,27 +533,27 @@ function SummaryPill({
   onClick?: () => void;
 }) {
   const dotColors: Record<string, string> = {
-    red: "bg-red-500",
-    green: "bg-green-500",
-    blue: "bg-blue-500",
-    amber: "bg-amber-500",
-    gray: "bg-gray-500",
+    red: "bg-danger",
+    green: "bg-status-done",
+    blue: "bg-status-running",
+    amber: "bg-status-attention",
+    gray: "bg-on-surface-faint",
   };
 
   return (
     <button
       onClick={onClick}
-      className={`flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+      className={`flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 ${
         active
-          ? "bg-gray-200 ring-1 ring-gray-300 dark:bg-gray-700 dark:ring-gray-600"
-          : "hover:bg-gray-100 dark:hover:bg-gray-800"
+          ? "bg-active ring-1 ring-outline-strong"
+          : "hover:bg-hover"
       }`}
     >
       <span
         className={`h-2 w-2 rounded-full ${dotColors[color] ?? "bg-gray-500"} ${pulse && count > 0 ? RUNNING_PULSE : ""}`}
       />
-      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">{count}</span>
-      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-xs font-semibold text-on-surface">{count}</span>
+      <span className="text-xs text-on-surface-muted">{label}</span>
     </button>
   );
 }
@@ -561,6 +567,8 @@ function Column({
   emptyIcon,
   emptyTitle,
   emptyDescription,
+  collapsed,
+  onToggleCollapse,
   children,
 }: {
   title: string;
@@ -569,28 +577,65 @@ function Column({
   emptyIcon: "check" | "pause" | "inbox";
   emptyTitle: string;
   emptyDescription: string;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   children: ReactNode;
 }) {
   const dotColors = {
-    amber: "bg-amber-500",
-    blue: "bg-blue-500",
-    green: "bg-green-500",
-    gray: "bg-gray-400",
-    orange: "bg-orange-500",
+    amber: "bg-status-attention",
+    blue: "bg-status-running",
+    green: "bg-status-done",
+    gray: "bg-on-surface-faint",
+    orange: "bg-block-permission",
   };
+
+  if (collapsed) {
+    return (
+      <section
+        data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
+        className="flex min-h-0 w-10 shrink-0 flex-col items-center rounded-sm bg-surface-sunken"
+      >
+        <button
+          onClick={onToggleCollapse}
+          className="flex w-full cursor-pointer flex-col items-center gap-2 px-1 py-3 text-on-surface-faint hover:text-on-surface-muted"
+          title={`Expand ${title} (${count})`}
+        >
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColors[accentColor]}`} />
+          <span className="text-xs font-semibold tabular-nums">{count}</span>
+          <span
+            className="text-[9px] font-medium uppercase tracking-widest"
+            style={{ writingMode: "vertical-lr" }}
+          >
+            {title}
+          </span>
+        </button>
+      </section>
+    );
+  }
 
   return (
     <section
       data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
-      className="flex min-h-0 min-w-[280px] flex-1 flex-col rounded-lg bg-gray-50/80 dark:bg-gray-900/60"
+      className="flex min-h-0 min-w-[280px] flex-1 flex-col rounded-sm bg-surface-sunken"
     >
-      {/* Column header — dot + title + count, no border accent */}
+      {/* Column header — dot + title + count */}
       <div className="flex items-center gap-2 px-4 py-2.5">
         <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColors[accentColor]}`} />
-        <h2 className="text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500">
+        <h2 className="text-xs font-medium uppercase tracking-widest text-on-surface-faint">
           {title}
         </h2>
-        <span className="tabular-nums text-xs text-gray-400 dark:text-gray-500">{count}</span>
+        <span className="tabular-nums text-xs text-on-surface-faint">{count}</span>
+        {onToggleCollapse && count > 0 && (
+          <button
+            onClick={onToggleCollapse}
+            className="ml-auto cursor-pointer text-on-surface-faint hover:text-on-surface-muted"
+            title={`Collapse ${title}`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Cards */}
@@ -598,10 +643,10 @@ function Column({
         {count === 0 ? (
           <div className="flex flex-col items-center px-2 py-6 text-center">
             <EmptyIcon type={emptyIcon} />
-            <p className="mt-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+            <p className="mt-2 text-xs font-medium text-on-surface-muted">
               {emptyTitle}
             </p>
-            <p className="mt-0.5 text-[11px] leading-relaxed text-gray-400 dark:text-gray-500">
+            <p className="mt-0.5 text-[11px] leading-relaxed text-on-surface-faint">
               {emptyDescription}
             </p>
           </div>
@@ -616,7 +661,7 @@ function Column({
 /* ── Empty state icons ──────────────────────────────────────────────────── */
 
 function EmptyIcon({ type }: { type: "check" | "pause" | "inbox" }) {
-  const cls = "h-5 w-5 text-gray-300 dark:text-gray-600";
+  const cls = "h-5 w-5 text-on-surface-faint";
   if (type === "check") {
     return (
       <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

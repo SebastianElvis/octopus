@@ -42,7 +42,7 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
   if (!analytics) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-xs text-gray-400 dark:text-gray-500">No analytics data yet</p>
+        <p className="text-xs text-on-surface-faint">No analytics data yet</p>
       </div>
     );
   }
@@ -82,20 +82,20 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
       {/* Tool calls breakdown */}
       {sortedTools.length > 0 && (
         <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
             Tool Usage
           </h4>
           <div className="space-y-1">
             {sortedTools.map(([name, counts]) => (
               <div
                 key={name}
-                className="flex items-center justify-between rounded px-2 py-1 text-xs hover:bg-gray-50 dark:hover:bg-gray-800/50"
+                className="flex items-center justify-between rounded px-2 py-1 text-xs hover:bg-hover"
               >
-                <span className="font-mono text-gray-700 dark:text-gray-300">{name}</span>
-                <span className="text-gray-500 dark:text-gray-400">
+                <span className="font-mono text-on-surface">{name}</span>
+                <span className="text-on-surface-muted">
                   {counts.total}
                   {counts.failed > 0 && (
-                    <span className="ml-1 text-red-500">({counts.failed} failed)</span>
+                    <span className="ml-1 text-danger">({counts.failed} failed)</span>
                   )}
                 </span>
               </div>
@@ -107,7 +107,7 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
       {/* Recent tool calls timeline */}
       {analytics.toolCalls.length > 0 && (
         <div className="mt-4">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-muted">
             Recent Activity
           </h4>
           <div className="space-y-0.5">
@@ -117,12 +117,12 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
               .map((call, i) => (
                 <div key={i} className="flex items-center gap-2 px-2 py-0.5 text-xs">
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${call.success ? "bg-green-500" : "bg-red-500"}`}
+                    className={`h-1.5 w-1.5 rounded-full ${call.success ? "bg-status-done" : "bg-danger"}`}
                   />
-                  <span className="font-mono text-gray-600 dark:text-gray-400">
+                  <span className="font-mono text-on-surface-muted">
                     {call.toolName}
                   </span>
-                  <span className="ml-auto text-gray-400 dark:text-gray-500">
+                  <span className="ml-auto text-on-surface-faint">
                     {formatTime(call.timestamp)}
                   </span>
                 </div>
@@ -136,9 +136,9 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-700">
-      <p className="text-xs text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{value}</p>
+    <div className="rounded-sm border border-outline px-3 py-2">
+      <p className="text-xs text-on-surface-muted">{label}</p>
+      <p className="text-sm font-semibold text-on-surface">{value}</p>
     </div>
   );
 }
