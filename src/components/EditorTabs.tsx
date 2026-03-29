@@ -10,6 +10,7 @@ interface EditorTabsProps {
   githubLabel?: string;
   hasLogTab?: boolean;
   logActive?: boolean;
+  logLoading?: boolean;
   onSelectLog?: () => void;
   hasRecapTab?: boolean;
   recapActive?: boolean;
@@ -28,6 +29,7 @@ export function EditorTabs({
   githubLabel,
   hasLogTab,
   logActive,
+  logLoading,
   onSelectLog,
   hasRecapTab,
   recapActive,
@@ -71,8 +73,8 @@ export function EditorTabs({
 
       {/* Log tab */}
       {hasLogTab && onSelectLog && (
-        <button onClick={onSelectLog} className={tabClass(logActive ?? false)}>
-          <span className="font-medium">Log</span>
+        <button onClick={onSelectLog} disabled={logLoading} className={tabClass(logActive ?? false)}>
+          <span className="font-medium">{logLoading ? "Loading…" : "Log"}</span>
         </button>
       )}
 

@@ -219,17 +219,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               Resume
             </button>
           )}
-          {session.status === "attention" && (
-            <button
-              onClick={() => {
-                void handleViewLog();
-              }}
-              disabled={logLoading}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
-            >
-              {logLoading ? "Loading..." : centerTab === "log" ? "Hide Log" : "View Full Log"}
-            </button>
-          )}
           {session.status === "attention" && recap && (
             <button
               onClick={() => {
@@ -304,9 +293,12 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   ? `PR #${session.linkedPR.number}`
                   : undefined
             }
-            hasLogTab={fullLog !== null}
+            hasLogTab={session.status === "attention"}
             logActive={centerTab === "log"}
-            onSelectLog={() => setCenterTab("log")}
+            logLoading={logLoading}
+            onSelectLog={() => {
+              void handleViewLog();
+            }}
             hasRecapTab={recap !== null}
             recapActive={centerTab === "recap"}
             onSelectRecap={() => setCenterTab("recap")}
