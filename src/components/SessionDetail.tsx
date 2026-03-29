@@ -477,7 +477,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
       {/* PR Review Comments */}
       {session.linkedPR && (
-        <div className="shrink-0 border-t border-gray-200 dark:border-gray-800">
+        <div className="min-h-0 shrink border-t border-gray-200 dark:border-gray-800">
           <ReviewComments repoId={session.repoId} prNumber={session.linkedPR.number} />
         </div>
       )}
