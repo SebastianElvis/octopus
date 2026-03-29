@@ -123,7 +123,7 @@ describe("Session state transitions", () => {
 
     // Session should move to the Closed column
     await waitFor(() => {
-      const closedCol = screen.getByTestId("column-closed");
+      const closedCol = screen.getByTestId("column-done");
       expect(closedCol).toHaveTextContent("Build feature X");
     });
 
@@ -132,7 +132,7 @@ describe("Session state transitions", () => {
     expect(runningCol).not.toHaveTextContent("Build feature X");
   });
 
-  it("moves session to Needs Attention when status changes to attention", async () => {
+  it("moves session to Needs Input when status changes to attention", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -149,12 +149,12 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      const attentionCol = screen.getByTestId("column-needs-attention");
+      const attentionCol = screen.getByTestId("column-needs-input");
       expect(attentionCol).toHaveTextContent("Fix bug Y");
     });
   });
 
-  it("moves session to Needs Attention when status changes to attention (second session)", async () => {
+  it("moves session to Needs Input when status changes to attention (second session)", async () => {
     await act(async () => {
       render(<App />);
     });
@@ -171,7 +171,7 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      const attentionCol = screen.getByTestId("column-needs-attention");
+      const attentionCol = screen.getByTestId("column-needs-input");
       expect(attentionCol).toHaveTextContent("Build feature X");
     });
   });
@@ -193,7 +193,7 @@ describe("Session state transitions", () => {
     });
 
     await waitFor(() => {
-      const closedCol = screen.getByTestId("column-closed");
+      const closedCol = screen.getByTestId("column-done");
       expect(closedCol).toHaveTextContent("Build feature X");
     });
   });

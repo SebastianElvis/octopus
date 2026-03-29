@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useGitStore } from "../stores/gitStore";
 import { useSessionStore } from "../stores/sessionStore";
-import type { ChangedFile } from "../lib/types";
+import type { ChangedFile, ClaudeMessage } from "../lib/types";
+
+/** Stable empty array to avoid new-reference-per-render in Zustand selectors */
+const EMPTY_MESSAGES: ClaudeMessage[] = [];
 
 /** Extract a conventional commit message from Claude's output text. */
 function extractCommitMessage(messages: { role: string; blocks: { type: string; text?: string }[] }[]): string | null {
@@ -82,7 +85,7 @@ export function GitChangesPanel({
   }, [worktreePath, refreshChanges]);
 
   // Smart commit message: extract from Claude output, fall back to session name
-  const messages = useSessionStore((s) => s.messageBuffers[sessionId ?? ""] ?? []);
+  const messages = useSessionStore((s) => s.messageBuffers[sessionId ?? ""] ?? EMPTY_MESSAGES);
   useEffect(() => {
     if (commitMessage) return; // Don't override user-edited message
     const extracted = extractCommitMessage(messages);

@@ -25,7 +25,7 @@ describe("OnboardingDialog", () => {
         onOpenNewSession={() => {}}
       />,
     );
-    expect(screen.getByText("Step 1: Check Prerequisites")).toBeInTheDocument();
+    expect(screen.getByText("01 / check prerequisites")).toBeInTheDocument();
   });
 
   it("calls onClose when close button is clicked", () => {

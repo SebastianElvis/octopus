@@ -122,11 +122,11 @@ async function openNewSessionModal() {
 
   // Wait for empty state
   await waitFor(() => {
-    expect(screen.getByText("Get Started")).toBeInTheDocument();
+    expect(screen.getByText("+ new session")).toBeInTheDocument();
   });
 
   await act(async () => {
-    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("+ new session"));
   });
 
   await waitFor(() => {

@@ -197,8 +197,8 @@ describe("Sidebar session tree", () => {
     expect(sidebar).toHaveTextContent("Fix CSS layout");
     expect(sidebar).toHaveTextContent("modal-anim");
     expect(sidebar).toHaveTextContent("Add modal animation");
-    expect(sidebar).toHaveTextContent("add-indexes");
-    expect(sidebar).toHaveTextContent("Database indexes");
+    // Done sessions are collapsed by default in DoneGroup, so
+    // "add-indexes" / "Database indexes" are not immediately visible.
   });
 
   it("shows empty state when no sessions and no repos exist", async () => {

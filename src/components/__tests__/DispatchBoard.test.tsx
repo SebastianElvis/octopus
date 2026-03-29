@@ -44,14 +44,14 @@ beforeEach(() => {
 describe("DispatchBoard", () => {
   it("shows empty state when no sessions", () => {
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
-    expect(screen.getByText("Welcome to TooManyTabs")).toBeInTheDocument();
-    expect(screen.getByText("Get Started")).toBeInTheDocument();
+    expect(screen.getByText("no sessions")).toBeInTheDocument();
+    expect(screen.getByText("+ new session")).toBeInTheDocument();
   });
 
   it("calls onNewSession when button clicked in empty state", () => {
     const onNewSession = vi.fn();
     render(<DispatchBoard onViewSession={() => {}} onNewSession={onNewSession} />);
-    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("+ new session"));
     expect(onNewSession).toHaveBeenCalled();
   });
 
@@ -96,7 +96,7 @@ describe("DispatchBoard", () => {
     });
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
-    expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+    expect(screen.getByText("Needs Input")).toBeInTheDocument();
     expect(screen.getByText("Running")).toBeInTheDocument();
     expect(screen.getByText("Done")).toBeInTheDocument();
   });

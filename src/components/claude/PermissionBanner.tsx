@@ -142,11 +142,12 @@ export function PermissionBanner({ sessionId }: PermissionBannerProps) {
       {inputDisplay && (
         <div className="mb-3">
           <pre
-            className={`overflow-auto rounded px-2.5 py-1.5 text-xs ${
+            className={`overflow-hidden text-ellipsis whitespace-nowrap rounded px-2.5 py-1.5 text-xs ${
               isBashLike
                 ? "bg-gray-900 text-green-400 dark:bg-gray-950"
                 : "bg-white text-gray-600 dark:bg-gray-900 dark:text-gray-400"
             }`}
+            title={inputDisplay}
           >
             {isBashLike && <span className="mr-1 select-none text-gray-500">$</span>}
             {inputDisplay}

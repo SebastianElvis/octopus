@@ -6,6 +6,10 @@ import { useSessionStore } from "../../stores/sessionStore";
 import type { SlashCommand } from "./SlashCommandMenu";
 import { PermissionBanner } from "./PermissionBanner";
 import { SlashCommandMenu, filterCommands, buildCommandList } from "./SlashCommandMenu";
+import type { ClaudeMessage } from "../../lib/types";
+
+/** Stable empty array to avoid new-reference-per-render in Zustand selectors */
+const EMPTY_MESSAGES: ClaudeMessage[] = [];
 
 interface AttachedImage {
   id: string;
@@ -52,10 +56,10 @@ export function UserInputArea({
   const sessionInitInfo = useSessionStore((s) => s.sessionInitInfo[sessionId]);
 
   // Last few messages for waiting context
-  const recentMessages = useSessionStore((s) => {
-    const msgs = s.messageBuffers[sessionId] ?? [];
-    return msgs.slice(-5);
-  });
+  const allMessages = useSessionStore(
+    (s) => s.messageBuffers[sessionId] ?? EMPTY_MESSAGES,
+  );
+  const recentMessages = useMemo(() => allMessages.slice(-5), [allMessages]);
 
   // Load filesystem-discovered commands on mount (project + personal custom commands/skills)
   useEffect(() => {

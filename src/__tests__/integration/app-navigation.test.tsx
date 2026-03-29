@@ -129,11 +129,11 @@ describe("App navigation", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+      expect(screen.getByText("Needs Input")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Running")).toBeInTheDocument();
-    expect(screen.getByText("Closed")).toBeInTheDocument();
+    expect(screen.getAllByText("Done").length).toBeGreaterThan(0);
   });
 
   it("opens Add Repo dialog when clicking + Add Repo button", async () => {
