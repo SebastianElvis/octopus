@@ -46,8 +46,9 @@ afterEach(() => {
 
 function setupIPC(repos = existingRepos) {
   mockWindows("main");
-  mockIPC((cmd: string, args?: Record<string, unknown>) => {
-    ipcCalls.push({ cmd, args });
+  mockIPC((cmd: string, args?: unknown) => {
+    const a = args as Record<string, unknown> | undefined;
+    ipcCalls.push({ cmd, args: a });
     switch (cmd) {
       case "list_sessions":
         return [];
@@ -68,8 +69,8 @@ function setupIPC(repos = existingRepos) {
       case "add_repo":
         return {
           id: "repo-new",
-          githubUrl: args?.githubUrl as string,
-          localPath: args?.localPath ?? "/tmp/cloned",
+          githubUrl: a?.githubUrl as string,
+          localPath: (a?.localPath as string | undefined) ?? "/tmp/cloned",
           defaultBranch: "main",
           addedAt: Date.now(),
         };

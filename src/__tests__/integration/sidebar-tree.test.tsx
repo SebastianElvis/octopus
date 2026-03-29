@@ -99,7 +99,8 @@ beforeEach(() => {
   localStorage.setItem("tmt-onboarding-completed", "true");
   resetStores();
   mockWindows("main");
-  mockIPC((cmd: string, args?: Record<string, unknown>) => {
+  mockIPC((cmd: string, args?: unknown) => {
+    const a = args as Record<string, unknown> | undefined;
     switch (cmd) {
       case "list_sessions":
         return mockSessions;
@@ -115,7 +116,7 @@ beforeEach(() => {
         return null;
       case "fetch_issues":
         // Return issues only for repo-1
-        if (args?.repoId === "repo-1") return mockIssues;
+        if (a?.repoId === "repo-1") return mockIssues;
         return [];
       case "fetch_prs":
         return [];

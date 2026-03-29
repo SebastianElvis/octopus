@@ -45,10 +45,10 @@ export function OnboardingDialog({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
       <div
         data-testid="onboarding-dialog"
-        className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900"
+        className="w-full max-w-lg rounded-md border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900"
       >
         {/* Step indicators */}
         <div className="mb-6 flex items-center justify-between">
@@ -87,8 +87,8 @@ export function OnboardingDialog({
         {/* Step content */}
         {step === "prerequisites" && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Step 1: Check Prerequisites
+            <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              01 / check prerequisites
             </h3>
             <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               TooManyTabs needs these CLI tools installed on your system.
@@ -108,8 +108,8 @@ export function OnboardingDialog({
 
         {step === "repo" && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Step 2: Connect a Repository
+            <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              02 / connect a repository
             </h3>
             <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               Add a GitHub repository to start creating sessions. You can add repos from the Repos
@@ -137,8 +137,8 @@ export function OnboardingDialog({
 
         {step === "session" && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Step 3: Create Your First Session
+            <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              03 / create your first session
             </h3>
             <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               A session runs Claude Code in its own git worktree. Link an issue, provide a prompt,
@@ -166,8 +166,8 @@ export function OnboardingDialog({
 
         {step === "board" && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Step 4: The Dispatch Board
+            <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-gray-400 dark:text-gray-500">
+              04 / the dispatch board
             </h3>
             <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
               The board shows all your sessions organized by status. Sessions needing your input

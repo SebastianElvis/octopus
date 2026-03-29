@@ -122,7 +122,7 @@ export function DispatchBoard({
     [sortKey],
   );
 
-  const needsAttention = useMemo(() => {
+  const needsInput = useMemo(() => {
     const items = filteredSessions.filter((s) => s.status === "attention");
     return items.sort((a, b) => b.stateChangedAt - a.stateChangedAt);
   }, [filteredSessions]);
@@ -281,44 +281,27 @@ export function DispatchBoard({
     );
   }
 
-  // Empty state with workflow explanation
+  // Empty state — terminal-native
   if (sessions.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-        <h2 className="text-lg font-medium text-gray-700 dark:text-gray-300">
-          Welcome to TooManyTabs
-        </h2>
-        <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
-          Manage multiple Claude Code sessions in parallel. Here is how it works:
-        </p>
-        <div className="mt-6 flex max-w-md flex-col gap-3 text-left">
-          <WorkflowStep
-            number={1}
-            title="Add a repository"
-            description="Connect a GitHub repo from the Repos tab."
-          />
-          <WorkflowStep
-            number={2}
-            title="Create a session"
-            description="Link an issue or PR, write a prompt, and spawn a session."
-          />
-          <WorkflowStep
-            number={3}
-            title="Monitor and respond"
-            description="Watch sessions run, monitor progress, and review changes."
-          />
-          <WorkflowStep
-            number={4}
-            title="Ship it"
-            description="Commit, push, open a PR, and merge -- all from the app."
-          />
+      <div className="flex flex-1 flex-col items-center justify-center p-6">
+        <div className="w-full max-w-xs">
+          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500">
+            no sessions
+          </p>
+          <div className="flex flex-col gap-3 border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/60">
+            <WorkflowStep cmd="repos add <github-url>" desc="connect a repository" />
+            <WorkflowStep cmd="session new" desc="link an issue, write a prompt" />
+            <WorkflowStep cmd="monitor" desc="watch output, respond to prompts" />
+            <WorkflowStep cmd="ship" desc="commit, push, open PR, merge" />
+          </div>
+          <button
+            onClick={onNewSession}
+            className="mt-3 w-full cursor-pointer border border-gray-300 py-1.5 text-xs font-medium text-gray-500 hover:border-blue-400 hover:text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-600 dark:hover:text-blue-400"
+          >
+            + new session
+          </button>
         </div>
-        <button
-          onClick={onNewSession}
-          className="mt-6 cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-        >
-          Get Started
-        </button>
       </div>
     );
   }
@@ -446,14 +429,14 @@ export function DispatchBoard({
       {/* Kanban columns */}
       <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto p-6">
         <Column
-          title="Needs Attention"
-          count={needsAttention.length}
+          title="Needs Input"
+          count={needsInput.length}
           accentColor="amber"
           emptyIcon="check"
           emptyTitle="All clear"
           emptyDescription="No sessions need your attention right now."
         >
-          {needsAttention.map((s) => (
+          {needsInput.map((s) => (
             <KanbanCard
               key={s.id}
               session={s}
@@ -517,24 +500,11 @@ export function DispatchBoard({
 
 /* ── Workflow step for empty state ─────────────────────────────────────────── */
 
-function WorkflowStep({
-  number,
-  title,
-  description,
-}: {
-  number: number;
-  title: string;
-  description: string;
-}) {
+function WorkflowStep({ cmd, desc }: { cmd: string; desc: string }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
-        {number}
-      </span>
-      <div>
-        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{title}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
-      </div>
+    <div className="flex flex-col gap-0.5">
+      <span className="font-mono text-xs text-blue-500 dark:text-blue-400">$ {cmd}</span>
+      <span className="pl-2 text-xs text-gray-400 dark:text-gray-500">{desc}</span>
     </div>
   );
 }
@@ -595,7 +565,7 @@ function Column({
 }: {
   title: string;
   count: number;
-  accentColor: "amber" | "blue" | "gray" | "orange";
+  accentColor: "amber" | "blue" | "green" | "gray" | "orange";
   emptyIcon: "check" | "pause" | "inbox";
   emptyTitle: string;
   emptyDescription: string;
@@ -605,16 +575,8 @@ function Column({
     amber: "bg-amber-500",
     blue: "bg-blue-500",
     green: "bg-green-500",
-    gray: "bg-gray-500",
+    gray: "bg-gray-400",
     orange: "bg-orange-500",
-  };
-
-  const headerBorder = {
-    amber: "border-amber-500",
-    blue: "border-blue-500",
-    green: "border-green-500",
-    gray: "border-gray-300 dark:border-gray-700",
-    orange: "border-orange-500",
   };
 
   return (
@@ -622,20 +584,17 @@ function Column({
       data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
       className="flex min-h-0 min-w-[280px] flex-1 flex-col rounded-lg bg-gray-50/80 dark:bg-gray-900/60"
     >
-      {/* Column header */}
-      <div className={`border-t-2 ${headerBorder[accentColor]} rounded-t-lg`} />
+      {/* Column header — dot + title + count, no border accent */}
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className={`inline-block h-2.5 w-2.5 rounded-full ${dotColors[accentColor]}`} />
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-600 dark:text-gray-300">
+        <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColors[accentColor]}`} />
+        <h2 className="text-xs font-medium uppercase tracking-widest text-gray-400 dark:text-gray-500">
           {title}
         </h2>
-        <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-          {count}
-        </span>
+        <span className="tabular-nums text-xs text-gray-400 dark:text-gray-500">{count}</span>
       </div>
 
       {/* Cards */}
-      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto pb-3">
         {count === 0 ? (
           <div className="flex flex-col items-center px-2 py-6 text-center">
             <EmptyIcon type={emptyIcon} />

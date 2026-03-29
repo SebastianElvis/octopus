@@ -269,10 +269,10 @@ export function NewSessionModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
       <div
         data-testid="new-session-modal"
-        className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900"
+        className="w-full max-w-lg rounded-md border border-gray-200 bg-white p-6 shadow-xl dark:border-gray-800 dark:bg-gray-900"
       >
         <div className="mb-5 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">New Session</h2>
@@ -506,17 +506,22 @@ export function NewSessionModal({
             </div>
           </div>
 
-          {/* Skip permissions */}
-          <label className="flex cursor-pointer items-center gap-2">
+          {/* Skip permissions — danger zone */}
+          <label className="flex cursor-pointer items-start gap-3 rounded border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-800/50 dark:bg-red-950/20">
             <input
               type="checkbox"
               checked={dangerouslySkipPermissions}
               onChange={(e) => setDangerouslySkipPermissions(e.target.checked)}
-              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-red-300 accent-red-500 focus:ring-red-500 dark:border-red-700"
             />
-            <span className="text-sm text-gray-700 dark:text-gray-300">
-              Dangerously skip permissions
-            </span>
+            <div>
+              <span className="text-sm font-medium text-red-700 dark:text-red-400">
+                Dangerously skip permissions
+              </span>
+              <p className="mt-0.5 text-xs text-red-600/70 dark:text-red-500/60">
+                Disables Claude&apos;s permission prompts — use only in trusted environments
+              </p>
+            </div>
           </label>
         </div>
 

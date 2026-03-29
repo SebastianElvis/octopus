@@ -69,7 +69,7 @@ function resetStores() {
 function setupIPC() {
   spawnedParams = null;
   mockWindows("main");
-  mockIPC((cmd: string, args?: Record<string, unknown>) => {
+  mockIPC((cmd: string, args?: unknown) => {
     switch (cmd) {
       case "list_sessions":
         return [];
@@ -88,13 +88,13 @@ function setupIPC() {
       case "fetch_prs":
         return mockPRs;
       case "spawn_session": {
-        spawnedParams = args ?? null;
-        const params = args?.params as Record<string, unknown>;
+        spawnedParams = (args as Record<string, unknown> | null);
+        const p = args as { params?: { repoId?: string; name?: string; branch?: string } } | undefined;
         return {
           id: "new-session-1",
-          repoId: params?.repoId,
-          name: params?.name,
-          branch: params?.branch,
+          repoId: p?.params?.repoId,
+          name: p?.params?.name,
+          branch: p?.params?.branch,
           status: "running",
           stateChangedAt: new Date().toISOString(),
         } satisfies BackendSession;

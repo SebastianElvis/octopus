@@ -1,17 +1,20 @@
 @import "tailwindcss";
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap");
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Base typography: ensure monospace font is consistent for code/terminal content */
+@theme {
+  --font-sans: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", "Fira Code", monospace;
+}
+
 @layer base {
-  code,
-  kbd,
-  pre,
-  samp,
-  .font-mono {
-    font-family:
-      "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", ui-monospace, SFMono-Regular,
-      Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1;
   }
 }
 

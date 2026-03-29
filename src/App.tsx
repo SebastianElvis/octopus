@@ -445,9 +445,9 @@ function App() {
         </>
       )}
 
-      {/* Sidebar collapsed: show expand button */}
+      {/* Sidebar collapsed: show expand button + attention indicator */}
       {sidebarCollapsed && (
-        <div className="flex shrink-0 flex-col items-center border-r border-gray-200 bg-white py-3 dark:border-gray-800 dark:bg-gray-950">
+        <div className="flex shrink-0 flex-col items-center gap-2 border-r border-gray-200 bg-white py-3 dark:border-gray-800 dark:bg-gray-950">
           <button
             onClick={toggleSidebar}
             title="Expand sidebar"
@@ -463,6 +463,12 @@ function App() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
           </button>
+          {waitingCount > 0 && (
+            <span
+              className="h-2 w-2 animate-pulse rounded-full bg-amber-500"
+              title={`${waitingCount} session${waitingCount > 1 ? "s" : ""} need input`}
+            />
+          )}
         </div>
       )}
 

@@ -27,7 +27,8 @@ beforeEach(() => {
   useUIStore.setState({ sidebarCollapsed: false });
 
   mockWindows("main");
-  mockIPC((cmd: string, args?: Record<string, unknown>) => {
+  mockIPC((cmd: string, args?: unknown) => {
+    const a = args as Record<string, unknown> | undefined;
     switch (cmd) {
       case "list_sessions":
         return [];
@@ -38,9 +39,9 @@ beforeEach(() => {
       case "check_prerequisites":
         return { claude: true, git: true, gh: true };
       case "get_setting":
-        return savedSettings[(args?.key as string) ?? ""] ?? null;
+        return savedSettings[(a?.key as string | undefined) ?? ""] ?? null;
       case "set_setting":
-        savedSettings[(args?.key as string) ?? ""] = (args?.value as string) ?? "";
+        savedSettings[(a?.key as string | undefined) ?? ""] = (a?.value as string | undefined) ?? "";
         return null;
       case "get_github_token":
         return null;

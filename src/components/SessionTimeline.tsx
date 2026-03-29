@@ -59,7 +59,7 @@ export default function SessionTimeline({ events, className = "" }: SessionTimel
                 <span className={`text-xs font-semibold capitalize ${labelColor(event.status)}`}>
                   {event.status}
                 </span>
-                <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                <span className="text-xs tabular-nums text-gray-400 dark:text-gray-500">
                   {timeAgo(event.timestamp)}
                 </span>
               </div>

@@ -6,8 +6,8 @@ import {
   STATUS_LABEL,
   CLOSED_BORDER,
   BLOCK_TYPE_PILL,
-  STATUS_DOT,
   RUNNING_PULSE,
+  STATUS_DOT,
 } from "../lib/statusColors";
 
 export type CIStatus = "success" | "failure" | "pending" | null;
@@ -48,7 +48,7 @@ export function KanbanCard({
     <div
       data-testid={`session-card-${session.id}`}
       onClick={() => onView(session.id)}
-      className={`cursor-pointer rounded-md border bg-white px-3 py-2.5 pl-7 shadow-sm transition-all hover:shadow-md dark:bg-gray-950 ${closedBorder} ${isClosed ? "opacity-75" : ""} ${
+      className={`group cursor-pointer rounded-md border bg-white px-3 py-2.5 pl-7 shadow-sm transition-all hover:shadow-md dark:bg-gray-950 ${closedBorder} ${isClosed ? "opacity-75" : ""} ${
         isActive
           ? "border-blue-400 ring-1 ring-blue-400/50 dark:border-blue-600 dark:ring-blue-600/40"
           : "border-gray-200 hover:border-gray-300 dark:border-gray-800 dark:hover:border-gray-700"
@@ -101,38 +101,43 @@ export function KanbanCard({
         </div>
       )}
 
-      {/* Pills row */}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {/* Pills row — status pill without inner dot (pill color is the signal) */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <span
-          className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
+          className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
         >
-          <span
-            className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"} ${session.status === "running" ? RUNNING_PULSE : ""}`}
-          />
+          {/* Only show animated dot for running — otherwise pill color is enough */}
+          {session.status === "running" && (
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status]} ${RUNNING_PULSE}`}
+            />
+          )}
           {STATUS_LABEL[session.status] ?? session.status}
         </span>
         {session.status === "attention" && session.blockType && (
           <span
-            className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${BLOCK_TYPE_PILL[session.blockType]}`}
+            className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${BLOCK_TYPE_PILL[session.blockType]}`}
           >
             {session.blockType}
           </span>
         )}
       </div>
 
-      {/* Action buttons */}
-      <div className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {/* View is always first */}
+      {/* Action buttons — visible on hover only */}
+      <div
+        className="mt-2 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={() => onView(session.id)}
-          className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200 dark:active:bg-gray-800"
+          className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200 dark:active:bg-gray-800"
         >
           View
         </button>
         {session.status === "running" && (
           <button
             onClick={() => onInterrupt?.(session.id)}
-            className="cursor-pointer rounded bg-yellow-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-yellow-500 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-1"
+            className="cursor-pointer rounded bg-yellow-600 px-2 py-1 text-xs font-medium text-white hover:bg-yellow-500 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-1"
           >
             Interrupt
           </button>
@@ -152,19 +157,19 @@ export function KanbanCard({
           !showKillConfirm && (
             <button
               onClick={() => setShowKillConfirm(true)}
-              className="cursor-pointer rounded border border-red-300 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 active:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:active:bg-red-950/50"
+              className="cursor-pointer rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 active:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:active:bg-red-950/50"
             >
               Kill
             </button>
           )}
         {showKillConfirm && onKill && (
           <>
-            <span className="text-[11px] text-red-600 dark:text-red-400">
+            <span className="text-xs text-red-600 dark:text-red-400">
               Kill &quot;{session.name}&quot;?
             </span>
             <button
               onClick={() => setShowKillConfirm(false)}
-              className="cursor-pointer rounded px-1.5 py-0.5 text-[11px] text-gray-500 hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+              className="cursor-pointer rounded px-1.5 py-0.5 text-xs text-gray-500 hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:bg-gray-800 dark:active:bg-gray-700"
             >
               No
             </button>
@@ -173,7 +178,7 @@ export function KanbanCard({
                 setShowKillConfirm(false);
                 onKill(session.id);
               }}
-              className="cursor-pointer rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+              className="cursor-pointer rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
             >
               Yes
             </button>

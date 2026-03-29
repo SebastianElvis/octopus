@@ -108,7 +108,7 @@ afterEach(() => {
 
 function setupIPC(sessions: BackendSession[] = makeSessions()) {
   mockWindows("main");
-  mockIPC((cmd: string, args?: Record<string, unknown>) => {
+  mockIPC((cmd: string) => {
     ipcCommands.push(cmd);
     switch (cmd) {
       case "list_sessions":
@@ -302,7 +302,6 @@ describe("Dispatch board", () => {
     });
 
     const card = screen.getByTestId("session-card-s2");
-    const interruptBtn = card.querySelector("button")!;
     const allButtons = Array.from(card.querySelectorAll("button"));
     const interrupt = allButtons.find((b) => b.textContent === "Interrupt");
     expect(interrupt).toBeTruthy();

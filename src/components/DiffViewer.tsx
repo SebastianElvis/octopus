@@ -214,7 +214,7 @@ export function DiffViewer({ diff, filePath }: DiffViewerProps) {
       const resolvedLang = loadedLangs.includes(lang) ? lang : "text";
       try {
         const result = highlighter.codeToTokens(code, {
-          lang: resolvedLang,
+          lang: resolvedLang as Parameters<typeof highlighter.codeToTokens>[1]["lang"],
           theme: "github-dark",
         });
         // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- async cancellation
