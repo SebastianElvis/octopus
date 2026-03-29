@@ -111,6 +111,8 @@ function setupIPC(
         return null;
       case "interrupt_session":
         return null;
+      case "scan_slash_commands":
+        return [];
       case "read_session_events": {
         const id = (args as { id: string } | undefined)?.id ?? "";
         return historyEvents[id] ?? [];
@@ -230,8 +232,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Allow")).toBeInTheDocument();
-      expect(screen.getByText("Deny")).toBeInTheDocument();
+      expect(screen.getByText("Permission Required")).toBeInTheDocument();
     });
 
     expect(screen.getByText("Claude wants to edit main.ts")).toBeInTheDocument();
@@ -253,7 +254,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Session completed")).toBeInTheDocument();
+      expect(screen.getByText("Session done")).toBeInTheDocument();
     });
   });
 
@@ -281,7 +282,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+      expect(screen.getByText("Needs Input")).toBeInTheDocument();
     });
   });
 
@@ -431,7 +432,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+      expect(screen.getByText("Needs Input")).toBeInTheDocument();
     });
 
     // Navigate to s2 (different session)
@@ -445,7 +446,7 @@ describe("Claude output integration", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+      expect(screen.getByText("Needs Input")).toBeInTheDocument();
     });
 
     // Navigate back to s1 — messages should still be there

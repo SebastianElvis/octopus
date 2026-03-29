@@ -67,7 +67,7 @@ describe("Onboarding flow", () => {
     // "Welcome to TooManyTabs" may appear in both onboarding dialog and empty state
     const dialog = screen.getByTestId("onboarding-dialog");
     expect(dialog).toHaveTextContent("Welcome to TooManyTabs");
-    expect(screen.getByText("Step 1: Check Prerequisites")).toBeInTheDocument();
+    expect(screen.getByText("01 / check prerequisites")).toBeInTheDocument();
   });
 
   it("skips onboarding for returning users", async () => {
@@ -105,21 +105,21 @@ describe("Onboarding flow", () => {
       fireEvent.click(screen.getByText("Next"));
     });
 
-    expect(screen.getByText("Step 2: Connect a Repository")).toBeInTheDocument();
+    expect(screen.getByText("02 / connect a repository")).toBeInTheDocument();
 
     // Skip to step 3
     await act(async () => {
       fireEvent.click(screen.getByText("Skip"));
     });
 
-    expect(screen.getByText("Step 3: Create Your First Session")).toBeInTheDocument();
+    expect(screen.getByText("03 / create your first session")).toBeInTheDocument();
 
     // Skip to step 4
     await act(async () => {
       fireEvent.click(screen.getByText("Skip"));
     });
 
-    expect(screen.getByText("Step 4: The Dispatch Board")).toBeInTheDocument();
+    expect(screen.getByText("04 / the dispatch board")).toBeInTheDocument();
   });
 
   it("dismisses onboarding via close button and persists", async () => {

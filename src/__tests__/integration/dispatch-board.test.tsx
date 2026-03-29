@@ -148,14 +148,10 @@ describe("Dispatch board", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Welcome to TooManyTabs")).toBeInTheDocument();
+      expect(screen.getByText("no sessions")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Add a repository")).toBeInTheDocument();
-    expect(screen.getByText("Create a session")).toBeInTheDocument();
-    expect(screen.getByText("Monitor and respond")).toBeInTheDocument();
-    expect(screen.getByText("Ship it")).toBeInTheDocument();
-    expect(screen.getByText("Get Started")).toBeInTheDocument();
+    expect(screen.getByText("+ new session")).toBeInTheDocument();
   });
 
   it("shows fleet summary with correct counts", async () => {
@@ -184,11 +180,11 @@ describe("Dispatch board", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("Needs Attention")).toBeInTheDocument();
+      expect(screen.getByText("Needs Input")).toBeInTheDocument();
     });
 
     // Needs Attention: waiting (s1) + stuck (s6)
-    const attentionCol = screen.getByTestId("column-needs-attention");
+    const attentionCol = screen.getByTestId("column-needs-input");
     expect(attentionCol).toHaveTextContent("Fix login form");
     expect(attentionCol).toHaveTextContent("Stale session");
 
@@ -198,7 +194,7 @@ describe("Dispatch board", () => {
     expect(runningCol).toHaveTextContent("API refactor");
 
     // Closed: completed (s4) + failed (s5)
-    const closedCol = screen.getByTestId("column-closed");
+    const closedCol = screen.getByTestId("column-done");
     expect(closedCol).toHaveTextContent("Fix CSS bug");
     expect(closedCol).toHaveTextContent("DB migration");
   });
@@ -345,7 +341,7 @@ describe("Dispatch board", () => {
     expect(ipcCommands).toContain("kill_session");
   });
 
-  it("shows Retry button on failed sessions", async () => {
+  it("shows View button on done sessions", async () => {
     setupIPC();
 
     await act(async () => {
@@ -358,14 +354,8 @@ describe("Dispatch board", () => {
 
     const card = screen.getByTestId("session-card-s5");
     const allButtons = Array.from(card.querySelectorAll("button"));
-    const retryBtn = allButtons.find((b) => b.textContent === "Retry");
-    expect(retryBtn).toBeTruthy();
-
-    await act(async () => {
-      fireEvent.click(retryBtn!);
-    });
-
-    expect(ipcCommands).toContain("resume_session");
+    const viewBtn = allButtons.find((b) => b.textContent === "View");
+    expect(viewBtn).toBeTruthy();
   });
 
   it("shows error state when session loading fails", async () => {

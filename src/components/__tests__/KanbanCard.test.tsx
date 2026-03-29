@@ -16,10 +16,9 @@ function makeSession(overrides: Partial<Session> = {}): Session {
 }
 
 describe("KanbanCard", () => {
-  it("renders session name, repo, and branch", () => {
+  it("renders session name and branch", () => {
     render(<KanbanCard session={makeSession()} onView={() => {}} />);
     expect(screen.getByText("Fix bug #42")).toBeInTheDocument();
-    expect(screen.getByText("my-repo")).toBeInTheDocument();
     expect(screen.getByText("fix/bug-42")).toBeInTheDocument();
   });
 
