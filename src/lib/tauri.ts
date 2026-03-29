@@ -253,12 +253,17 @@ export async function closeIssue(repoId: string, issueNumber: number): Promise<v
 
 // ── Git commands ─────────────────────────────────────────────────────────────
 
+export interface PushResult {
+  commitUrl: string | null;
+  shortHash: string;
+}
+
 export async function gitCommitAndPush(params: {
   worktreePath: string;
   message: string;
-}): Promise<void> {
+}): Promise<PushResult> {
   requireTauri("git_commit_and_push");
-  return tauriInvoke<void>("git_commit_and_push", {
+  return tauriInvoke<PushResult>("git_commit_and_push", {
     worktreePath: params.worktreePath,
     commitMessage: params.message,
   });
@@ -269,9 +274,9 @@ export async function gitCommit(worktreePath: string, message: string): Promise<
   return tauriInvoke<void>("git_commit", { worktreePath, commitMessage: message });
 }
 
-export async function gitPush(worktreePath: string): Promise<void> {
+export async function gitPush(worktreePath: string): Promise<PushResult> {
   requireTauri("git_push");
-  return tauriInvoke<void>("git_push", { worktreePath });
+  return tauriInvoke<PushResult>("git_push", { worktreePath });
 }
 
 export async function createPR(params: {
@@ -324,6 +329,17 @@ export async function scanSlashCommands(worktreePath?: string): Promise<Discover
 export async function getChangedFiles(worktreePath: string): Promise<ChangedFile[]> {
   if (!isTauri()) return [];
   return tauriInvoke<ChangedFile[]>("get_changed_files", { worktreePath });
+}
+
+export interface SyncStatus {
+  ahead: number;
+  behind: number;
+  hasUpstream: boolean;
+}
+
+export async function getSyncStatus(worktreePath: string): Promise<SyncStatus> {
+  if (!isTauri()) return { ahead: 0, behind: 0, hasUpstream: false };
+  return tauriInvoke<SyncStatus>("get_sync_status", { worktreePath });
 }
 
 export async function gitStageFiles(worktreePath: string, paths: string[]): Promise<void> {

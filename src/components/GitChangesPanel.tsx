@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import { useGitStore } from "../stores/gitStore";
 import { useSessionStore } from "../stores/sessionStore";
+import { isTauri } from "../lib/env";
 import type { ChangedFile, ClaudeMessage } from "../lib/types";
+
+async function openExternal(url: string) {
+  if (isTauri()) {
+    const { open } = await import("@tauri-apps/plugin-shell");
+    await open(url);
+  } else {
+    window.open(url, "_blank");
+  }
+}
 
 /** Stable empty array to avoid new-reference-per-render in Zustand selectors */
 const EMPTY_MESSAGES: ClaudeMessage[] = [];
@@ -56,6 +66,9 @@ export function GitChangesPanel({
     pushing,
     committing,
     error,
+    successMessage,
+    successUrl,
+    syncStatus,
     setWorktreePath,
     refreshChanges,
     stageFiles,
@@ -95,6 +108,15 @@ export function GitChangesPanel({
       setCommitMessage(sessionName);
     }
   }, [sessionName, messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-dismiss success message after 4 seconds
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => {
+      useGitStore.setState({ successMessage: null, successUrl: null });
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   const isSessionDone = sessionStatus === "done" || sessionStatus === "attention";
 
@@ -251,6 +273,22 @@ export function GitChangesPanel({
       {/* Commit area */}
       <div className="shrink-0 border-t border-gray-200 p-3 dark:border-gray-800">
         {error && <p className="mb-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {successMessage && !error && (
+          <p className="mb-1 flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+            <svg className="h-3 w-3 shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 6.5L5 9l4.5-6" />
+            </svg>
+            <span>{successMessage}</span>
+            {successUrl && (
+              <button
+                onClick={() => void openExternal(successUrl)}
+                className="cursor-pointer font-medium text-green-700 underline decoration-green-400/50 underline-offset-2 hover:text-green-800 hover:decoration-green-600 dark:text-green-300 dark:decoration-green-500/50 dark:hover:text-green-200 dark:hover:decoration-green-400"
+              >
+                View
+              </button>
+            )}
+          </p>
+        )}
         <textarea
           value={commitMessage}
           onChange={(e) => setCommitMessage(e.target.value)}
@@ -276,6 +314,11 @@ export function GitChangesPanel({
             className="cursor-pointer rounded border border-blue-600 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 active:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-blue-500 dark:text-blue-400 dark:hover:bg-blue-950/30 dark:active:bg-blue-950/50"
           >
             {pushing ? "Pushing..." : "Push"}
+            {!pushing && syncStatus && syncStatus.ahead > 0 && (
+              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-semibold leading-none text-white dark:bg-blue-500">
+                {syncStatus.ahead}
+              </span>
+            )}
           </button>
           <button
             onClick={() => {
