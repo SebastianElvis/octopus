@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tmt2",
+  "productName": "tmt3",
   "version": "0.1.0",
   "identifier": "com.toomanytabs.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "tmt2",
+        "title": "tmt3",
         "width": 1200,
         "height": 800,
         "minWidth": 900,
