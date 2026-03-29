@@ -124,7 +124,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
 
       {createError && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{createError}</p>}
 
-      <div className="space-y-3">
+      <div className="max-h-64 space-y-3 overflow-y-auto">
         {comments.map((comment) => (
           <div
             key={comment.id}

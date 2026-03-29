@@ -492,7 +492,7 @@ function App() {
             </div>
           )}
           {view === "tasks" && (
-            <div className="h-full overflow-y-auto p-6">
+            <div className="absolute inset-0 overflow-y-auto p-6">
               <IssueBacklog
                 repos={tasksRepoId ? repos.filter((r) => r.id === tasksRepoId) : repos}
                 onSelectIssue={handleSelectIssue}
