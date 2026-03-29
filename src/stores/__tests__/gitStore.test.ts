@@ -6,9 +6,10 @@ vi.mock("../../lib/tauri", () => ({
   gitUnstageFiles: vi.fn(() => Promise.resolve()),
   gitDiscardFiles: vi.fn(() => Promise.resolve()),
   getFileDiff: vi.fn(() => Promise.resolve("diff content")),
-  gitCommitAndPush: vi.fn(() => Promise.resolve()),
+  gitCommitAndPush: vi.fn(() => Promise.resolve({ commitUrl: null, shortHash: "abc1234" })),
   gitCommit: vi.fn(() => Promise.resolve()),
-  gitPush: vi.fn(() => Promise.resolve()),
+  gitPush: vi.fn(() => Promise.resolve({ commitUrl: null, shortHash: "abc1234" })),
+  getSyncStatus: vi.fn(() => Promise.resolve({ ahead: 0, behind: 0, hasUpstream: true })),
 }));
 
 function resetStore() {

@@ -514,9 +514,9 @@ pub async fn fetch_prs(state: State<'_, AppState>, repo_id: String) -> AppResult
         .collect())
 }
 
-/// Stage all changes, commit with a message, and push in the given worktree.
+/// Stage all changes and commit with a message in the given worktree.
 #[tauri::command]
-pub async fn git_commit_and_push(worktree_path: String, commit_message: String) -> AppResult<()> {
+pub async fn git_commit(worktree_path: String, commit_message: String) -> AppResult<()> {
     // git add -A
     let add_output = Command::new("git")
         .args(["add", "-A"])
@@ -543,21 +543,150 @@ pub async fn git_commit_and_push(worktree_path: String, commit_message: String) 
         )));
     }
 
-    // git push
+    log::info!("Committed in {}", worktree_path);
+    Ok(())
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PushResult {
+    /// GitHub commit URL, if derivable from the remote.
+    pub commit_url: Option<String>,
+    /// Short commit hash.
+    pub short_hash: String,
+}
+
+/// Derive a GitHub commit URL from the origin remote URL and HEAD commit.
+fn get_push_result(worktree_path: &str) -> PushResult {
+    let hash = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(worktree_path)
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    let short_hash = Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .current_dir(worktree_path)
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    let remote_url = Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .current_dir(worktree_path)
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    // Parse GitHub URL from SSH or HTTPS remote
+    let commit_url = parse_github_base_url(&remote_url)
+        .filter(|_| !hash.is_empty())
+        .map(|base| format!("{}/commit/{}", base, hash));
+
+    PushResult { commit_url, short_hash }
+}
+
+/// Extract `https://github.com/owner/repo` from SSH or HTTPS remote URLs.
+fn parse_github_base_url(remote: &str) -> Option<String> {
+    if let Some(rest) = remote.strip_prefix("git@github.com:") {
+        let repo = rest.trim_end_matches(".git");
+        Some(format!("https://github.com/{}", repo))
+    } else if remote.starts_with("https://github.com/") {
+        let repo = remote.trim_end_matches(".git");
+        Some(repo.to_string())
+    } else {
+        None
+    }
+}
+
+/// Smart push: tries `git push`, and if there's no upstream, automatically sets one.
+fn smart_push(worktree_path: &str) -> AppResult<()> {
     let push_output = Command::new("git")
         .args(["push"])
-        .current_dir(&worktree_path)
+        .current_dir(worktree_path)
         .output()?;
-    if !push_output.status.success() {
-        let stderr = String::from_utf8_lossy(&push_output.stderr);
+    if push_output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&push_output.stderr);
+    if !stderr.contains("has no upstream branch") {
         return Err(AppError::Custom(format!(
             "git push failed: {}",
             stderr.trim()
         )));
     }
 
-    log::info!("Committed and pushed in {}", worktree_path);
+    // Get current branch name and push with --set-upstream
+    let branch_output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(worktree_path)
+        .output()?;
+    let branch = String::from_utf8_lossy(&branch_output.stdout).trim().to_string();
+
+    let retry_output = Command::new("git")
+        .args(["push", "--set-upstream", "origin", &branch])
+        .current_dir(worktree_path)
+        .output()?;
+    if !retry_output.status.success() {
+        let retry_stderr = String::from_utf8_lossy(&retry_output.stderr);
+        return Err(AppError::Custom(format!(
+            "git push failed: {}",
+            retry_stderr.trim()
+        )));
+    }
+
     Ok(())
+}
+
+/// Push the current branch in the given worktree.
+#[tauri::command]
+pub async fn git_push(worktree_path: String) -> AppResult<PushResult> {
+    smart_push(&worktree_path)?;
+    let result = get_push_result(&worktree_path);
+    log::info!("Pushed in {} ({})", worktree_path, result.short_hash);
+    Ok(result)
+}
+
+/// Stage all changes, commit with a message, and push in the given worktree.
+#[tauri::command]
+pub async fn git_commit_and_push(worktree_path: String, commit_message: String) -> AppResult<PushResult> {
+    // git add -A
+    let add_output = Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(&worktree_path)
+        .output()?;
+    if !add_output.status.success() {
+        let stderr = String::from_utf8_lossy(&add_output.stderr);
+        return Err(AppError::Custom(format!(
+            "git add -A failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    // git commit (--no-gpg-sign because GPG prompts can't work in a headless context)
+    let commit_output = Command::new("git")
+        .args(["commit", "--no-gpg-sign", "-m", &commit_message])
+        .current_dir(&worktree_path)
+        .output()?;
+    if !commit_output.status.success() {
+        let stderr = String::from_utf8_lossy(&commit_output.stderr);
+        return Err(AppError::Custom(format!(
+            "git commit failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    // git push (smart: auto-sets upstream if needed)
+    smart_push(&worktree_path)?;
+
+    let result = get_push_result(&worktree_path);
+    log::info!("Committed and pushed in {} ({})", worktree_path, result.short_hash);
+    Ok(result)
 }
 
 /// Create a pull request via the GitHub REST API.

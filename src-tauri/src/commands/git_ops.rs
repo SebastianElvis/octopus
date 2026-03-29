@@ -194,6 +194,45 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
     Ok(files)
 }
 
+/// Sync status: how many commits ahead/behind the remote tracking branch.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStatus {
+    pub ahead: u32,
+    pub behind: u32,
+    pub has_upstream: bool,
+}
+
+#[tauri::command]
+pub async fn get_sync_status(worktree_path: String) -> AppResult<SyncStatus> {
+    // Check if there's an upstream tracking branch
+    let upstream = run_git_allow_failure(&worktree_path, &["rev-parse", "--abbrev-ref", "@{u}"]);
+    if upstream.trim().is_empty() {
+        // No upstream — check if there are any local commits to push
+        let log_output = run_git_allow_failure(&worktree_path, &["log", "--oneline", "-1"]);
+        return Ok(SyncStatus {
+            ahead: if log_output.trim().is_empty() { 0 } else { 0 },
+            behind: 0,
+            has_upstream: false,
+        });
+    }
+
+    let output = run_git_allow_failure(
+        &worktree_path,
+        &["rev-list", "--left-right", "--count", "HEAD...@{u}"],
+    );
+
+    let parts: Vec<&str> = output.trim().split('\t').collect();
+    let ahead = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let behind = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+
+    Ok(SyncStatus {
+        ahead,
+        behind,
+        has_upstream: true,
+    })
+}
+
 /// Stage specific files.
 #[tauri::command]
 pub async fn git_stage_files(worktree_path: String, paths: Vec<String>) -> AppResult<()> {

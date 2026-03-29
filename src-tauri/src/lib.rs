@@ -6,13 +6,13 @@ pub mod state;
 use commands::ai::{generate_branch_name, generate_recap, get_setting, set_setting};
 use commands::filesystem::{list_dir, read_file, save_temp_image, scan_slash_commands};
 use commands::git_ops::{
-    get_changed_files, get_file_at_head, get_file_diff, git_discard_files, git_stage_files,
-    git_unstage_files,
+    get_changed_files, get_file_at_head, get_file_diff, get_sync_status, git_discard_files,
+    git_stage_files, git_unstage_files,
 };
 use commands::github::{
     close_issue, create_pr, create_session_from_review, delete_remote_branch, fetch_check_runs,
-    fetch_issues, fetch_pr_review_comments, fetch_prs, get_github_token, git_commit_and_push,
-    merge_pr,
+    fetch_issues, fetch_pr_review_comments, fetch_prs, get_github_token, git_commit,
+    git_commit_and_push, git_push, merge_pr,
 };
 use commands::hooks::{get_hook_server_port, get_session_analytics, respond_to_hook};
 use commands::repos::{add_repo, list_repos, remove_repo};
@@ -300,7 +300,9 @@ pub fn run() {
             get_github_token,
             fetch_issues,
             fetch_prs,
+            git_commit,
             git_commit_and_push,
+            git_push,
             create_pr,
             fetch_pr_review_comments,
             fetch_check_runs,
@@ -324,6 +326,7 @@ pub fn run() {
             save_temp_image,
             // git operations
             get_changed_files,
+            get_sync_status,
             git_stage_files,
             git_unstage_files,
             git_discard_files,
