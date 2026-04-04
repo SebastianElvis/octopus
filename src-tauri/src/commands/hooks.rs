@@ -168,6 +168,18 @@ async fn hook_handler(
         // Map Claude's cwd to our TooManyTabs session ID so the frontend
         // can match permission requests to the correct session.
         let tmt_session_id = find_session_by_cwd(&state.app, &event.cwd);
+
+        // If the session has dangerously_skip_permissions enabled, auto-allow
+        if let Some(ref tmt_id) = tmt_session_id {
+            if session_has_skip_permissions(&state.app, tmt_id) {
+                let response = HookResponse::pre_tool_use(
+                    "allow",
+                    Some(format!("Auto-allowed: session has skip_permissions enabled")),
+                );
+                return (StatusCode::OK, Json(response));
+            }
+        }
+
         let mapped_payload = if let Some(ref tmt_id) = tmt_session_id {
             let mut mapped_event = event.clone();
             mapped_event.session_id = tmt_id.clone();
@@ -318,6 +330,20 @@ fn find_session_by_cwd(app: &AppHandle, cwd: &str) -> Option<String> {
         .ok()?;
     stmt.query_row(rusqlite::params![cwd], |row| row.get::<_, String>(0))
         .ok()
+}
+
+/// Check if a session has dangerously_skip_permissions enabled.
+fn session_has_skip_permissions(app: &AppHandle, session_id: &str) -> bool {
+    let app_state = app.state::<AppState>();
+    let db = app_state.db.lock();
+    let result: Option<i64> = db
+        .query_row(
+            "SELECT dangerously_skip_permissions FROM sessions WHERE id = ?1",
+            rusqlite::params![session_id],
+            |row| row.get(0),
+        )
+        .ok();
+    result.unwrap_or(0) != 0
 }
 
 /// Update session status to "waiting" with block_type "permission".
