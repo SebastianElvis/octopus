@@ -24,6 +24,7 @@ import { GitHubDetailView } from "./GitHubDetailView";
 import { ShellPanel } from "./ShellPanel";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
 import { STATUS_PILL, STATUS_DOT, RUNNING_PULSE } from "../lib/statusColors";
+import { matchesKeybindingById } from "../lib/keybindings";
 
 type CenterTab = "terminal" | "editor" | "github";
 
@@ -397,8 +398,26 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                if (matchesKeybindingById(e.nativeEvent, "send-reply")) {
+                  e.preventDefault();
                   void handleReply();
+                  return;
+                }
+                // Alt+Enter or Ctrl+J → insert newline
+                if (
+                  matchesKeybindingById(e.nativeEvent, "newline-alt") ||
+                  matchesKeybindingById(e.nativeEvent, "newline-ctrl-j")
+                ) {
+                  e.preventDefault();
+                  const textarea = e.currentTarget;
+                  const { selectionStart, selectionEnd } = textarea;
+                  const val = textarea.value;
+                  const newVal = val.slice(0, selectionStart) + "\n" + val.slice(selectionEnd);
+                  setReplyText(newVal);
+                  // Move cursor after the inserted newline on next tick
+                  requestAnimationFrame(() => {
+                    textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+                  });
                 }
               }}
               placeholder="Reply to session... (Cmd+Enter to send)"

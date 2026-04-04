@@ -16,9 +16,17 @@ import { KeyboardShortcutsOverlay } from "./components/KeyboardShortcutsOverlay"
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { useUIStore } from "./stores/uiStore";
-import { onSessionStateChanged, onSessionOutput, fetchIssues, fetchPRs } from "./lib/tauri";
+import {
+  onSessionStateChanged,
+  onSessionOutput,
+  fetchIssues,
+  fetchPRs,
+  interruptSession,
+  writeToSession,
+} from "./lib/tauri";
 import { requestNotificationPermission, sendSystemNotification } from "./lib/notifications";
 import { playNotificationSound } from "./lib/sound";
+import { matchesKeybindingById } from "./lib/keybindings";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
@@ -61,25 +69,47 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Ignore if typing in an input
+      // Interrupt shortcut (Ctrl+C) — works globally when viewing a running session
+      // and no text is selected (so native copy still works)
+      if (matchesKeybindingById(e, "interrupt-session")) {
+        const sel = window.getSelection();
+        const hasSelection = sel != null && sel.toString().length > 0;
+        if (!hasSelection && view === "session" && activeSessionId) {
+          const activeSession = sessions.find((s) => s.id === activeSessionId);
+          if (activeSession?.status === "running") {
+            e.preventDefault();
+            void interruptSession(activeSessionId);
+            return;
+          }
+        }
+      }
+
+      // Clear terminal (Ctrl+L) — works when viewing a session
+      if (matchesKeybindingById(e, "clear-terminal")) {
+        if (view === "session" && activeSessionId) {
+          e.preventDefault();
+          // Send form-feed character to clear terminal
+          void writeToSession(activeSessionId, "\x0c");
+          return;
+        }
+      }
+
+      // Ignore remaining shortcuts if typing in an input
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
 
-      const isMeta = e.metaKey || e.ctrlKey;
-
-      if (isMeta && e.key === "k") {
+      if (matchesKeybindingById(e, "command-palette")) {
         e.preventDefault();
         setShowCommandPalette((v) => !v);
         return;
       }
-      if (isMeta && e.key === "n") {
+      if (matchesKeybindingById(e, "new-session")) {
         e.preventDefault();
         setShowNewSession(true);
         return;
       }
-      if (isMeta && e.key === "j") {
+      if (matchesKeybindingById(e, "jump-waiting")) {
         e.preventDefault();
-        // Jump to next waiting session
         const waitingSessions = sessions.filter((s) => s.status === "waiting");
         if (waitingSessions.length > 0) {
           const sorted = [...waitingSessions].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
@@ -88,28 +118,38 @@ function App() {
         }
         return;
       }
-      if (isMeta && e.key === "1") {
+      if (matchesKeybindingById(e, "go-home")) {
         e.preventDefault();
         setView("home");
         setActiveSessionId(null);
         return;
       }
-      if (isMeta && e.key === "2") {
+      if (matchesKeybindingById(e, "go-tasks")) {
         e.preventDefault();
         setView("tasks");
         return;
       }
-      if (isMeta && e.key === "3") {
+      if (matchesKeybindingById(e, "go-repos")) {
         e.preventDefault();
         setView("repos");
         return;
       }
-      if (isMeta && (e.key === "/" || e.key === "?")) {
+      if (matchesKeybindingById(e, "toggle-sidebar")) {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
+      if (matchesKeybindingById(e, "open-settings")) {
+        e.preventDefault();
+        setShowSettings(true);
+        return;
+      }
+      if (matchesKeybindingById(e, "show-shortcuts")) {
         e.preventDefault();
         setShowShortcuts((v) => !v);
         return;
       }
-      if (e.key === "Escape") {
+      if (matchesKeybindingById(e, "close-or-back")) {
         if (showShortcuts) {
           setShowShortcuts(false);
           return;
@@ -132,7 +172,7 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [view, showCommandPalette, showSettings, showShortcuts, sessions]);
+  }, [view, activeSessionId, showCommandPalette, showSettings, showShortcuts, sessions, toggleSidebar]);
 
   // Request notification permission on startup
   useEffect(() => {
