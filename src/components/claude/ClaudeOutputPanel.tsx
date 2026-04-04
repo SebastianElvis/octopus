@@ -133,7 +133,7 @@ export function ClaudeOutputPanel({
                 </div>
               ) : sessionStatus === "running" ? (
                 <div className="flex flex-col items-center gap-2">
-                  <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-green-500" />
+                  <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-status-running" />
                   <p className="text-sm text-on-surface-faint">
                     Waiting for Claude output...
                   </p>

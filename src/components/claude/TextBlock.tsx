@@ -2,6 +2,7 @@ import { Children, isValidElement } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { SyntaxHighlighter } from "./SyntaxHighlighter";
+import { TypingIndicator } from "./TypingIndicator";
 
 interface TextBlockProps {
   text: string;
@@ -133,9 +134,7 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
       >
         {text}
       </ReactMarkdown>
-      {isStreaming && (
-        <span className="ml-0.5 inline-block h-4 w-0.5 animate-pulse bg-on-surface-muted" />
-      )}
+      {isStreaming && <TypingIndicator className="ml-1 align-middle" />}
     </div>
   );
 }

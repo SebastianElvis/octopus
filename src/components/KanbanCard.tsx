@@ -9,6 +9,7 @@ import {
   RUNNING_PULSE,
   STATUS_DOT,
 } from "../lib/statusColors";
+import { useSessionActivity } from "../lib/sessionActivity";
 
 export type CIStatus = "success" | "failure" | "pending" | null;
 
@@ -35,8 +36,10 @@ export function KanbanCard({
   index = 0,
 }: KanbanCardProps) {
   const isClosed = session.status === "done";
+  const isRunning = session.status === "running";
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
   const [showKillConfirm, setShowKillConfirm] = useState(false);
+  const activity = useSessionActivity(session.id);
 
   const ciDotColor =
     ciStatus === "success"
@@ -93,10 +96,19 @@ export function KanbanCard({
         )}
       </div>
 
-      {/* Last active */}
-      <p className="mt-1 text-[11px] text-on-surface-faint">
-        Active {timeAgo(session.stateChangedAt)}
-      </p>
+      {/* Live activity (running) or last active timestamp */}
+      {isRunning && activity ? (
+        <div className="mt-1 flex items-center gap-1.5 animate-activity-in">
+          <span className="inline-block h-1 w-1 shrink-0 rounded-full bg-brand animate-pulse" />
+          <span className="truncate font-mono text-[11px] text-brand/80">
+            {activity}
+          </span>
+        </div>
+      ) : (
+        <p className="mt-1 text-[11px] text-on-surface-faint">
+          Active {timeAgo(session.stateChangedAt)}
+        </p>
+      )}
 
       {/* Inline blocking prompt for waiting sessions */}
       {session.status === "attention" && session.lastMessage && (

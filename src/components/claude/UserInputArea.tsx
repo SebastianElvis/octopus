@@ -3,6 +3,7 @@ import type { SessionStatus, BlockType } from "../../lib/types";
 import { isTauri } from "../../lib/env";
 import { interruptSession, sendFollowup, saveTempImage, scanSlashCommands } from "../../lib/tauri";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useSessionActivity } from "../../lib/sessionActivity";
 import type { SlashCommand } from "./SlashCommandMenu";
 import { PermissionBanner } from "./PermissionBanner";
 import { SlashCommandMenu, filterCommands, buildCommandList } from "./SlashCommandMenu";
@@ -35,6 +36,7 @@ export function UserInputArea({
   blockType,
   lastMessage,
 }: UserInputAreaProps) {
+  const activity = useSessionActivity(sessionId);
   const [inputText, setInputText] = useState("");
   const [sending, setSending] = useState(false);
   const [slashMenuOpen, setSlashMenuOpen] = useState(false);
@@ -243,8 +245,8 @@ export function UserInputArea({
 
   // Status line content
   function getStatusInfo(): { label: string; color: string } | null {
-    if (isRunning) return { label: "Claude is working...", color: "bg-green-500" };
-    if (isFinished) return { label: "Session done", color: "bg-green-500" };
+    if (isRunning) return { label: activity ?? "Working...", color: "bg-status-running" };
+    if (isFinished) return { label: "Session done", color: "bg-status-done" };
     return null;
   }
 

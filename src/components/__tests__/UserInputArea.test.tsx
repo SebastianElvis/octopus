@@ -47,9 +47,9 @@ describe("UserInputArea", () => {
   });
 
   describe("running state", () => {
-    it("shows 'Claude is working...' and Interrupt button", () => {
+    it("shows working status and Interrupt button", () => {
       render(<UserInputArea sessionId="s1" sessionStatus="running" />);
-      expect(screen.getByText("Claude is working...")).toBeInTheDocument();
+      expect(screen.getByText("Working...")).toBeInTheDocument();
       expect(screen.getByText("Interrupt")).toBeInTheDocument();
     });
 
