@@ -309,10 +309,9 @@ export function DispatchBoard({
 
   return (
     <div data-testid="dispatch-board" className="flex flex-1 flex-col overflow-hidden">
-      {/* Fleet summary bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-outline bg-surface px-6 py-3">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-semibold text-on-surface">Fleet</span>
+      {/* Fleet summary + search bar */}
+      <div className="flex shrink-0 items-center justify-between border-b border-outline bg-surface px-4 py-2">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <SummaryPill
               color="amber"
@@ -337,9 +336,9 @@ export function DispatchBoard({
               onClick={() => toggleStatusFilter("done")}
             />
           </div>
-          <span className="rounded-full bg-active px-2 py-0.5 text-xs font-semibold text-on-surface-muted">
-            {summary.total} total
-          </span>
+          {statusSentence && (
+            <span className="text-xs text-on-surface-faint">{statusSentence}</span>
+          )}
         </div>
         <button
           onClick={onNewSession}
@@ -349,15 +348,8 @@ export function DispatchBoard({
         </button>
       </div>
 
-      {/* Status sentence */}
-      {statusSentence && (
-        <div className="shrink-0 border-b border-outline-muted bg-surface px-6 py-1.5">
-          <p className="text-xs text-on-surface-muted">{statusSentence}</p>
-        </div>
-      )}
-
       {/* Search, filter & sort bar */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-outline px-6 py-2">
+      <div className="flex shrink-0 items-center gap-3 border-b border-outline px-4 py-1.5">
         <div className="flex flex-1 items-center gap-2 rounded-sm border border-outline bg-surface px-3 py-1.5">
           <svg
             className="h-3.5 w-3.5 text-on-surface-faint"
@@ -413,7 +405,7 @@ export function DispatchBoard({
 
       {/* Active filter indicator */}
       {statusFilter && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-outline bg-brand-muted px-6 py-1.5">
+        <div className="flex shrink-0 items-center gap-2 border-b border-outline bg-brand-muted px-4 py-1">
           <span className="text-xs text-on-surface-muted">
             Showing:{" "}
             <span className="font-medium text-on-surface">{statusFilter}</span>
@@ -428,7 +420,7 @@ export function DispatchBoard({
       )}
 
       {/* Kanban columns */}
-      <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto p-6">
+      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
         <Column
           title="Needs Input"
           count={needsInput.length}
