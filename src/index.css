@@ -172,8 +172,10 @@
 
   /* ── Animation ── */
   --animate-entrance: entrance var(--duration-normal) var(--ease-out) both;
-  --animate-pulse-glow: pulse-glow 2s ease-in-out infinite;
+  --animate-pulse-glow: pulse-glow 2.5s ease-in-out infinite;
   --animate-status-flash: status-flash var(--duration-slow) var(--ease-out);
+  --animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
+  --animate-activity-in: activity-in var(--duration-normal) var(--ease-out) both;
 }
 
 @layer base {
@@ -215,7 +217,27 @@
     box-shadow: 0 0 0 0 var(--status-running-muted);
   }
   50% {
-    box-shadow: 0 0 8px 2px var(--status-running-muted);
+    box-shadow: 0 0 12px 3px var(--status-running-muted);
+  }
+}
+
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes activity-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
   }
 }
 

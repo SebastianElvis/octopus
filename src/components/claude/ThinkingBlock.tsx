@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatedCollapse } from "./AnimatedCollapse";
+import { TypingIndicator } from "./TypingIndicator";
 
 interface ThinkingBlockProps {
   thinking: string;
@@ -45,9 +46,7 @@ export function ThinkingBlock({ thinking, isStreaming }: ThinkingBlockProps) {
             className="max-h-60 overflow-auto whitespace-pre-wrap font-mono text-xs italic leading-relaxed text-on-surface-faint"
           >
             {thinking}
-            {isStreaming && (
-              <span className="inline-block h-3 w-0.5 animate-pulse bg-purple-400 align-text-bottom" />
-            )}
+            {isStreaming && <TypingIndicator color="purple" className="ml-0.5 align-text-bottom" />}
           </pre>
         </div>
       </AnimatedCollapse>
