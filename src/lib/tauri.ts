@@ -19,6 +19,8 @@ import type {
   ChangedFile,
   CheckRun,
   ClaudeStreamEvent,
+  SessionAnalytics,
+  HookEventPayload,
 } from "./types";
 import { mapBackendSession } from "./types";
 
@@ -86,7 +88,6 @@ export async function saveSessionImage(
   requireTauri("save_session_image");
   return tauriInvoke<string>("save_session_image", { sessionId, filename, base64Data });
 }
-
 
 export async function writeToSession(id: string, data: string): Promise<void> {
   requireTauri("write_to_session");
@@ -506,11 +507,7 @@ export async function respondToSession(id: string, response: string): Promise<vo
   return tauriInvoke<void>("respond_to_session", { id, response });
 }
 
-export async function sendFollowup(
-  id: string,
-  prompt: string,
-  images?: string[],
-): Promise<void> {
+export async function sendFollowup(id: string, prompt: string, images?: string[]): Promise<void> {
   requireTauri("send_followup");
   return tauriInvoke<void>("send_followup", { id, prompt, images: images ?? null });
 }
@@ -533,29 +530,25 @@ export async function respondToHook(
   return tauriInvoke<void>("respond_to_hook", { requestId, decision, reason });
 }
 
-export async function getSessionAnalytics(
-  sessionId: string,
-): Promise<import("./types").SessionAnalytics | null> {
+export async function getSessionAnalytics(sessionId: string): Promise<SessionAnalytics | null> {
   if (!isTauri()) return null;
-  return tauriInvoke<import("./types").SessionAnalytics | null>("get_session_analytics", {
+  return tauriInvoke<SessionAnalytics | null>("get_session_analytics", {
     sessionId,
   });
 }
 
 export async function onHookEvent(
-  callback: (payload: import("./types").HookEventPayload) => void,
+  callback: (payload: HookEventPayload) => void,
 ): Promise<() => void> {
   if (!isTauri()) return noop;
-  return tauriListen("hook-event", (event) =>
-    callback(event.payload as import("./types").HookEventPayload),
-  );
+  return tauriListen("hook-event", (event) => callback(event.payload as HookEventPayload));
 }
 
 export async function onHookPermissionRequest(
-  callback: (payload: import("./types").HookEventPayload) => void,
+  callback: (payload: HookEventPayload) => void,
 ): Promise<() => void> {
   if (!isTauri()) return noop;
   return tauriListen("hook-permission-request", (event) =>
-    callback(event.payload as import("./types").HookEventPayload),
+    callback(event.payload as HookEventPayload),
   );
 }

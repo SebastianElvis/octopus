@@ -45,7 +45,14 @@ describe("gitStore", () => {
   it("setWorktreePath resets state and triggers refreshChanges", async () => {
     const { getChangedFiles } = await import("../../lib/tauri");
     vi.mocked(getChangedFiles).mockResolvedValueOnce([
-      { path: "a.ts", status: "modified", staged: false, oldPath: null, insertions: null, deletions: null },
+      {
+        path: "a.ts",
+        status: "modified",
+        staged: false,
+        oldPath: null,
+        insertions: null,
+        deletions: null,
+      },
     ]);
 
     useGitStore.getState().setWorktreePath("/tmp/wt");

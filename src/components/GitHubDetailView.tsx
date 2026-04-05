@@ -48,9 +48,7 @@ export function GitHubDetailView({ issue, pr }: GitHubDetailViewProps) {
         <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-on-surface-faint">
           <span>by {item.user}</span>
           <span>opened {formatDate(item.createdAt)}</span>
-          {item.updatedAt !== item.createdAt && (
-            <span>updated {formatDate(item.updatedAt)}</span>
-          )}
+          {item.updatedAt !== item.createdAt && <span>updated {formatDate(item.updatedAt)}</span>}
           {item.comments > 0 && <span>{item.comments} comments</span>}
         </div>
 

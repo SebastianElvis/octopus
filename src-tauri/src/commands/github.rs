@@ -587,7 +587,10 @@ fn get_push_result(worktree_path: &str) -> PushResult {
         .filter(|_| !hash.is_empty())
         .map(|base| format!("{}/commit/{}", base, hash));
 
-    PushResult { commit_url, short_hash }
+    PushResult {
+        commit_url,
+        short_hash,
+    }
 }
 
 /// Extract `https://github.com/owner/repo` from SSH or HTTPS remote URLs.
@@ -626,7 +629,9 @@ fn smart_push(worktree_path: &str) -> AppResult<()> {
         .args(["rev-parse", "--abbrev-ref", "HEAD"])
         .current_dir(worktree_path)
         .output()?;
-    let branch = String::from_utf8_lossy(&branch_output.stdout).trim().to_string();
+    let branch = String::from_utf8_lossy(&branch_output.stdout)
+        .trim()
+        .to_string();
 
     let retry_output = Command::new("git")
         .args(["push", "--set-upstream", "origin", &branch])
@@ -654,7 +659,10 @@ pub async fn git_push(worktree_path: String) -> AppResult<PushResult> {
 
 /// Stage all changes, commit with a message, and push in the given worktree.
 #[tauri::command]
-pub async fn git_commit_and_push(worktree_path: String, commit_message: String) -> AppResult<PushResult> {
+pub async fn git_commit_and_push(
+    worktree_path: String,
+    commit_message: String,
+) -> AppResult<PushResult> {
     // git add -A
     let add_output = Command::new("git")
         .args(["add", "-A"])
@@ -685,7 +693,11 @@ pub async fn git_commit_and_push(worktree_path: String, commit_message: String) 
     smart_push(&worktree_path)?;
 
     let result = get_push_result(&worktree_path);
-    log::info!("Committed and pushed in {} ({})", worktree_path, result.short_hash);
+    log::info!(
+        "Committed and pushed in {} ({})",
+        worktree_path,
+        result.short_hash
+    );
     Ok(result)
 }
 

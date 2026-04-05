@@ -252,9 +252,7 @@ export function IssueBacklog({
               {label}
               <span
                 className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
-                  filter === tab
-                    ? "bg-brand-muted text-brand"
-                    : "bg-active text-on-surface-muted"
+                  filter === tab ? "bg-brand-muted text-brand" : "bg-active text-on-surface-muted"
                 }`}
               >
                 {count}

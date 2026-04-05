@@ -30,13 +30,8 @@ export function KeyboardShortcutsOverlay({ open, onClose }: KeyboardShortcutsOve
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-on-surface">
-            Keyboard Shortcuts
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-on-surface-faint hover:text-on-surface-muted"
-          >
+          <h2 className="text-lg font-semibold text-on-surface">Keyboard Shortcuts</h2>
+          <button onClick={onClose} className="text-on-surface-faint hover:text-on-surface-muted">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
                 strokeLinecap="round"
@@ -57,9 +52,7 @@ export function KeyboardShortcutsOverlay({ open, onClose }: KeyboardShortcutsOve
               <div className="space-y-1.5">
                 {section.items.map((item) => (
                   <div key={item.id} className="flex items-center justify-between py-0.5">
-                    <span className="text-sm text-on-surface-muted">
-                      {item.description}
-                    </span>
+                    <span className="text-sm text-on-surface-muted">{item.description}</span>
                     <kbd className="rounded border border-outline px-2 py-0.5 text-xs font-mono text-on-surface-muted">
                       {item.keys}
                     </kbd>

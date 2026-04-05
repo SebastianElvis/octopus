@@ -92,9 +92,7 @@ export function RepoSettings() {
       {/* Add form */}
       {showForm && (
         <div className="rounded-sm border border-outline bg-surface-sunken p-4">
-          <h3 className="mb-3 text-sm font-medium text-on-surface">
-            Add Repository
-          </h3>
+          <h3 className="mb-3 text-sm font-medium text-on-surface">Add Repository</h3>
           <div className="space-y-3">
             <div>
               <label className="mb-1 block text-xs font-medium text-on-surface-muted">
@@ -111,8 +109,7 @@ export function RepoSettings() {
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-on-surface-muted">
-                Local Path{" "}
-                <span className="font-normal text-on-surface-faint">(optional)</span>
+                Local Path <span className="font-normal text-on-surface-faint">(optional)</span>
               </label>
               <input
                 type="text"
@@ -203,12 +200,8 @@ export function RepoSettings() {
               className="flex items-center justify-between rounded-sm border border-outline bg-surface-sunken px-4 py-3"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-on-surface">
-                  {repo.githubUrl}
-                </p>
-                <p className="truncate text-xs text-on-surface-muted">
-                  {repo.localPath}
-                </p>
+                <p className="truncate text-sm font-medium text-on-surface">{repo.githubUrl}</p>
+                <p className="truncate text-xs text-on-surface-muted">{repo.localPath}</p>
                 <p className="mt-0.5 text-xs text-on-surface-faint">
                   Default branch: {repo.defaultBranch}
                 </p>

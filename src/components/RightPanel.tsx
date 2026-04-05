@@ -41,9 +41,7 @@ export function RightPanel({ session }: RightPanelProps) {
           >
             {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
-              <span className="rounded-full bg-active px-1.5 text-xs">
-                {tab.count}
-              </span>
+              <span className="rounded-full bg-active px-1.5 text-xs">{tab.count}</span>
             )}
           </button>
         ))}

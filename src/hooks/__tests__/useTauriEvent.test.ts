@@ -35,7 +35,7 @@ describe("useTauriEvent", () => {
     unmount(); // Unmount before subscription resolves
 
     // Now resolve — should immediately call unlisten since component is gone
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
     resolveSubscribe!(unlisten);
     await vi.waitFor(() => expect(unlisten).toHaveBeenCalledTimes(1));
   });

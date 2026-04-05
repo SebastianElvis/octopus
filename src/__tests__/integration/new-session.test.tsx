@@ -88,8 +88,10 @@ function setupIPC() {
       case "fetch_prs":
         return mockPRs;
       case "spawn_session": {
-        spawnedParams = (args as Record<string, unknown> | null);
-        const p = args as { params?: { repoId?: string; name?: string; branch?: string } } | undefined;
+        spawnedParams = args as Record<string, unknown> | null;
+        const p = args as
+          | { params?: { repoId?: string; name?: string; branch?: string } }
+          | undefined;
         return {
           id: "new-session-1",
           repoId: p?.params?.repoId,

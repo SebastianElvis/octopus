@@ -15,9 +15,7 @@ export function PermissionDialog() {
   const [responding, setResponding] = useState<string | null>(null);
 
   // Filter out permissions for the currently viewed session (handled inline)
-  const unviewedPermissions = pendingPermissions.filter(
-    (p) => p.sessionId !== selectedSessionId,
-  );
+  const unviewedPermissions = pendingPermissions.filter((p) => p.sessionId !== selectedSessionId);
 
   if (unviewedPermissions.length === 0) return null;
 
@@ -67,9 +65,7 @@ export function PermissionDialog() {
               clipRule="evenodd"
             />
           </svg>
-          <h3 className="text-sm font-semibold text-on-surface">
-            Permission Request
-          </h3>
+          <h3 className="text-sm font-semibold text-on-surface">Permission Request</h3>
           {unviewedPermissions.length > 1 && (
             <span className="ml-auto text-xs text-on-surface-faint">
               +{unviewedPermissions.length - 1} more

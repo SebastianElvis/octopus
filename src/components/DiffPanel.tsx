@@ -63,9 +63,7 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
   if (!worktreePath) {
     return (
       <div className="flex h-32 items-center justify-center rounded-sm border border-outline bg-surface-sunken">
-        <p className="text-sm text-on-surface-faint">
-          No worktree attached to this session.
-        </p>
+        <p className="text-sm text-on-surface-faint">No worktree attached to this session.</p>
       </div>
     );
   }
@@ -96,10 +94,7 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
 
         {!loading &&
           files.map((file) => (
-            <div
-              key={file.newPath}
-              className="border-b border-outline last:border-0"
-            >
+            <div key={file.newPath} className="border-b border-outline last:border-0">
               <button
                 onClick={() => toggleFile(file.newPath)}
                 className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-hover"

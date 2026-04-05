@@ -84,9 +84,7 @@ export function AddRepoDialog({ open, onClose }: AddRepoDialogProps) {
       }}
     >
       <div className="w-full max-w-md rounded-sm border border-outline bg-surface p-6 shadow-xl">
-        <h2 className="mb-4 text-base font-semibold text-on-surface">
-          Add Repository
-        </h2>
+        <h2 className="mb-4 text-base font-semibold text-on-surface">Add Repository</h2>
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-on-surface-muted">
@@ -107,8 +105,7 @@ export function AddRepoDialog({ open, onClose }: AddRepoDialogProps) {
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-on-surface-muted">
-              Local Path{" "}
-              <span className="font-normal text-on-surface-faint">(optional)</span>
+              Local Path <span className="font-normal text-on-surface-faint">(optional)</span>
             </label>
             <input
               type="text"

@@ -178,7 +178,7 @@ export function DispatchBoard({
     for (const s of sessions) {
       if (s.status === "attention") counts.attention++;
       else if (s.status === "running") counts.running++;
-      else if (s.status === "done") counts.done++;
+      else counts.done++;
     }
     return counts;
   }, [sessions]);
@@ -267,10 +267,7 @@ export function DispatchBoard({
             </div>
             <div className="flex flex-col gap-2 px-3 pb-3">
               {[1, 2].map((m) => (
-                <div
-                  key={m}
-                  className="rounded-sm border border-outline p-3 bg-surface"
-                >
+                <div key={m} className="rounded-sm border border-outline p-3 bg-surface">
                   <div className="h-3 w-36 rounded bg-active" />
                   <div className="mt-2 h-2.5 w-24 rounded bg-hover" />
                 </div>
@@ -301,9 +298,7 @@ export function DispatchBoard({
             />
           </svg>
         </div>
-        <p className="text-sm font-medium text-danger">
-          Failed to load sessions
-        </p>
+        <p className="text-sm font-medium text-danger">Failed to load sessions</p>
         <p className="mt-1 max-w-sm text-xs text-on-surface-muted">{sessionsError}</p>
         <button
           onClick={() => {
@@ -442,8 +437,7 @@ export function DispatchBoard({
       {statusFilter && (
         <div className="flex shrink-0 items-center gap-2 border-b border-outline bg-brand-muted px-4 py-1">
           <span className="text-xs text-on-surface-muted">
-            Showing:{" "}
-            <span className="font-medium text-on-surface">{statusFilter}</span>
+            Showing: <span className="font-medium text-on-surface">{statusFilter}</span>
           </span>
           <button
             onClick={() => setStatusFilter(null)}
@@ -574,9 +568,7 @@ function SummaryPill({
     <button
       onClick={onClick}
       className={`flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 ${
-        active
-          ? "bg-active ring-1 ring-outline-strong"
-          : "hover:bg-hover"
+        active ? "bg-active ring-1 ring-outline-strong" : "hover:bg-hover"
       }`}
     >
       <span
@@ -661,7 +653,13 @@ function Column({
             className="ml-auto cursor-pointer text-on-surface-faint hover:text-on-surface-muted"
             title={`Collapse ${title}`}
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg
+              className="h-3.5 w-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
           </button>
@@ -673,9 +671,7 @@ function Column({
         {count === 0 ? (
           <div className="flex flex-col items-center px-2 py-6 text-center">
             <EmptyIcon type={emptyIcon} />
-            <p className="mt-2 text-xs font-medium text-on-surface-muted">
-              {emptyTitle}
-            </p>
+            <p className="mt-2 text-xs font-medium text-on-surface-muted">{emptyTitle}</p>
             <p className="mt-0.5 text-[11px] leading-relaxed text-on-surface-faint">
               {emptyDescription}
             </p>

@@ -6,37 +6,37 @@ let highlighterPromise: Promise<Highlighter> | null = null;
 /** Lazy-load a single shared Shiki highlighter instance */
 function getHighlighter(): Promise<Highlighter> {
   highlighterPromise ??= import("shiki").then((shiki) =>
-      shiki.createHighlighter({
-        themes: ["github-light", "github-dark"],
-        langs: [
-          "javascript",
-          "typescript",
-          "jsx",
-          "tsx",
-          "python",
-          "rust",
-          "go",
-          "bash",
-          "shell",
-          "json",
-          "yaml",
-          "toml",
-          "html",
-          "css",
-          "sql",
-          "markdown",
-          "diff",
-          "c",
-          "cpp",
-          "java",
-          "ruby",
-          "swift",
-          "kotlin",
-          "dockerfile",
-          "graphql",
-        ],
-      }),
-    );
+    shiki.createHighlighter({
+      themes: ["github-light", "github-dark"],
+      langs: [
+        "javascript",
+        "typescript",
+        "jsx",
+        "tsx",
+        "python",
+        "rust",
+        "go",
+        "bash",
+        "shell",
+        "json",
+        "yaml",
+        "toml",
+        "html",
+        "css",
+        "sql",
+        "markdown",
+        "diff",
+        "c",
+        "cpp",
+        "java",
+        "ruby",
+        "swift",
+        "kotlin",
+        "dockerfile",
+        "graphql",
+      ],
+    }),
+  );
   return highlighterPromise;
 }
 
@@ -75,11 +75,7 @@ export function SyntaxHighlighter({ code, language }: SyntaxHighlighterProps) {
 
   if (!html) {
     // Fallback while loading or for unsupported languages
-    return (
-      <code className="font-mono text-xs leading-relaxed text-on-surface">
-        {code}
-      </code>
-    );
+    return <code className="font-mono text-xs leading-relaxed text-on-surface">{code}</code>;
   }
 
   return (

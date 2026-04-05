@@ -63,10 +63,7 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
                   {lang ? (
                     <SyntaxHighlighter code={codeText} language={lang} />
                   ) : (
-                    <code
-                      className="font-mono text-xs leading-relaxed text-on-surface"
-                      {...props}
-                    >
+                    <code className="font-mono text-xs leading-relaxed text-on-surface" {...props}>
                       {children}
                     </code>
                   )}
@@ -109,24 +106,16 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
               {children}
             </th>
           ),
-          td: ({ children }) => (
-            <td className="border border-outline px-3 py-1.5">{children}</td>
-          ),
+          td: ({ children }) => <td className="border border-outline px-3 py-1.5">{children}</td>,
           // Headings
           h1: ({ children }) => (
-            <h1 className="mb-2 mt-4 text-lg font-bold text-on-surface">
-              {children}
-            </h1>
+            <h1 className="mb-2 mt-4 text-lg font-bold text-on-surface">{children}</h1>
           ),
           h2: ({ children }) => (
-            <h2 className="mb-1.5 mt-3 text-base font-bold text-on-surface">
-              {children}
-            </h2>
+            <h2 className="mb-1.5 mt-3 text-base font-bold text-on-surface">{children}</h2>
           ),
           h3: ({ children }) => (
-            <h3 className="mb-1 mt-2.5 text-sm font-bold text-on-surface">
-              {children}
-            </h3>
+            <h3 className="mb-1 mt-2.5 text-sm font-bold text-on-surface">{children}</h3>
           ),
           // Horizontal rule
           hr: () => <hr className="my-3 border-outline" />,

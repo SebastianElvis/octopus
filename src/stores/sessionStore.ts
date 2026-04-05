@@ -22,7 +22,7 @@ function processEvent(state: MessageState, event: ClaudeStreamEvent): MessageSta
 
   console.debug(
     `[sessionStore:processEvent] type=${event.type}` +
-      ("subtype" in event ? ` subtype=${event.subtype}` : "") +
+      ("subtype" in event ? ` subtype=${String(event.subtype)}` : "") +
       ` messagesCount=${messages.length} hasStreaming=${streaming != null}`,
   );
 
@@ -272,8 +272,11 @@ function extractInitInfo(event: ClaudeStreamEvent): SessionInitInfo | null {
     ? (event.skills as string[]).filter((s) => typeof s === "string")
     : [];
   const plugins = Array.isArray(event.plugins)
-    ? (event.plugins as { name: string; source?: string }[]).filter(
-        (p) => p && typeof p === "object" && typeof p.name === "string",
+    ? (event.plugins as unknown[]).filter(
+        (p): p is { name: string; source?: string } =>
+          p != null &&
+          typeof p === "object" &&
+          typeof (p as Record<string, unknown>).name === "string",
       )
     : [];
   // Only return if at least one field is populated (avoids storing empty info for old CLIs)

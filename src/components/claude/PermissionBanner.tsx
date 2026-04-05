@@ -115,7 +115,9 @@ export function PermissionBanner({ sessionId }: PermissionBannerProps) {
   }
 
   return (
-    <div className={`mx-3 mb-2 rounded-sm border-l-[3px] bg-status-attention-muted p-3 ${accentClass}`}>
+    <div
+      className={`mx-3 mb-2 rounded-sm border-l-[3px] bg-status-attention-muted p-3 ${accentClass}`}
+    >
       {/* What Claude wants to do */}
       <div className="mb-2 flex items-center gap-2">
         <svg
@@ -128,8 +130,7 @@ export function PermissionBanner({ sessionId }: PermissionBannerProps) {
           <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
         </svg>
         <span className="text-sm text-on-surface">
-          Claude wants to{" "}
-          <span className="font-medium">{label}</span>
+          Claude wants to <span className="font-medium">{label}</span>
         </span>
         {pendingPermissions.length > 1 && (
           <span className="ml-auto rounded-full bg-status-attention-muted px-2 py-0.5 text-[10px] font-medium text-status-attention">
@@ -143,9 +144,7 @@ export function PermissionBanner({ sessionId }: PermissionBannerProps) {
         <div className="mb-3">
           <pre
             className={`overflow-hidden text-ellipsis whitespace-nowrap rounded px-2.5 py-1.5 text-xs ${
-              isBashLike
-                ? "bg-surface text-status-done"
-                : "bg-surface-raised text-on-surface-muted"
+              isBashLike ? "bg-surface text-status-done" : "bg-surface-raised text-on-surface-muted"
             }`}
             title={inputDisplay}
           >
@@ -164,7 +163,13 @@ export function PermissionBanner({ sessionId }: PermissionBannerProps) {
           disabled={isResponding}
           className="flex cursor-pointer items-center gap-1.5 rounded-sm bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500 active:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
           </svg>
           Allow
@@ -176,7 +181,13 @@ export function PermissionBanner({ sessionId }: PermissionBannerProps) {
           disabled={isResponding}
           className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-outline-strong bg-surface-raised px-3 py-1.5 text-xs font-medium text-on-surface-muted hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="h-3.5 w-3.5"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
           </svg>
           Deny

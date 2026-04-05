@@ -209,13 +209,9 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             {session.status}
           </span>
           {session.branch && (
-            <span className="font-mono text-xs text-on-surface-muted">
-              {session.branch}
-            </span>
+            <span className="font-mono text-xs text-on-surface-muted">{session.branch}</span>
           )}
-          <span className="text-xs text-on-surface-faint">
-            {timeAgo(session.stateChangedAt)}
-          </span>
+          <span className="text-xs text-on-surface-faint">{timeAgo(session.stateChangedAt)}</span>
           {/* PR state pill */}
           {ghPR && (
             <span
@@ -264,9 +260,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           )}
           {showKillConfirm ? (
             <>
-              <span className="text-xs text-danger">
-                Kill &quot;{session.name}&quot;?
-              </span>
+              <span className="text-xs text-danger">Kill &quot;{session.name}&quot;?</span>
               <button
                 onClick={() => setShowKillConfirm(false)}
                 className="cursor-pointer rounded px-2 py-1 text-xs text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
@@ -398,16 +392,10 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-on-surface-faint">
                   Session Recap
                 </h3>
-                {recapLoading && (
-                  <p className="text-sm text-on-surface-muted">
-                    Generating recap…
-                  </p>
-                )}
+                {recapLoading && <p className="text-sm text-on-surface-muted">Generating recap…</p>}
                 {recapError && (
                   <div className="space-y-2">
-                    <p className="text-sm text-danger">
-                      {recapError}
-                    </p>
+                    <p className="text-sm text-danger">{recapError}</p>
                     <button
                       className="rounded bg-hover px-3 py-1 text-xs text-on-surface hover:bg-active"
                       onClick={() => {

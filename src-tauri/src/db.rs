@@ -8,9 +8,11 @@ use crate::error::{AppError, AppResult};
 
 /// Read the current schema version (0 if no version has been set yet).
 fn get_schema_version(conn: &Connection) -> i64 {
-    conn.query_row("SELECT COALESCE(MAX(version), 0) FROM schema_version", [], |row| {
-        row.get(0)
-    })
+    conn.query_row(
+        "SELECT COALESCE(MAX(version), 0) FROM schema_version",
+        [],
+        |row| row.get(0),
+    )
     .unwrap_or(0)
 }
 
@@ -30,17 +32,13 @@ fn set_schema_version(conn: &Connection, version: i64) {
 /// transaction so a failure rolls back cleanly.
 pub fn run_migrations(conn: &Connection) -> AppResult<()> {
     // Ensure the version-tracking table exists before anything else.
-    conn.execute_batch(
-        "CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);",
-    )?;
+    conn.execute_batch("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL);")?;
 
     let current = get_schema_version(conn);
 
     // Add new migrations at the end of this list.  Never reorder or remove
     // entries — only append.
-    let migrations: &[(i64, &str)] = &[
-        (1, "ALTER TABLE sessions ADD COLUMN pid INTEGER;"),
-    ];
+    let migrations: &[(i64, &str)] = &[(1, "ALTER TABLE sessions ADD COLUMN pid INTEGER;")];
 
     for &(version, sql) in migrations {
         if version > current {
@@ -370,11 +368,7 @@ mod tests {
         .expect("insert repo");
 
         // Insert sessions with the three valid statuses
-        for (sid, status) in &[
-            ("s1", "running"),
-            ("s2", "attention"),
-            ("s3", "done"),
-        ] {
+        for (sid, status) in &[("s1", "running"), ("s2", "attention"), ("s3", "done")] {
             conn.execute(
                 "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
@@ -394,11 +388,7 @@ mod tests {
         assert_eq!(reaped, 1); // only running gets reaped
 
         // Verify each status
-        for (sid, expected) in &[
-            ("s1", "attention"),
-            ("s2", "attention"),
-            ("s3", "done"),
-        ] {
+        for (sid, expected) in &[("s1", "attention"), ("s2", "attention"), ("s3", "done")] {
             let status: String = conn
                 .query_row("SELECT status FROM sessions WHERE id = ?1", [sid], |row| {
                     row.get(0)

@@ -96,9 +96,8 @@ export function UserInputArea({
   }, []);
 
   // Slash command detection
-  const slashQuery = slashMenuOpen && inputText.startsWith("/")
-    ? inputText.slice(1).split(" ")[0]
-    : "";
+  const slashQuery =
+    slashMenuOpen && inputText.startsWith("/") ? inputText.slice(1).split(" ")[0] : "";
   const slashFiltered = slashMenuOpen ? filterCommands(slashQuery, allCommands) : [];
 
   // Image handling
@@ -280,9 +279,7 @@ export function UserInputArea({
       {/* Confirmation prompt */}
       {isWaitingConfirmation && (
         <div className="mx-3 mb-2 rounded-sm border border-status-attention/30 bg-status-attention-muted p-3">
-          {lastMessage && (
-            <p className="mb-2 text-sm text-on-surface">{lastMessage}</p>
-          )}
+          {lastMessage && <p className="mb-2 text-sm text-on-surface">{lastMessage}</p>}
           <div className="flex items-center gap-2">
             <button
               onClick={() => {
@@ -292,7 +289,13 @@ export function UserInputArea({
               disabled={sending}
               className="flex cursor-pointer items-center gap-1.5 rounded-sm bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-500 active:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
               </svg>
               Yes
@@ -305,7 +308,13 @@ export function UserInputArea({
               disabled={sending}
               className="flex cursor-pointer items-center gap-1.5 rounded-sm border border-outline-strong bg-surface-raised px-3 py-1.5 text-xs font-medium text-on-surface-muted hover:bg-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg
+                className="h-3.5 w-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
               </svg>
               No
@@ -329,9 +338,7 @@ export function UserInputArea({
                 clipRule="evenodd"
               />
             </svg>
-            <span className="text-sm font-medium text-status-attention">
-              Permission Required
-            </span>
+            <span className="text-sm font-medium text-status-attention">Permission Required</span>
           </div>
           <p className="text-xs text-on-surface-muted">{lastMessage}</p>
         </div>
@@ -347,9 +354,7 @@ export function UserInputArea({
         {/* Drag overlay */}
         {isDragOver && (
           <div className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-brand bg-brand/10">
-            <span className="text-sm font-medium text-brand">
-              Drop image here
-            </span>
+            <span className="text-sm font-medium text-brand">Drop image here</span>
           </div>
         )}
 
@@ -379,7 +384,13 @@ export function UserInputArea({
                     className="absolute -right-1.5 -top-1.5 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-on-surface text-surface opacity-0 transition-opacity hover:bg-danger group-hover:opacity-100"
                     title="Remove image"
                   >
-                    <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <svg
+                      className="h-2.5 w-2.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -409,8 +420,18 @@ export function UserInputArea({
               className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-sm text-on-surface-faint transition-colors hover:bg-active hover:text-on-surface-muted disabled:cursor-not-allowed disabled:opacity-50"
               title="Attach image"
             >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13" />
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="m18.375 12.739-7.693 7.693a4.5 4.5 0 0 1-6.364-6.364l10.94-10.94A3 3 0 1 1 19.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941-7.81 7.81a1.5 1.5 0 0 0 2.112 2.13"
+                />
               </svg>
             </button>
 
@@ -492,17 +513,13 @@ export function UserInputArea({
               <span
                 className={`inline-block h-1.5 w-1.5 rounded-full ${statusInfo.color} ${isRunning ? "animate-pulse" : ""}`}
               />
-              <span className="text-[11px] text-on-surface-faint">
-                {statusInfo.label}
-              </span>
+              <span className="text-[11px] text-on-surface-faint">{statusInfo.label}</span>
             </>
           )}
           {isWaiting && (
             <>
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-              <span className="text-[11px] text-on-surface-faint">
-                Waiting for your input
-              </span>
+              <span className="text-[11px] text-on-surface-faint">Waiting for your input</span>
             </>
           )}
         </div>

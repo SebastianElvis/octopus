@@ -113,10 +113,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
         ).length;
 
         return (
-          <section
-            key={repo.id}
-            className="rounded-sm border border-outline bg-surface"
-          >
+          <section key={repo.id} className="rounded-sm border border-outline bg-surface">
             {/* Repo header */}
             <button
               type="button"
@@ -133,9 +130,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
               </svg>
               <div className="min-w-0 flex-1">
-                <span className="text-sm font-medium text-on-surface">
-                  {repoDisplayName(repo)}
-                </span>
+                <span className="text-sm font-medium text-on-surface">{repoDisplayName(repo)}</span>
               </div>
               <div className="flex items-center gap-2">
                 {activeCount > 0 && (
@@ -153,9 +148,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
             {!isCollapsed && (
               <div className="border-t border-outline-muted px-4 py-3">
                 {repoSessions.length === 0 ? (
-                  <p className="text-xs text-on-surface-faint">
-                    No sessions for this repository.
-                  </p>
+                  <p className="text-xs text-on-surface-faint">No sessions for this repository.</p>
                 ) : (
                   <div className="grid gap-3">
                     {repoSessions.map((s) => (
@@ -164,9 +157,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
                         session={s}
                         onView={onViewSession}
                         onInterrupt={s.status === "running" ? handleInterrupt : undefined}
-                        onResume={
-                          s.status === "attention" ? handleResume : undefined
-                        }
+                        onResume={s.status === "attention" ? handleResume : undefined}
                       />
                     ))}
                   </div>
@@ -181,9 +172,7 @@ export function SessionsView({ onViewSession, onNewSession, onManageRepos }: Ses
       {unlinkedSessions.length > 0 && (
         <section className="rounded-sm border border-outline bg-surface">
           <div className="px-4 py-3">
-            <span className="text-sm font-medium text-on-surface-muted">
-              Other Sessions
-            </span>
+            <span className="text-sm font-medium text-on-surface-muted">Other Sessions</span>
           </div>
           <div className="border-t border-outline-muted px-4 py-3">
             <div className="grid gap-3">

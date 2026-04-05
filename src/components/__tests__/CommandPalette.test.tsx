@@ -80,7 +80,7 @@ describe("CommandPalette", () => {
     const onClose = vi.fn();
     render(<CommandPalette open={true} onClose={onClose} onSelectSession={() => {}} />);
     // Click the backdrop (outer div)
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
     fireEvent.click(screen.getByText("Fix auth bug").closest("[class*='fixed']")!);
     expect(onClose).toHaveBeenCalled();
   });
@@ -88,7 +88,7 @@ describe("CommandPalette", () => {
   it("calls onClose on Escape key", () => {
     const onClose = vi.fn();
     render(<CommandPalette open={true} onClose={onClose} onSelectSession={() => {}} />);
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
     const container = screen
       .getByPlaceholderText("Search sessions...")
       .closest("div[class*='max-w']")!;
@@ -101,7 +101,6 @@ describe("CommandPalette", () => {
     const onClose = vi.fn();
     render(<CommandPalette open={true} onClose={onClose} onSelectSession={onSelectSession} />);
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const container = screen
       .getByPlaceholderText("Search sessions...")
       .closest("div[class*='max-w']")!;
@@ -115,7 +114,6 @@ describe("CommandPalette", () => {
     const onSelectSession = vi.fn();
     render(<CommandPalette open={true} onClose={() => {}} onSelectSession={onSelectSession} />);
 
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const container = screen
       .getByPlaceholderText("Search sessions...")
       .closest("div[class*='max-w']")!;

@@ -130,11 +130,12 @@ describe("DispatchBoard", () => {
     });
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
-    expect(screen.getByText("5 total")).toBeInTheDocument();
-    // Fleet summary bar has labels: "attention", "running", "done"
-    // "attention" and "done" appear in both summary pills and card status badges
+    // Fleet summary pills show count + label for each status
     expect(screen.getAllByText("attention").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("running").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("done").length).toBeGreaterThanOrEqual(1);
+    // Natural-language summary sentence
+    expect(screen.getByText("1 session needs your input. 2 actively running.")).toBeInTheDocument();
   });
 
   it("search filters sessions by name", () => {
@@ -178,8 +179,6 @@ describe("DispatchBoard", () => {
     render(<DispatchBoard onViewSession={() => {}} onNewSession={() => {}} />);
 
     expect(screen.getByText("No sessions need your attention right now.")).toBeInTheDocument();
-    expect(
-      screen.getByText("Finished sessions will appear here."),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Finished sessions will appear here.")).toBeInTheDocument();
   });
 });

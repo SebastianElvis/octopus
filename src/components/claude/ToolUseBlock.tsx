@@ -92,8 +92,7 @@ function extractTodos(
   const raw = input.todos ?? input.tasks ?? input.items;
   if (!Array.isArray(raw)) return [];
   return raw.filter(
-    (item): item is Record<string, unknown> =>
-      typeof item === "object" && item !== null,
+    (item): item is Record<string, unknown> => typeof item === "object" && item !== null,
   ) as { id?: string; content?: string; status?: string; priority?: string; activeForm?: string }[];
 }
 
@@ -166,9 +165,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
   const isBash = name === "Bash" || name === "BashExec";
 
   return (
-    <div
-      className={`my-1.5 rounded-sm border border-l-[3px] border-outline bg-surface ${accent}`}
-    >
+    <div className={`my-1.5 rounded-sm border border-l-[3px] border-outline bg-surface ${accent}`}>
       {/* Header */}
       <button
         onClick={() => setExpanded((v) => !v)}
@@ -192,9 +189,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
         >
           <path strokeLinecap="round" strokeLinejoin="round" d={icon} />
         </svg>
-        <span className="shrink-0 text-xs font-semibold text-on-surface">
-          {verb}
-        </span>
+        <span className="shrink-0 text-xs font-semibold text-on-surface">{verb}</span>
         {summary && (
           <span
             className={`min-w-0 flex-1 truncate text-xs ${

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { useSessionStore } from "../sessionStore";
 import type { ClaudeStreamEvent } from "../../lib/types";
@@ -634,6 +633,13 @@ describe("sessionStore — structured events", () => {
         },
       ];
 
+      // Strip timestamps for comparison since Date.now() differs between runs
+      const stripTimestamps = (msgs: unknown[]) =>
+        msgs.map((m) => {
+          const { timestamp: _, ...rest } = m as Record<string, unknown>;
+          return rest;
+        });
+
       // Batch
       useSessionStore.getState().appendStructuredEvents(events);
       const batchMessages = [...useSessionStore.getState().messageBuffers.s1];
@@ -649,7 +655,7 @@ describe("sessionStore — structured events", () => {
       const seqMessages = useSessionStore.getState().messageBuffers.s1;
       const seqStreaming = useSessionStore.getState().streamingMessage.s1;
 
-      expect(batchMessages).toEqual(seqMessages);
+      expect(stripTimestamps(batchMessages)).toEqual(stripTimestamps(seqMessages));
       expect(batchStreaming?.blocks).toEqual(seqStreaming?.blocks);
     });
   });

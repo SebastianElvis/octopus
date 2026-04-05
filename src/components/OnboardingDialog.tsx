@@ -52,9 +52,7 @@ export function OnboardingDialog({
       >
         {/* Step indicators */}
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-on-surface">
-            Welcome to Octopus
-          </h2>
+          <h2 className="text-lg font-semibold text-on-surface">Welcome to Octopus</h2>
           <button
             onClick={onClose}
             className="cursor-pointer text-on-surface-faint hover:text-on-surface-muted focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"

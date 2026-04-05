@@ -45,9 +45,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="text-sm font-medium text-danger">
             Something went wrong while rendering this component.
           </p>
-          <p className="max-w-sm break-all font-mono text-xs text-danger/70">
-            {error.message}
-          </p>
+          <p className="max-w-sm break-all font-mono text-xs text-danger/70">{error.message}</p>
           <button
             onClick={this.handleReset}
             className="rounded-sm border border-danger px-3 py-1.5 text-xs font-medium text-danger hover:border-red-400 hover:text-red-700"

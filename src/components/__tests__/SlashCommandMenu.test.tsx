@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import { SlashCommandMenu, filterCommands, buildCommandList, FALLBACK_SLASH_COMMANDS } from "../claude/SlashCommandMenu";
+import {
+  SlashCommandMenu,
+  filterCommands,
+  buildCommandList,
+  FALLBACK_SLASH_COMMANDS,
+} from "../claude/SlashCommandMenu";
 import type { SlashCommand } from "../claude/SlashCommandMenu";
 
 beforeEach(() => {
@@ -13,9 +18,7 @@ describe("filterCommands", () => {
   });
 
   it("returns all given commands when query is empty", () => {
-    const cmds: SlashCommand[] = [
-      { command: "/foo", description: "Foo", category: "nav" },
-    ];
+    const cmds: SlashCommand[] = [{ command: "/foo", description: "Foo", category: "nav" }];
     expect(filterCommands("", cmds)).toEqual(cmds);
   });
 
@@ -85,7 +88,13 @@ describe("buildCommandList", () => {
       { slashCommands: ["clear", "compact"], skills: [], plugins: [] },
       [],
     );
-    expect(result.some((c) => c.command === "/clear" && c.description === "Clear conversation history and free up context")).toBe(true);
+    expect(
+      result.some(
+        (c) =>
+          c.command === "/clear" &&
+          c.description === "Clear conversation history and free up context",
+      ),
+    ).toBe(true);
     expect(result.some((c) => c.command === "/compact")).toBe(true);
   });
 
@@ -96,7 +105,7 @@ describe("buildCommandList", () => {
     );
     const cmd = result.find((c) => c.command === "/new-future-cmd");
     expect(cmd).toBeDefined();
-    expect(cmd!.description).toBe("Slash command");
+    expect(cmd?.description).toBe("Slash command");
   });
 
   it("adds skills with correct category", () => {
@@ -107,12 +116,12 @@ describe("buildCommandList", () => {
     const known = result.find((c) => c.command === "/simplify");
     expect(known).toBeDefined();
     // simplify has a known description
-    expect(known!.description).not.toBe("Skill: simplify");
+    expect(known?.description).not.toBe("Skill: simplify");
 
     const unknown = result.find((c) => c.command === "/unknown-skill");
     expect(unknown).toBeDefined();
-    expect(unknown!.category).toBe("skill");
-    expect(unknown!.description).toBe("Skill: unknown-skill");
+    expect(unknown?.category).toBe("skill");
+    expect(unknown?.description).toBe("Skill: unknown-skill");
   });
 
   it("adds plugins with correct category", () => {
@@ -122,17 +131,14 @@ describe("buildCommandList", () => {
     );
     const slack = result.find((c) => c.command === "/slack");
     expect(slack).toBeDefined();
-    expect(slack!.category).toBe("plugin");
+    expect(slack?.category).toBe("plugin");
   });
 
   it("includes fs commands not in init data", () => {
     const fs: SlashCommand[] = [
       { command: "/my-project-cmd", description: "Custom", category: "custom" },
     ];
-    const result = buildCommandList(
-      { slashCommands: ["clear"], skills: [], plugins: [] },
-      fs,
-    );
+    const result = buildCommandList({ slashCommands: ["clear"], skills: [], plugins: [] }, fs);
     expect(result.some((c) => c.command === "/my-project-cmd")).toBe(true);
     expect(result.some((c) => c.command === "/clear")).toBe(true);
   });
@@ -228,9 +234,7 @@ describe("SlashCommandMenu", () => {
     const cmds: SlashCommand[] = [
       { command: "/mcp__server__prompt", description: "MCP prompt", category: "tool" },
     ];
-    render(
-      <SlashCommandMenu {...defaultProps} filter="mcp__server" commands={cmds} />,
-    );
+    render(<SlashCommandMenu {...defaultProps} filter="mcp__server" commands={cmds} />);
     expect(screen.getByText("/mcp__server__prompt")).toBeInTheDocument();
     expect(screen.getByText("Tools")).toBeInTheDocument();
   });
@@ -239,9 +243,7 @@ describe("SlashCommandMenu", () => {
     const cmds: SlashCommand[] = [
       { command: "/slack:standup", description: "Generate standup", category: "plugin" },
     ];
-    render(
-      <SlashCommandMenu {...defaultProps} filter="slack:standup" commands={cmds} />,
-    );
+    render(<SlashCommandMenu {...defaultProps} filter="slack:standup" commands={cmds} />);
     expect(screen.getByText("/slack:standup")).toBeInTheDocument();
     expect(screen.getByText("Plugin Commands")).toBeInTheDocument();
   });

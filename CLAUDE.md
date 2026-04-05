@@ -107,12 +107,35 @@ Stored at `~/.octopus/octopus.db`. Tables: `repos` (GitHub URL, local path), `se
 
 ## CI (GitHub Actions)
 
+**IMPORTANT: Before completing any task, run the full CI checks locally and ensure they all pass.** Use `npm run check` for the frontend (runs tsc, eslint, prettier, and all tests) and `cargo fmt/clippy/test` for the backend. Do not consider a task done until CI is green.
+
 Frontend job: `tsc --noEmit` → `eslint` → `prettier --check` → `vitest run` → `vitest run --config vitest.integration.config.ts`
 Backend job: `cargo fmt -- --check` → `cargo clippy -- -D warnings` → `cargo test`
 
 ## Lint Rules to Know
 
 - ESLint enforces `@typescript-eslint/no-floating-promises` — always await or void promises
-- `@typescript-eslint/consistent-type-imports` — use `import type` for type-only imports
+- `@typescript-eslint/consistent-type-imports` — use `import type` for type-only imports; `import()` type annotations in function signatures are also forbidden — use top-level `import type` instead
+- `@typescript-eslint/prefer-nullish-coalescing` — use `??` instead of `||` for nullable values; but when a function returns `string` (never null/undefined) and you want to fall through on empty string, use `||` — don't use `??` on non-nullable types (triggers `no-unnecessary-condition`)
+- `@typescript-eslint/restrict-template-expressions` — only `number` is allowed in template literals (configured via `allowNumber: true`); cast `unknown` values with `String(...)` before interpolation
 - React hooks rules are enforced (deps arrays, rules of hooks)
-- Test files have relaxed rules but still enforce most TypeScript strict checks
+- Test files (`src/**/*.test.{ts,tsx}`, `src/__tests__/**`, `src/test/**`) have relaxed rules: `require-await`, `no-non-null-assertion`, `no-unnecessary-condition` are all off
+- **Beware `eslint --fix` in test files**: auto-fix can remove intentional `?? []` fallbacks on Record-typed lookups where the type says "always defined" but runtime value is `undefined` (e.g., `messageBuffers[sessionId] ?? []`). Review auto-fix diffs in tests carefully.
+
+### Rust Clippy Pitfalls
+
+- Use `.map_err(AppError::Io)` not `.map_err(|e| AppError::Io(e))` — clippy flags redundant closures
+- `format!("...")` with no interpolation → use `"...".to_string()` instead
+- `.map_or(false, |x| ...)` → prefer `.is_some_and(|x| ...)`
+- Avoid `if cond { 0 } else { 0 }` — clippy catches identical `if/else` blocks
+
+### Backend Commands (Cargo)
+
+- The Cargo workspace is inside `src-tauri/`, so cargo commands from the repo root need `--manifest-path src-tauri/Cargo.toml`
+- `cargo fmt --manifest-path src-tauri/Cargo.toml` / `cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings`
+
+## UI Patterns to Know
+
+- **Fleet summary** uses `SummaryPill` components (not a single "N total" string) — tests should assert on individual status labels ("attention", "running", "done") or the status sentence
+- **CSS classes** use semantic design tokens (`bg-hover`, `bg-status-attention`, `text-on-surface`, etc.) — not raw Tailwind colors like `bg-gray-100` or `bg-red-500`
+- **Status badge dots** in SidebarTree use `bg-status-attention` (from `STATUS_DOT` in `statusColors.ts`), not `bg-red-500`

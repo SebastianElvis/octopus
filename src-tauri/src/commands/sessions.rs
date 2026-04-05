@@ -493,7 +493,7 @@ fn start_structured_reader(
             let mut tokens = app_state.cancellation_tokens.lock();
             let cancelled = tokens
                 .get(&sid)
-                .map_or(false, |t| t.load(std::sync::atomic::Ordering::Relaxed));
+                .is_some_and(|t| t.load(std::sync::atomic::Ordering::Relaxed));
             tokens.remove(&sid);
             cancelled
         };
@@ -584,7 +584,11 @@ pub async fn spawn_session(
             ],
         ) {
             // DB insert failed — remove the worktree we just created
-            log::error!("DB insert failed for session {}: {}. Cleaning up worktree.", session_id, e);
+            log::error!(
+                "DB insert failed for session {}: {}. Cleaning up worktree.",
+                session_id,
+                e
+            );
             let _ = std::process::Command::new("git")
                 .args(["worktree", "remove", "--force", &worktree_path])
                 .current_dir(&repo_local_path)
@@ -766,9 +770,7 @@ pub async fn save_session_image(
             row.get::<_, Option<String>>(0)
         })
         .map_err(|_| AppError::Custom(format!("session {} not found", session_id)))?
-        .ok_or_else(|| {
-            AppError::Custom(format!("session {} has no worktree path", session_id))
-        })?
+        .ok_or_else(|| AppError::Custom(format!("session {} has no worktree path", session_id)))?
     };
 
     // Create an images directory inside the worktree
@@ -917,7 +919,10 @@ pub async fn kill_session(
     };
 
     // Emit state change event
-    let _ = _app.emit("session-state-changed", serde_json::json!({ "session": session }));
+    let _ = _app.emit(
+        "session-state-changed",
+        serde_json::json!({ "session": session }),
+    );
 
     log::info!("Killed session {}", id);
     Ok(())
@@ -1015,7 +1020,10 @@ pub async fn archive_session(
     };
 
     // Emit state change event
-    let _ = app.emit("session-state-changed", serde_json::json!({ "session": session }));
+    let _ = app.emit(
+        "session-state-changed",
+        serde_json::json!({ "session": session }),
+    );
 
     log::info!("Archived session {}", id);
     Ok(())

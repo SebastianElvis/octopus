@@ -40,9 +40,7 @@ describe("ToolUseBlock", () => {
 
   it("has tooltip with full path on shortened paths", () => {
     const fullPath = "/Users/runchao/.octopus/worktrees/honolulu/src/main.ts";
-    const { container } = render(
-      <ToolUseBlock name="Read" input={{ file_path: fullPath }} />,
-    );
+    const { container } = render(<ToolUseBlock name="Read" input={{ file_path: fullPath }} />);
     const summarySpan = container.querySelector("[title]");
     expect(summarySpan).toBeTruthy();
     expect(summarySpan?.getAttribute("title")).toBe(fullPath);
@@ -123,9 +121,7 @@ describe("ToolUseBlock", () => {
   });
 
   it("renders Bash command in code-style inline", () => {
-    const { container } = render(
-      <ToolUseBlock name="Bash" input={{ command: "npm test" }} />,
-    );
+    const { container } = render(<ToolUseBlock name="Bash" input={{ command: "npm test" }} />);
     const codeSpan = container.querySelector(".bg-hover");
     expect(codeSpan).toBeTruthy();
     expect(codeSpan?.textContent).toBe("npm test");

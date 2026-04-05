@@ -174,7 +174,7 @@ async fn hook_handler(
             if session_has_skip_permissions(&state.app, tmt_id) {
                 let response = HookResponse::pre_tool_use(
                     "allow",
-                    Some(format!("Auto-allowed: session has skip_permissions enabled")),
+                    Some("Auto-allowed: session has skip_permissions enabled".to_string()),
                 );
                 return (StatusCode::OK, Json(response));
             }
