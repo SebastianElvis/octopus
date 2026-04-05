@@ -101,26 +101,42 @@ export function MessageBlock({ message }: MessageBlockProps) {
   }
 
   if (message.role === "user") {
-    // Only render user messages that contain visible text.
+    // Separate thinking blocks from other content — during session resume the
+    // CLI may replay user events that contain thinking blocks. Render those as
+    // ThinkingBlock components instead of inside the user bubble.
+    const thinkingBlocks = message.blocks.filter(
+      (b): b is ClaudeContentBlock & { type: "thinking" } => b.type === "thinking",
+    );
+    const otherBlocks = message.blocks.filter((b) => b.type !== "thinking");
+
+    // Only render the user bubble if there is visible text.
     // Tool-result-only messages (sent by Claude Code as user messages wrapping
     // tool results) have no text and would render as empty blue bubbles.
-    const visibleText = message.blocks
+    const visibleText = otherBlocks
       .filter(
         (b): b is ClaudeContentBlock & { type: "text" } => b.type === "text",
       )
       .map((b) => b.text)
       .join("")
       .trim();
-    if (!visibleText) return null;
+
+    if (!visibleText && thinkingBlocks.length === 0) return null;
 
     return (
-      <div className="my-2 flex justify-end">
-        <div className="max-w-[80%] rounded-sm bg-brand px-3 py-2 text-sm text-white">
-          {message.blocks.map((block, i) => (
-            <span key={i}>{block.type === "text" ? block.text : ""}</span>
-          ))}
-        </div>
-      </div>
+      <>
+        {thinkingBlocks.map((block, i) => (
+          <ThinkingBlock key={`thinking-${i}`} thinking={block.thinking} />
+        ))}
+        {visibleText && (
+          <div className="my-2 flex justify-end">
+            <div className="max-w-[80%] rounded-sm bg-brand px-3 py-2 text-sm text-white">
+              {otherBlocks.map((block, i) => (
+                <span key={i}>{block.type === "text" ? block.text : ""}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
