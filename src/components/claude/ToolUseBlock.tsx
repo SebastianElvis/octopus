@@ -10,7 +10,7 @@ interface ToolUseBlockProps {
 }
 
 /** Color accent by tool category */
-function getToolAccent(name: string): string {
+export function getToolAccent(name: string): string {
   const readTools = ["Read", "Glob", "Grep", "LS", "WebFetch", "WebSearch"];
   const writeTools = ["Write", "Edit", "NotebookEdit"];
   const dangerTools = ["Bash", "BashExec"];
@@ -23,7 +23,7 @@ function getToolAccent(name: string): string {
 }
 
 /** Map tool name to an action verb + SVG icon for scannability */
-function getToolVerb(name: string): { verb: string; icon: string } {
+export function getToolVerb(name: string): { verb: string; icon: string } {
   switch (name) {
     case "Read":
       return {
@@ -109,7 +109,7 @@ function shortenPath(fullPath: string): { short: string; full: string } {
 }
 
 /** Extract a human-readable summary from tool input */
-function getToolSummary(
+export function getToolSummary(
   name: string,
   input: Record<string, unknown>,
 ): { display: string; tooltip?: string } | null {
@@ -141,7 +141,7 @@ function getToolSummary(
 }
 
 /** Format tool result content for display */
-function formatToolResult(content: string | { type: string; text?: string }[]): string {
+export function formatToolResult(content: string | { type: string; text?: string }[]): string {
   if (typeof content === "string") return content;
   return content.map((c) => c.text ?? "").join("\n");
 }

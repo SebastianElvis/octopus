@@ -1,6 +1,8 @@
 import type { ClaudeMessage, ClaudeContentBlock } from "../../lib/types";
 import { TextBlock } from "./TextBlock";
-import { ToolUseBlock } from "./ToolUseBlock";
+import { ToolUseBlock, getToolVerb, getToolAccent } from "./ToolUseBlock";
+import { ToolUseGroup } from "./ToolUseGroup";
+import type { ToolUseGroupItem } from "./ToolUseGroup";
 import { ThinkingBlock } from "./ThinkingBlock";
 
 interface MessageBlockProps {
@@ -16,6 +18,75 @@ function findToolResult(
     (b): b is ClaudeContentBlock & { type: "tool_result" } =>
       b.type === "tool_result" && b.tool_use_id === toolUseId,
   );
+}
+
+/** A renderable item after grouping consecutive same-verb tool_use blocks */
+type RenderedItem =
+  | { kind: "text"; block: ClaudeContentBlock & { type: "text" }; index: number }
+  | { kind: "thinking"; block: ClaudeContentBlock & { type: "thinking" }; index: number }
+  | { kind: "tool_use"; block: ClaudeContentBlock & { type: "tool_use" }; index: number }
+  | {
+      kind: "tool_group";
+      verb: string;
+      icon: string;
+      accent: string;
+      items: { block: ClaudeContentBlock & { type: "tool_use" }; index: number }[];
+    };
+
+/** Group consecutive tool_use blocks that share the same verb into a single item */
+function groupConsecutiveTools(blocks: ClaudeContentBlock[]): RenderedItem[] {
+  const result: RenderedItem[] = [];
+  let pendingGroup: {
+    verb: string;
+    icon: string;
+    accent: string;
+    items: { block: ClaudeContentBlock & { type: "tool_use" }; index: number }[];
+  } | null = null;
+
+  const flushGroup = () => {
+    if (!pendingGroup) return;
+    if (pendingGroup.items.length >= 2) {
+      result.push({ kind: "tool_group", ...pendingGroup });
+    } else {
+      result.push({
+        kind: "tool_use",
+        block: pendingGroup.items[0].block,
+        index: pendingGroup.items[0].index,
+      });
+    }
+    pendingGroup = null;
+  };
+
+  for (let i = 0; i < blocks.length; i++) {
+    const block = blocks[i];
+
+    // tool_results are rendered inline by ToolUseBlock — skip them
+    if (block.type === "tool_result") continue;
+
+    if (block.type === "tool_use") {
+      const { verb, icon } = getToolVerb(block.name);
+      const accent = getToolAccent(block.name);
+
+      if (pendingGroup) {
+        if (pendingGroup.verb === verb) {
+          pendingGroup.items.push({ block, index: i });
+          continue;
+        }
+        flushGroup();
+      }
+      pendingGroup = { verb, icon, accent, items: [{ block, index: i }] };
+    } else {
+      flushGroup();
+      if (block.type === "text") {
+        result.push({ kind: "text", block, index: i });
+      } else {
+        result.push({ kind: "thinking", block, index: i });
+      }
+    }
+  }
+
+  flushGroup();
+  return result;
 }
 
 export function MessageBlock({ message }: MessageBlockProps) {
@@ -34,8 +105,10 @@ export function MessageBlock({ message }: MessageBlockProps) {
     // Tool-result-only messages (sent by Claude Code as user messages wrapping
     // tool results) have no text and would render as empty blue bubbles.
     const visibleText = message.blocks
-      .filter((b) => b.type === "text" && "text" in b)
-      .map((b) => (b.type === "text" ? b.text : ""))
+      .filter(
+        (b): b is ClaudeContentBlock & { type: "text" } => b.type === "text",
+      )
+      .map((b) => b.text)
       .join("")
       .trim();
     if (!visibleText) return null;
@@ -51,37 +124,58 @@ export function MessageBlock({ message }: MessageBlockProps) {
     );
   }
 
-  // Assistant message
+  // Assistant message — group consecutive same-verb tool_use blocks
+  const grouped = groupConsecutiveTools(message.blocks);
+
   return (
     <div className="my-3">
-      {message.blocks.map((block, i) => {
-        switch (block.type) {
+      {grouped.map((item, i) => {
+        switch (item.kind) {
           case "text":
             return (
               <TextBlock
-                key={i}
-                text={block.text}
-                isStreaming={message.isStreaming && i === message.blocks.length - 1}
+                key={item.index}
+                text={item.block.text}
+                isStreaming={
+                  message.isStreaming &&
+                  item.index === message.blocks.length - 1
+                }
               />
             );
           case "tool_use":
             return (
               <ToolUseBlock
-                key={block.id}
-                name={block.name}
-                input={block.input}
-                toolResult={findToolResult(message.blocks, block.id)}
+                key={item.block.id}
+                name={item.block.name}
+                input={item.block.input}
+                toolResult={findToolResult(message.blocks, item.block.id)}
               />
             );
-          case "tool_result":
-            // Rendered inline by ToolUseBlock, skip standalone rendering
-            return null;
+          case "tool_group": {
+            const groupItems: ToolUseGroupItem[] = item.items.map((t) => ({
+              name: t.block.name,
+              input: t.block.input,
+              toolResult: findToolResult(message.blocks, t.block.id),
+            }));
+            return (
+              <ToolUseGroup
+                key={`group-${i}`}
+                verb={item.verb}
+                icon={item.icon}
+                accent={item.accent}
+                items={groupItems}
+              />
+            );
+          }
           case "thinking":
             return (
               <ThinkingBlock
-                key={i}
-                thinking={block.thinking}
-                isStreaming={message.isStreaming && i === message.blocks.length - 1}
+                key={item.index}
+                thinking={item.block.thinking}
+                isStreaming={
+                  message.isStreaming &&
+                  item.index === message.blocks.length - 1
+                }
               />
             );
           default:
