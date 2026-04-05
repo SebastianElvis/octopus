@@ -7,12 +7,11 @@ import { useGitStore } from "../stores/gitStore";
 
 interface RightPanelProps {
   session: Session | null;
-  onCommitted?: () => void;
 }
 
 type Tab = "files" | "changes";
 
-export function RightPanel({ session, onCommitted }: RightPanelProps) {
+export function RightPanel({ session }: RightPanelProps) {
   const activeTab = useUIStore((s) => s.rightPanelTab);
   const setTab = useUIStore((s) => s.setRightPanelTab);
   const openFile = useEditorStore((s) => s.openFile);
@@ -70,11 +69,7 @@ export function RightPanel({ session, onCommitted }: RightPanelProps) {
           <GitChangesPanel
             worktreePath={session?.worktreePath}
             sessionId={session?.id}
-            sessionName={session?.name}
             sessionStatus={session?.status}
-            repoId={session?.repoId}
-            branch={session?.branch}
-            onCommitted={onCommitted}
           />
         )}
       </div>
