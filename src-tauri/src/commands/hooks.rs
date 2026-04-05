@@ -194,7 +194,7 @@ async fn hook_handler(
         // Emit a specific permission-request event (with mapped session ID)
         let _ = state.app.emit("hook-permission-request", &mapped_payload);
 
-        // Update session status to "waiting" with block_type "permission"
+        // Update session status to "attention" with block_type "permission"
         if let Some(ref tmt_id) = tmt_session_id {
             let tool_desc = event.tool_name.as_deref().unwrap_or("unknown tool");
             let _ = set_session_waiting_permission(&state.app, tmt_id, tool_desc);
@@ -346,7 +346,7 @@ fn session_has_skip_permissions(app: &AppHandle, session_id: &str) -> bool {
     result.unwrap_or(0) != 0
 }
 
-/// Update session status to "waiting" with block_type "permission".
+/// Update session status to "attention" with block_type "permission".
 fn set_session_waiting_permission(
     app: &AppHandle,
     session_id: &str,
@@ -357,7 +357,7 @@ fn set_session_waiting_permission(
     let app_state = app.state::<AppState>();
     let db = app_state.db.lock();
     db.execute(
-        "UPDATE sessions SET status = 'waiting', block_type = 'permission', last_message = ?1, state_changed_at = ?2 WHERE id = ?3",
+        "UPDATE sessions SET status = 'attention', block_type = 'permission', last_message = ?1, state_changed_at = ?2 WHERE id = ?3",
         rusqlite::params![message, now, session_id],
     )?;
     drop(db);

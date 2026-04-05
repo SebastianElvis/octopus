@@ -912,7 +912,7 @@ pub async fn kill_session(
     let session = {
         let db = state.db.lock();
         db.execute(
-            "UPDATE sessions SET status = 'killed', state_changed_at = ?1 WHERE id = ?2",
+            "UPDATE sessions SET status = 'attention', state_changed_at = ?1 WHERE id = ?2",
             rusqlite::params![now, id],
         )?;
         query_session_by_id(&db, &id)?

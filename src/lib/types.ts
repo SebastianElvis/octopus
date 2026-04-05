@@ -45,7 +45,9 @@ export function mapBackendSession(raw: BackendSession): Session {
     repo: raw.repoId ?? "",
     repoId: raw.repoId ?? "",
     branch: raw.branch ?? "",
-    status: (raw.status ?? "attention") as SessionStatus,
+    status: (["attention", "running", "done"].includes(raw.status ?? "")
+      ? raw.status
+      : "attention") as SessionStatus,
     blockType: raw.blockType as BlockType | undefined,
     lastMessage: raw.lastMessage,
     worktreePath: raw.worktreePath,
