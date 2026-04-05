@@ -62,8 +62,8 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
 
   if (!worktreePath) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
-        <p className="text-sm text-gray-400 dark:text-gray-500">
+      <div className="flex h-32 items-center justify-center rounded-sm border border-outline bg-surface-sunken">
+        <p className="text-sm text-on-surface-faint">
           No worktree attached to this session.
         </p>
       </div>
@@ -71,11 +71,11 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
   }
 
   return (
-    <div className="flex flex-col gap-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900">
-      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-800">
-        <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300">Diff</h3>
+    <div className="flex flex-col gap-0 overflow-hidden rounded-sm border border-outline bg-surface-sunken">
+      <div className="flex items-center justify-between border-b border-outline px-4 py-2">
+        <h3 className="text-xs font-semibold text-on-surface">Diff</h3>
         {!loading && (
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-on-surface-faint">
             {files.length} file{files.length !== 1 ? "s" : ""} changed
           </span>
         )}
@@ -84,13 +84,13 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
       <div className="max-h-96 overflow-y-auto">
         {loading && (
           <div className="flex h-24 items-center justify-center">
-            <span className="text-sm text-gray-400 dark:text-gray-500">Loading diff…</span>
+            <span className="text-sm text-on-surface-faint">Loading diff…</span>
           </div>
         )}
 
         {!loading && files.length === 0 && (
           <div className="flex h-24 items-center justify-center">
-            <span className="text-sm text-gray-400 dark:text-gray-500">No changes.</span>
+            <span className="text-sm text-on-surface-faint">No changes.</span>
           </div>
         )}
 
@@ -98,13 +98,13 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
           files.map((file) => (
             <div
               key={file.newPath}
-              className="border-b border-gray-200 last:border-0 dark:border-gray-800"
+              className="border-b border-outline last:border-0"
             >
               <button
                 onClick={() => toggleFile(file.newPath)}
-                className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-800/50"
+                className="flex w-full items-center justify-between px-4 py-2 text-left hover:bg-hover"
               >
-                <span className="font-mono text-xs text-gray-600 dark:text-gray-300">
+                <span className="font-mono text-xs text-on-surface-muted">
                   {file.oldPath !== file.newPath
                     ? `${file.oldPath} → ${file.newPath}`
                     : file.newPath}
@@ -117,7 +117,7 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
                     -{file.deletions}
                   </span>
                   <svg
-                    className={`h-3 w-3 text-gray-400 transition-transform dark:text-gray-500 ${
+                    className={`h-3 w-3 text-on-surface-faint transition-transform ${
                       expandedFiles.has(file.newPath) ? "rotate-180" : ""
                     }`}
                     fill="none"
@@ -135,7 +135,7 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
               </button>
 
               {expandedFiles.has(file.newPath) && (
-                <div className="overflow-x-auto bg-white dark:bg-gray-950">
+                <div className="overflow-x-auto bg-surface">
                   <table className="w-full border-collapse font-mono text-xs leading-5">
                     <tbody>
                       {file.lines.map((line, i) => {
@@ -162,15 +162,15 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
                             ? "text-green-700 dark:text-green-300"
                             : line.type === "remove"
                               ? "text-red-700 dark:text-red-300"
-                              : "text-gray-600 dark:text-gray-400";
+                              : "text-on-surface-muted";
                         const prefix =
                           line.type === "add" ? "+" : line.type === "remove" ? "-" : " ";
                         return (
                           <tr key={i} className={rowBg}>
-                            <td className="w-10 select-none px-2 py-0.5 text-right text-gray-400 dark:text-gray-600">
+                            <td className="w-10 select-none px-2 py-0.5 text-right text-on-surface-faint">
                               {line.oldLineNo ?? ""}
                             </td>
-                            <td className="w-10 select-none px-2 py-0.5 text-right text-gray-400 dark:text-gray-600">
+                            <td className="w-10 select-none px-2 py-0.5 text-right text-on-surface-faint">
                               {line.newLineNo ?? ""}
                             </td>
                             <td className={`px-2 py-0.5 whitespace-pre ${textColor}`}>
@@ -189,7 +189,7 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
       </div>
 
       {/* Commit bar */}
-      <div className="border-t border-gray-200 p-3 dark:border-gray-800">
+      <div className="border-t border-outline p-3">
         {error && <p className="mb-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
         <div className="flex gap-2">
           <textarea
@@ -197,14 +197,14 @@ export function DiffPanel({ worktreePath, sessionName, onCommitted }: DiffPanelP
             onChange={(e) => setCommitMessage(e.target.value)}
             placeholder="Commit message…"
             rows={2}
-            className="flex-1 resize-none rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+            className="flex-1 resize-none rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
           />
           <button
             onClick={() => {
               void handleCommit();
             }}
             disabled={pushing || !commitMessage.trim()}
-            className="self-end rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-500 disabled:opacity-40"
+            className="self-end rounded-sm bg-brand px-3 py-2 text-sm font-medium text-white hover:bg-brand disabled:opacity-40"
           >
             {pushing ? "Pushing…" : "Commit & Push"}
           </button>

@@ -200,13 +200,13 @@ export function IssueBacklog({
   if (repos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
-        <p className="text-lg font-medium text-gray-500 dark:text-gray-400">No repos connected</p>
-        <p className="mt-1 text-sm text-gray-400 dark:text-gray-500">
+        <p className="text-lg font-medium text-on-surface-muted">No repos connected</p>
+        <p className="mt-1 text-sm text-on-surface-faint">
           Connect a repository to browse its issues and pull requests.
         </p>
         <button
           onClick={onNavigateSettings}
-          className="mt-4 cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+          className="mt-4 cursor-pointer rounded-sm bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           Add a Repo
         </button>
@@ -217,7 +217,7 @@ export function IssueBacklog({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Task Backlog</h2>
+        <h2 className="text-sm font-semibold text-on-surface">Task Backlog</h2>
       </div>
 
       {/* Search bar */}
@@ -226,13 +226,13 @@ export function IssueBacklog({
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         placeholder="Search by title, #number, label, or author..."
-        className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+        className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
       />
 
       {/* Filter row: type tabs + dropdowns */}
       <div className="flex flex-wrap items-center gap-4">
         {/* Type tabs */}
-        <div className="inline-flex rounded-lg bg-gray-100 p-0.5 dark:bg-gray-800">
+        <div className="inline-flex rounded-sm bg-hover p-0.5">
           {(
             [
               ["all", "All", items.length],
@@ -243,18 +243,18 @@ export function IssueBacklog({
             <button
               key={tab}
               onClick={() => setFilter(tab)}
-              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all ${
+              className={`inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-sm font-medium transition-all ${
                 filter === tab
-                  ? "bg-white text-gray-900 shadow-sm dark:bg-gray-700 dark:text-gray-100"
-                  : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  ? "bg-surface-raised text-on-surface"
+                  : "text-on-surface-muted hover:text-on-surface"
               }`}
             >
               {label}
               <span
                 className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 text-xs font-medium ${
                   filter === tab
-                    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300"
-                    : "bg-gray-200 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                    ? "bg-brand-muted text-brand"
+                    : "bg-active text-on-surface-muted"
                 }`}
               >
                 {count}
@@ -268,7 +268,7 @@ export function IssueBacklog({
           <select
             value={selectedRepo}
             onChange={(e) => setSelectedRepo(e.target.value)}
-            className="appearance-none rounded-lg border border-gray-200 bg-white py-1.5 pl-3 pr-8 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600 dark:focus:border-blue-500"
+            className="appearance-none rounded-sm border border-outline bg-surface-raised py-1.5 pl-3 pr-8 text-sm font-medium text-on-surface transition-colors hover:border-outline-strong focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
               backgroundRepeat: "no-repeat",
@@ -289,7 +289,7 @@ export function IssueBacklog({
           <div className="relative" ref={labelDropdownRef}>
             <button
               onClick={() => setLabelDropdownOpen((o) => !o)}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white py-1.5 pl-3 pr-8 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:border-gray-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-gray-600 dark:focus:border-blue-500"
+              className="inline-flex items-center gap-2 rounded-sm border border-outline bg-surface-raised py-1.5 pl-3 pr-8 text-sm font-medium text-on-surface transition-colors hover:border-outline-strong focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20"
               style={{
                 backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`,
                 backgroundRepeat: "no-repeat",
@@ -311,13 +311,13 @@ export function IssueBacklog({
               )}
             </button>
             {labelDropdownOpen && (
-              <div className="absolute left-0 z-50 mt-1 max-h-64 min-w-[10rem] overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+              <div className="absolute left-0 z-50 mt-1 max-h-64 min-w-[10rem] overflow-y-auto rounded-sm border border-outline bg-surface-raised py-1 shadow-lg">
                 <button
                   onClick={() => {
                     setSelectedLabel("all");
                     setLabelDropdownOpen(false);
                   }}
-                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedLabel === "all" ? "font-medium text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300"}`}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-hover ${selectedLabel === "all" ? "font-medium text-on-surface" : "text-on-surface"}`}
                 >
                   All labels
                 </button>
@@ -328,7 +328,7 @@ export function IssueBacklog({
                       setSelectedLabel(l.name);
                       setLabelDropdownOpen(false);
                     }}
-                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${selectedLabel === l.name ? "font-medium text-gray-900 dark:text-gray-100" : "text-gray-700 dark:text-gray-300"}`}
+                    className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-hover ${selectedLabel === l.name ? "font-medium text-on-surface" : "text-on-surface"}`}
                   >
                     <span
                       className="inline-block h-3 w-3 flex-shrink-0 rounded-full border border-black/10"
@@ -344,7 +344,7 @@ export function IssueBacklog({
       </div>
 
       {/* Error */}
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
 
       {/* Loading skeletons */}
       {loading && (
@@ -352,13 +352,13 @@ export function IssueBacklog({
           {[1, 2, 3, 4, 5].map((n) => (
             <div
               key={n}
-              className="flex animate-pulse items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
+              className="flex animate-pulse items-center justify-between rounded-sm border border-outline bg-surface-sunken px-4 py-3"
             >
               <div className="space-y-2">
-                <div className="h-3 w-64 rounded bg-gray-200 dark:bg-gray-700" />
-                <div className="h-2.5 w-40 rounded bg-gray-100 dark:bg-gray-800" />
+                <div className="h-3 w-64 rounded bg-active" />
+                <div className="h-2.5 w-40 rounded bg-hover" />
               </div>
-              <div className="h-5 w-12 rounded bg-gray-100 dark:bg-gray-800" />
+              <div className="h-5 w-12 rounded bg-hover" />
             </div>
           ))}
         </div>
@@ -366,7 +366,7 @@ export function IssueBacklog({
 
       {/* Items list */}
       {!loading && filtered.length === 0 && (
-        <p className="py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+        <p className="py-8 text-center text-sm text-on-surface-faint">
           {search || selectedRepo !== "all" || selectedLabel !== "all"
             ? "No results match your filters."
             : "No open issues or pull requests found."}
@@ -389,7 +389,7 @@ export function IssueBacklog({
                     onSelectPR(item.repo, item.pr);
                   }
                 }}
-                className="flex w-full items-start gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-left transition-colors hover:border-gray-300 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700"
+                className="flex w-full items-start gap-3 rounded-sm border border-outline bg-surface px-4 py-3 text-left transition-colors hover:border-outline-strong"
               >
                 {/* State icon — GitHub-style colors */}
                 {item.kind === "issue" ? (
@@ -401,13 +401,13 @@ export function IssueBacklog({
                 {/* Main content */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <span className="truncate text-sm font-medium text-on-surface">
                       {item.title}
                     </span>
                   </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-500">
-                    <span className="font-medium text-gray-600 dark:text-gray-400">{rName}</span>
-                    <span className="text-gray-400 dark:text-gray-500">#{String(item.number)}</span>
+                  <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-on-surface-muted">
+                    <span className="font-medium text-on-surface-muted">{rName}</span>
+                    <span className="text-on-surface-faint">#{String(item.number)}</span>
                     {item.author && <span>by {item.author}</span>}
                     {item.comments > 0 && (
                       <span className="flex items-center gap-0.5">
@@ -431,7 +431,7 @@ export function IssueBacklog({
                     {/* Direct GitHub link */}
                     <span
                       role="link"
-                      className="cursor-pointer text-blue-500 hover:underline dark:text-blue-400"
+                      className="cursor-pointer text-brand hover:underline"
                       onClick={(e) => {
                         e.stopPropagation();
                         void openExternal(item.url);
@@ -473,7 +473,7 @@ function IssueIcon({ state }: { state: string }) {
   if (state === "closed") {
     return (
       <svg
-        className="mt-0.5 h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400"
+        className="mt-0.5 h-4 w-4 shrink-0 text-block-question"
         viewBox="0 0 16 16"
         fill="currentColor"
       >
@@ -483,7 +483,7 @@ function IssueIcon({ state }: { state: string }) {
   }
   return (
     <svg
-      className="mt-0.5 h-4 w-4 shrink-0 text-green-700 dark:text-green-500"
+      className="mt-0.5 h-4 w-4 shrink-0 text-status-done"
       viewBox="0 0 16 16"
       fill="currentColor"
     >
@@ -497,10 +497,10 @@ function IssueIcon({ state }: { state: string }) {
 function PRIcon({ state }: { state: string }) {
   const color =
     state === "merged"
-      ? "text-purple-600 dark:text-purple-400"
+      ? "text-block-question"
       : state === "closed"
-        ? "text-red-600 dark:text-red-400"
-        : "text-green-700 dark:text-green-500";
+        ? "text-danger"
+        : "text-status-done";
   return (
     <svg className={`mt-0.5 h-4 w-4 shrink-0 ${color}`} viewBox="0 0 16 16" fill="currentColor">
       <path d="M1.5 3.25a2.25 2.25 0 1 1 3 2.122v5.256a2.251 2.251 0 1 1-1.5 0V5.372A2.25 2.25 0 0 1 1.5 3.25Zm5.677-.177L9.573.677A.25.25 0 0 1 10 .854V2.5h1A2.5 2.5 0 0 1 13.5 5v5.628a2.251 2.251 0 1 1-1.5 0V5a1 1 0 0 0-1-1h-1v1.646a.25.25 0 0 1-.427.177L7.177 3.427a.25.25 0 0 1 0-.354ZM3.75 2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm0 9.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Zm8.25.75a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Z" />

@@ -2,15 +2,276 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* Base typography: ensure monospace font is consistent for code/terminal content */
+/* ══════════════════════════════════════════
+   Design Tokens — Dark-first
+   Dark values are the primary design surface.
+   Light values adapt from dark.
+   OKLCH for perceptually uniform color.
+   ══════════════════════════════════════════ */
+
+:root {
+  /* ── Surfaces ── */
+  --surface: oklch(0.975 0.005 265);
+  --surface-raised: oklch(0.995 0.002 265);
+  --surface-overlay: oklch(1 0 0);
+  --surface-sunken: oklch(0.955 0.008 265);
+
+  /* ── Text ── */
+  --on-surface: oklch(0.205 0.02 265);
+  --on-surface-muted: oklch(0.45 0.02 265);
+  --on-surface-faint: oklch(0.6 0.015 265);
+
+  /* ── Borders ── */
+  --outline: oklch(0.87 0.01 265);
+  --outline-muted: oklch(0.92 0.005 265);
+  --outline-strong: oklch(0.78 0.015 265);
+
+  /* ── Interactive ── */
+  --hover: oklch(0.94 0.008 265);
+  --active: oklch(0.9 0.01 265);
+
+  /* ── Brand ── */
+  --brand: oklch(0.52 0.18 200);
+  --brand-muted: oklch(0.52 0.18 200 / 0.1);
+  --accent: oklch(0.6 0.16 80);
+  --accent-muted: oklch(0.6 0.16 80 / 0.1);
+
+  /* ── Status ── */
+  --status-running: var(--brand);
+  --status-attention: var(--accent);
+  --status-done: oklch(0.48 0.14 155);
+  --status-running-muted: var(--brand-muted);
+  --status-attention-muted: var(--accent-muted);
+  --status-done-muted: oklch(0.48 0.14 155 / 0.1);
+
+  /* ── Destructive ── */
+  --danger: oklch(0.55 0.22 25);
+  --danger-muted: oklch(0.55 0.22 25 / 0.1);
+
+  /* ── Block types ── */
+  --block-permission: oklch(0.55 0.16 45);
+  --block-confirmation: oklch(0.6 0.16 80);
+  --block-question: oklch(0.52 0.16 300);
+  --block-input: var(--brand);
+  --block-permission-muted: oklch(0.55 0.16 45 / 0.1);
+  --block-confirmation-muted: oklch(0.6 0.16 80 / 0.1);
+  --block-question-muted: oklch(0.52 0.16 300 / 0.1);
+  --block-input-muted: var(--brand-muted);
+
+  /* ── Motion ── */
+  --duration-fast: 100ms;
+  --duration-normal: 150ms;
+  --duration-slow: 200ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+.dark {
+  /* ── Surfaces ── */
+  --surface: oklch(0.145 0.014 265);
+  --surface-raised: oklch(0.185 0.014 265);
+  --surface-overlay: oklch(0.215 0.014 265);
+  --surface-sunken: oklch(0.115 0.014 265);
+
+  /* ── Text ── */
+  --on-surface: oklch(0.935 0.01 265);
+  --on-surface-muted: oklch(0.65 0.015 265);
+  --on-surface-faint: oklch(0.5 0.012 265);
+
+  /* ── Borders ── */
+  --outline: oklch(0.3 0.012 265);
+  --outline-muted: oklch(0.24 0.01 265);
+  --outline-strong: oklch(0.38 0.015 265);
+
+  /* ── Interactive ── */
+  --hover: oklch(0.22 0.015 265);
+  --active: oklch(0.26 0.018 265);
+
+  /* ── Brand ── */
+  --brand: oklch(0.72 0.17 200);
+  --brand-muted: oklch(0.72 0.17 200 / 0.15);
+  --accent: oklch(0.78 0.16 80);
+  --accent-muted: oklch(0.78 0.16 80 / 0.15);
+
+  /* ── Status ── */
+  --status-running: var(--brand);
+  --status-attention: var(--accent);
+  --status-done: oklch(0.68 0.15 155);
+  --status-running-muted: var(--brand-muted);
+  --status-attention-muted: var(--accent-muted);
+  --status-done-muted: oklch(0.68 0.15 155 / 0.15);
+
+  /* ── Destructive ── */
+  --danger: oklch(0.65 0.22 25);
+  --danger-muted: oklch(0.65 0.22 25 / 0.15);
+
+  /* ── Block types ── */
+  --block-permission: oklch(0.7 0.16 45);
+  --block-confirmation: oklch(0.78 0.16 80);
+  --block-question: oklch(0.68 0.15 300);
+  --block-input: var(--brand);
+  --block-permission-muted: oklch(0.7 0.16 45 / 0.15);
+  --block-confirmation-muted: oklch(0.78 0.16 80 / 0.15);
+  --block-question-muted: oklch(0.68 0.15 300 / 0.15);
+  --block-input-muted: var(--brand-muted);
+}
+
+@theme {
+  --font-sans: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", "Cascadia Code", "Fira Code", monospace;
+
+  /* ── Semantic color utilities ── */
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-overlay: var(--surface-overlay);
+  --color-surface-sunken: var(--surface-sunken);
+
+  --color-on-surface: var(--on-surface);
+  --color-on-surface-muted: var(--on-surface-muted);
+  --color-on-surface-faint: var(--on-surface-faint);
+
+  --color-outline: var(--outline);
+  --color-outline-muted: var(--outline-muted);
+  --color-outline-strong: var(--outline-strong);
+
+  --color-hover: var(--hover);
+  --color-active: var(--active);
+
+  --color-brand: var(--brand);
+  --color-brand-muted: var(--brand-muted);
+  --color-accent: var(--accent);
+  --color-accent-muted: var(--accent-muted);
+
+  --color-status-running: var(--status-running);
+  --color-status-attention: var(--status-attention);
+  --color-status-done: var(--status-done);
+  --color-status-running-muted: var(--status-running-muted);
+  --color-status-attention-muted: var(--status-attention-muted);
+  --color-status-done-muted: var(--status-done-muted);
+
+  --color-danger: var(--danger);
+  --color-danger-muted: var(--danger-muted);
+
+  --color-block-permission: var(--block-permission);
+  --color-block-confirmation: var(--block-confirmation);
+  --color-block-question: var(--block-question);
+  --color-block-input: var(--block-input);
+  --color-block-permission-muted: var(--block-permission-muted);
+  --color-block-confirmation-muted: var(--block-confirmation-muted);
+  --color-block-question-muted: var(--block-question-muted);
+  --color-block-input-muted: var(--block-input-muted);
+
+  /* ── Radius — sharper than defaults ── */
+  --radius-xs: 2px;
+  --radius-sm: 3px;
+  --radius: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+
+  /* ── Animation ── */
+  --animate-entrance: entrance var(--duration-normal) var(--ease-out) both;
+  --animate-pulse-glow: pulse-glow 2.5s ease-in-out infinite;
+  --animate-status-flash: status-flash var(--duration-slow) var(--ease-out);
+  --animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
+  --animate-activity-in: activity-in var(--duration-normal) var(--ease-out) both;
+}
+
 @layer base {
-  code,
-  kbd,
-  pre,
-  samp,
-  .font-mono {
-    font-family:
-      "SF Mono", "Cascadia Code", "Fira Code", "JetBrains Mono", ui-monospace, SFMono-Regular,
-      Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings:
+      "liga" 1,
+      "calt" 1;
   }
+
+  /* Snappy transitions on all interactive elements */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"] {
+    transition:
+      background-color var(--duration-fast) var(--ease-out),
+      border-color var(--duration-fast) var(--ease-out),
+      color var(--duration-fast) var(--ease-out),
+      opacity var(--duration-fast) var(--ease-out);
+  }
+}
+
+/* ── Keyframes ── */
+
+@keyframes entrance {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--status-running-muted);
+  }
+  50% {
+    box-shadow: 0 0 12px 3px var(--status-running-muted);
+  }
+}
+
+@keyframes typing-dot {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes activity-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+@keyframes status-flash {
+  from {
+    background-color: var(--accent-muted);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* ── Reduced motion ── */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Shiki dual-theme support ── */
+
+.shiki-wrapper .shiki,
+.shiki-wrapper .shiki span {
+  color: var(--shiki-light) !important;
+  background-color: transparent !important;
+}
+
+.dark .shiki-wrapper .shiki,
+.dark .shiki-wrapper .shiki span {
+  color: var(--shiki-dark) !important;
+  background-color: transparent !important;
 }

@@ -1,16 +1,15 @@
 import { useState } from "react";
 import type { Session } from "../lib/types";
 import { timeAgo } from "../lib/utils";
-import { replyToSession } from "../lib/tauri";
-import { formatError } from "../lib/errors";
 import {
   STATUS_PILL,
   STATUS_LABEL,
   CLOSED_BORDER,
   BLOCK_TYPE_PILL,
-  STATUS_DOT,
   RUNNING_PULSE,
+  STATUS_DOT,
 } from "../lib/statusColors";
+import { useSessionActivity } from "../lib/sessionActivity";
 
 export type CIStatus = "success" | "failure" | "pending" | null;
 
@@ -19,9 +18,11 @@ interface KanbanCardProps {
   onView: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
-  onRetry?: (id: string) => void;
   onKill?: (id: string) => void;
   ciStatus?: CIStatus;
+  isActive?: boolean;
+  /** Index within column for staggered entrance animation */
+  index?: number;
 }
 
 export function KanbanCard({
@@ -29,34 +30,16 @@ export function KanbanCard({
   onView,
   onInterrupt,
   onResume,
-  onRetry,
   onKill,
   ciStatus,
+  isActive,
+  index = 0,
 }: KanbanCardProps) {
-  const isClosed = ["completed", "done", "failed", "killed", "idle"].includes(session.status);
+  const isClosed = session.status === "done";
+  const isRunning = session.status === "running";
   const closedBorder = isClosed ? `border-l-2 ${CLOSED_BORDER[session.status] ?? ""}` : "";
-  const [quickReply, setQuickReply] = useState("");
-  const [showQuickReply, setShowQuickReply] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
   const [showKillConfirm, setShowKillConfirm] = useState(false);
-
-  async function handleQuickReply(e: React.SyntheticEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!quickReply.trim() || sending) return;
-    setSending(true);
-    setReplyError(null);
-    try {
-      await replyToSession(session.id, quickReply.trim());
-      setQuickReply("");
-      setShowQuickReply(false);
-    } catch (err) {
-      setReplyError(formatError(err));
-    } finally {
-      setSending(false);
-    }
-  }
+  const activity = useSessionActivity(session.id);
 
   const ciDotColor =
     ciStatus === "success"
@@ -69,135 +52,142 @@ export function KanbanCard({
 
   return (
     <div
+      data-testid={`session-card-${session.id}`}
       onClick={() => onView(session.id)}
-      className={`cursor-pointer rounded-md border border-gray-200 bg-white px-3 py-2.5 pl-7 transition-all hover:border-gray-300 hover:shadow-sm dark:border-gray-800 dark:bg-gray-950 dark:hover:border-gray-700 ${closedBorder} ${isClosed ? "opacity-75" : ""}`}
+      style={{ animationDelay: `${index * 40}ms` }}
+      className={`group animate-entrance cursor-pointer rounded-sm border bg-surface px-3 py-2.5 pl-7 transition-all ${closedBorder} ${isClosed ? "opacity-75" : ""} ${
+        session.status === "running" ? "animate-pulse-glow" : ""
+      } ${
+        isActive
+          ? "border-brand ring-1 ring-brand/50"
+          : "border-outline hover:border-outline-strong"
+      }`}
     >
-      {/* Title + time */}
-      <div className="flex items-start justify-between gap-2">
-        <span className="line-clamp-2 text-sm font-medium leading-snug text-gray-900 dark:text-gray-100">
-          {session.name}
-        </span>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {/* CI indicator dot */}
-          {ciDotColor && (
-            <span className={`h-2 w-2 rounded-full ${ciDotColor}`} title={`CI: ${ciStatus}`} />
-          )}
-          <span className="text-[11px] text-gray-400 dark:text-gray-500">
-            {timeAgo(session.stateChangedAt)}
+      {/* Title */}
+      <span className="line-clamp-2 text-sm font-semibold leading-snug text-on-surface">
+        {session.name}
+      </span>
+
+      {/* Metadata line: branch, issue, time */}
+      <div className="mt-1 flex items-center gap-1 text-xs text-on-surface-muted">
+        {session.branch && (
+          <span className="truncate font-mono text-[11px] text-on-surface-faint">
+            {session.branch}
           </span>
-        </div>
+        )}
+        {(session.linkedIssue ?? session.linkedPR) && (
+          <>
+            {session.branch && <span className="text-on-surface-faint">&middot;</span>}
+            <span className="text-[11px] text-on-surface-faint">
+              {session.linkedIssue
+                ? `#${String(session.linkedIssue.number)}`
+                : session.linkedPR
+                  ? `PR #${String(session.linkedPR.number)}`
+                  : ""}
+            </span>
+          </>
+        )}
+        {/* CI indicator dot */}
+        {ciDotColor && (
+          <span
+            className={`ml-0.5 h-2 w-2 shrink-0 rounded-full ${ciDotColor}`}
+            title={`CI: ${ciStatus}`}
+          />
+        )}
       </div>
 
-      {/* Repo + branch */}
-      <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-        {session.repo}
-        {session.branch && (
-          <span className="ml-1 text-gray-400 dark:text-gray-500">· {session.branch}</span>
-        )}
-      </p>
+      {/* Live activity (running) or last active timestamp */}
+      {isRunning && activity ? (
+        <div className="mt-1 flex items-center gap-1.5 animate-activity-in">
+          <span className="inline-block h-1 w-1 shrink-0 rounded-full bg-brand animate-pulse" />
+          <span className="truncate font-mono text-[11px] text-brand/80">
+            {activity}
+          </span>
+        </div>
+      ) : (
+        <p className="mt-1 text-[11px] text-on-surface-faint">
+          Active {timeAgo(session.stateChangedAt)}
+        </p>
+      )}
 
-      {/* Pills row */}
-      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+      {/* Inline blocking prompt for waiting sessions */}
+      {session.status === "attention" && session.lastMessage && (
+        <div className="mt-2 rounded border border-status-attention/30 bg-status-attention-muted px-2 py-1.5">
+          <p className="line-clamp-2 text-[11px] leading-relaxed text-status-attention">
+            {session.lastMessage}
+          </p>
+        </div>
+      )}
+
+      {/* Pills row — status pill without inner dot (pill color is the signal) */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
         <span
-          className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
+          className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
         >
-          <span
-            className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status] ?? "bg-gray-500"} ${session.status === "running" ? RUNNING_PULSE : ""}`}
-          />
+          {/* Only show animated dot for running — otherwise pill color is enough */}
+          {session.status === "running" && (
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status]} ${RUNNING_PULSE}`}
+            />
+          )}
           {STATUS_LABEL[session.status] ?? session.status}
         </span>
-        {session.status === "waiting" && session.blockType && (
+        {session.status === "attention" && session.blockType && (
           <span
-            className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${BLOCK_TYPE_PILL[session.blockType]}`}
+            className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${BLOCK_TYPE_PILL[session.blockType]}`}
           >
             {session.blockType}
           </span>
         )}
-        {session.status === "stuck" && (
-          <span className="flex items-center gap-0.5 text-[11px] font-medium text-orange-600 dark:text-orange-400">
-            <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            stuck
-          </span>
-        )}
-        {(session.linkedIssue ?? session.linkedPR) && (
-          <div className="ml-auto flex items-center gap-1 text-[11px] text-gray-400 dark:text-gray-500">
-            {session.linkedIssue && <span>#{session.linkedIssue.number}</span>}
-            {session.linkedPR && <span>PR #{session.linkedPR.number}</span>}
-          </div>
-        )}
       </div>
 
-      {/* Action buttons */}
-      <div className="mt-2 flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-        {/* View is always first */}
+      {/* Action buttons — visible on hover only */}
+      <div
+        className="mt-2 flex items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100"
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           onClick={() => onView(session.id)}
-          className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-500 hover:border-gray-400 hover:text-gray-700 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-400 dark:hover:border-gray-600 dark:hover:text-gray-200 dark:active:bg-gray-800"
+          className="cursor-pointer rounded border border-outline px-2 py-1 text-xs font-medium text-on-surface-muted hover:border-outline-strong hover:text-on-surface active:bg-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           View
         </button>
-        {session.status === "waiting" && (
-          <button
-            onClick={() => setShowQuickReply((v) => !v)}
-            className="cursor-pointer rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
-          >
-            Quick Reply
-          </button>
-        )}
         {session.status === "running" && (
           <button
             onClick={() => onInterrupt?.(session.id)}
-            className="cursor-pointer rounded bg-yellow-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-yellow-500 active:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:ring-offset-1"
+            className="cursor-pointer rounded bg-status-attention px-2 py-1 text-xs font-medium text-white hover:bg-accent active:bg-accent focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-1"
           >
             Interrupt
           </button>
         )}
-        {(session.status === "idle" ||
-          session.status === "paused" ||
-          session.status === "interrupted") && (
+        {/* For "Needs Attention" sessions, make Resume more prominent */}
+        {session.status === "attention" && onResume && (
           <button
-            onClick={() => onResume?.(session.id)}
-            className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+            onClick={() => onResume(session.id)}
+            className="cursor-pointer rounded bg-brand px-3 py-1 text-[11px] font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             Resume
           </button>
         )}
-        {(session.status === "failed" || session.status === "stuck") && onRetry && (
-          <button
-            onClick={() => onRetry(session.id)}
-            className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-          >
-            Retry
-          </button>
-        )}
         {/* Kill with confirmation — always last */}
-        {(session.status === "running" ||
-          session.status === "waiting" ||
-          session.status === "stuck") &&
+        {session.status === "running" &&
           onKill &&
           !showKillConfirm && (
             <button
               onClick={() => setShowKillConfirm(true)}
-              className="cursor-pointer rounded border border-red-300 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 active:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:active:bg-red-950/50"
+              className="cursor-pointer rounded border border-danger/30 px-2 py-1 text-xs font-medium text-danger hover:bg-danger-muted active:bg-danger-muted focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
             >
               Kill
             </button>
           )}
         {showKillConfirm && onKill && (
           <>
-            <span className="text-[11px] text-red-600 dark:text-red-400">
+            <span className="text-xs text-danger">
               Kill &quot;{session.name}&quot;?
             </span>
             <button
               onClick={() => setShowKillConfirm(false)}
-              className="cursor-pointer rounded px-1.5 py-0.5 text-[11px] text-gray-500 hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+              className="cursor-pointer rounded px-1.5 py-0.5 text-xs text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
               No
             </button>
@@ -206,46 +196,13 @@ export function KanbanCard({
                 setShowKillConfirm(false);
                 onKill(session.id);
               }}
-              className="cursor-pointer rounded bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+              className="cursor-pointer rounded bg-danger px-2 py-1 text-xs font-medium text-white hover:bg-danger active:bg-danger focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
             >
               Yes
             </button>
           </>
         )}
       </div>
-
-      {/* Inline quick reply - textarea for multi-line */}
-      {showQuickReply && session.status === "waiting" && (
-        <form
-          onSubmit={(e) => {
-            void handleQuickReply(e);
-          }}
-          className="mt-2 flex flex-col gap-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <textarea
-            value={quickReply}
-            onChange={(e) => setQuickReply(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                void handleQuickReply(e);
-              }
-            }}
-            placeholder="Type reply... (Cmd+Enter to send)"
-            autoFocus
-            rows={3}
-            className="w-full resize-none rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-          />
-          {replyError && <p className="text-[11px] text-red-600 dark:text-red-400">{replyError}</p>}
-          <button
-            type="submit"
-            disabled={sending || !quickReply.trim()}
-            className="cursor-pointer self-end rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {sending ? "..." : "Send"}
-          </button>
-        </form>
-      )}
     </div>
   );
 }

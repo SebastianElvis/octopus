@@ -49,6 +49,8 @@ pub struct ChangedFile {
     pub status: String,
     pub staged: bool,
     pub old_path: Option<String>,
+    pub insertions: Option<u32>,
+    pub deletions: Option<u32>,
 }
 
 // ---------------------------------------------------------------------------
@@ -71,10 +73,36 @@ fn status_char_to_string(c: char) -> &'static str {
 // Commands
 // ---------------------------------------------------------------------------
 
+/// Parse `git diff --numstat` output into a map of path → (insertions, deletions).
+fn parse_numstat(output: &str) -> std::collections::HashMap<String, (u32, u32)> {
+    let mut map = std::collections::HashMap::new();
+    for line in output.lines() {
+        let parts: Vec<&str> = line.split('\t').collect();
+        if parts.len() >= 3 {
+            // Binary files show "-" for insertions/deletions
+            let ins = parts[0].parse::<u32>().unwrap_or(0);
+            let del = parts[1].parse::<u32>().unwrap_or(0);
+            map.insert(parts[2].to_string(), (ins, del));
+        }
+    }
+    map
+}
+
 /// Get all changed files (staged + unstaged + untracked) using git status --porcelain=v2.
 #[tauri::command]
 pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFile>> {
     let output = run_git(&worktree_path, &["status", "--porcelain=v2"])?;
+
+    // Get numstat for staged and unstaged changes
+    let staged_numstat = parse_numstat(&run_git_allow_failure(
+        &worktree_path,
+        &["diff", "--cached", "--numstat"],
+    ));
+    let unstaged_numstat = parse_numstat(&run_git_allow_failure(
+        &worktree_path,
+        &["diff", "--numstat"],
+    ));
+
     let mut files: Vec<ChangedFile> = Vec::new();
 
     for line in output.lines() {
@@ -90,19 +118,25 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
             let y = xy.chars().nth(1).unwrap_or('.');
 
             if x != '.' {
+                let (ins, del) = staged_numstat.get(&path).copied().unwrap_or((0, 0));
                 files.push(ChangedFile {
                     path: path.clone(),
                     status: status_char_to_string(x).to_string(),
                     staged: true,
                     old_path: None,
+                    insertions: Some(ins),
+                    deletions: Some(del),
                 });
             }
             if y != '.' {
+                let (ins, del) = unstaged_numstat.get(&path).copied().unwrap_or((0, 0));
                 files.push(ChangedFile {
                     path,
                     status: status_char_to_string(y).to_string(),
                     staged: false,
                     old_path: None,
+                    insertions: Some(ins),
+                    deletions: Some(del),
                 });
             }
         } else if line.starts_with("2 ") {
@@ -121,19 +155,25 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
             let y = xy.chars().nth(1).unwrap_or('.');
 
             if x != '.' {
+                let (ins, del) = staged_numstat.get(&new_path).copied().unwrap_or((0, 0));
                 files.push(ChangedFile {
                     path: new_path.clone(),
                     status: status_char_to_string(x).to_string(),
                     staged: true,
                     old_path: old_path.clone(),
+                    insertions: Some(ins),
+                    deletions: Some(del),
                 });
             }
             if y != '.' {
+                let (ins, del) = unstaged_numstat.get(&new_path).copied().unwrap_or((0, 0));
                 files.push(ChangedFile {
                     path: new_path,
                     status: status_char_to_string(y).to_string(),
                     staged: false,
                     old_path,
+                    insertions: Some(ins),
+                    deletions: Some(del),
                 });
             }
         } else if line.starts_with("? ") {
@@ -144,12 +184,53 @@ pub async fn get_changed_files(worktree_path: String) -> AppResult<Vec<ChangedFi
                 status: "untracked".to_string(),
                 staged: false,
                 old_path: None,
+                insertions: None,
+                deletions: None,
             });
         }
         // Skip '!' (ignored) and other header lines
     }
 
     Ok(files)
+}
+
+/// Sync status: how many commits ahead/behind the remote tracking branch.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SyncStatus {
+    pub ahead: u32,
+    pub behind: u32,
+    pub has_upstream: bool,
+}
+
+#[tauri::command]
+pub async fn get_sync_status(worktree_path: String) -> AppResult<SyncStatus> {
+    // Check if there's an upstream tracking branch
+    let upstream = run_git_allow_failure(&worktree_path, &["rev-parse", "--abbrev-ref", "@{u}"]);
+    if upstream.trim().is_empty() {
+        // No upstream — check if there are any local commits to push
+        let log_output = run_git_allow_failure(&worktree_path, &["log", "--oneline", "-1"]);
+        return Ok(SyncStatus {
+            ahead: if log_output.trim().is_empty() { 0 } else { 0 },
+            behind: 0,
+            has_upstream: false,
+        });
+    }
+
+    let output = run_git_allow_failure(
+        &worktree_path,
+        &["rev-list", "--left-right", "--count", "HEAD...@{u}"],
+    );
+
+    let parts: Vec<&str> = output.trim().split('\t').collect();
+    let ahead = parts.first().and_then(|s| s.parse().ok()).unwrap_or(0);
+    let behind = parts.get(1).and_then(|s| s.parse().ok()).unwrap_or(0);
+
+    Ok(SyncStatus {
+        ahead,
+        behind,
+        has_upstream: true,
+    })
 }
 
 /// Stage specific files.
@@ -223,7 +304,8 @@ pub async fn get_file_diff(
     file_path: String,
     staged: bool,
 ) -> AppResult<String> {
-    let mut args = vec!["diff"];
+    // Use full-file context so the frontend can show the entire file with diff highlights
+    let mut args = vec!["diff", "-U99999"];
     if staged {
         args.push("--cached");
     }
@@ -372,5 +454,130 @@ mod tests {
             .await
             .unwrap();
         assert!(diff.contains("modified content"));
+    }
+
+    #[test]
+    fn status_char_to_string_all_variants() {
+        assert_eq!(status_char_to_string('M'), "modified");
+        assert_eq!(status_char_to_string('A'), "added");
+        assert_eq!(status_char_to_string('D'), "deleted");
+        assert_eq!(status_char_to_string('R'), "renamed");
+        assert_eq!(status_char_to_string('C'), "copied");
+        assert_eq!(status_char_to_string('T'), "typechange");
+        // Unknown chars default to "modified"
+        assert_eq!(status_char_to_string('X'), "modified");
+        assert_eq!(status_char_to_string('U'), "modified");
+    }
+
+    #[tokio::test]
+    async fn get_changed_files_untracked() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        fs::write(repo.path().join("new_file.txt"), "new content").unwrap();
+        let files = get_changed_files(repo_path).await.unwrap();
+
+        let untracked: Vec<_> = files.iter().filter(|f| f.status == "untracked").collect();
+        assert_eq!(untracked.len(), 1);
+        assert_eq!(untracked[0].path, "new_file.txt");
+        assert!(!untracked[0].staged);
+    }
+
+    #[tokio::test]
+    async fn stage_empty_paths_is_noop() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+        // Should not error on empty paths
+        git_stage_files(repo_path.clone(), vec![]).await.unwrap();
+        git_unstage_files(repo_path, vec![]).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn discard_empty_paths_is_noop() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+        git_discard_files(repo_path, vec![]).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn discard_untracked_file_deletes_it() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        let new_file = repo.path().join("temp.txt");
+        fs::write(&new_file, "temporary").unwrap();
+        assert!(new_file.exists());
+
+        git_discard_files(repo_path, vec!["temp.txt".to_string()])
+            .await
+            .unwrap();
+        assert!(!new_file.exists());
+    }
+
+    #[tokio::test]
+    async fn discard_tracked_file_restores_it() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        fs::write(repo.path().join("initial.txt"), "changed").unwrap();
+        git_discard_files(repo_path.clone(), vec!["initial.txt".to_string()])
+            .await
+            .unwrap();
+
+        let content = fs::read_to_string(repo.path().join("initial.txt")).unwrap();
+        assert_eq!(content, "hello");
+    }
+
+    #[tokio::test]
+    async fn get_file_at_head_existing_file() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        let content = get_file_at_head(repo_path, "initial.txt".to_string())
+            .await
+            .unwrap();
+        assert_eq!(content.trim(), "hello");
+    }
+
+    #[tokio::test]
+    async fn get_file_at_head_new_file_returns_empty() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        let content = get_file_at_head(repo_path, "nonexistent.txt".to_string())
+            .await
+            .unwrap();
+        assert!(content.is_empty());
+    }
+
+    #[tokio::test]
+    async fn get_file_diff_staged() {
+        let repo = init_repo();
+        let repo_path = repo.path().to_string_lossy().to_string();
+
+        fs::write(repo.path().join("initial.txt"), "staged change").unwrap();
+        git_stage_files(repo_path.clone(), vec!["initial.txt".to_string()])
+            .await
+            .unwrap();
+
+        let diff = get_file_diff(repo_path, "initial.txt".to_string(), true)
+            .await
+            .unwrap();
+        assert!(diff.contains("staged change"));
+    }
+
+    #[test]
+    fn changed_file_serializes_to_camel_case() {
+        let file = ChangedFile {
+            path: "src/main.rs".to_string(),
+            status: "modified".to_string(),
+            staged: true,
+            old_path: Some("src/old_main.rs".to_string()),
+            insertions: Some(5),
+            deletions: Some(3),
+        };
+        let json = serde_json::to_value(&file).unwrap();
+        assert!(json.get("oldPath").is_some());
+        assert!(json.get("old_path").is_none());
     }
 }

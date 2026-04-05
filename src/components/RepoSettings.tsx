@@ -80,10 +80,10 @@ export function RepoSettings() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Repositories</h2>
+        <h2 className="text-base font-semibold text-on-surface">Repositories</h2>
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+          className="cursor-pointer rounded-sm bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           + Add Repo
         </button>
@@ -91,13 +91,13 @@ export function RepoSettings() {
 
       {/* Add form */}
       {showForm && (
-        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900">
-          <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+        <div className="rounded-sm border border-outline bg-surface-sunken p-4">
+          <h3 className="mb-3 text-sm font-medium text-on-surface">
             Add Repository
           </h3>
           <div className="space-y-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+              <label className="mb-1 block text-xs font-medium text-on-surface-muted">
                 GitHub URL or owner/repo
               </label>
               <input
@@ -106,13 +106,13 @@ export function RepoSettings() {
                 onChange={(e) => setGithubUrl(e.target.value)}
                 disabled={adding}
                 placeholder="owner/repo"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-medium text-gray-500 dark:text-gray-400">
+              <label className="mb-1 block text-xs font-medium text-on-surface-muted">
                 Local Path{" "}
-                <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
+                <span className="font-normal text-on-surface-faint">(optional)</span>
               </label>
               <input
                 type="text"
@@ -120,14 +120,14 @@ export function RepoSettings() {
                 onChange={(e) => setLocalPath(e.target.value)}
                 disabled={adding}
                 placeholder="Default: ~/.toomanytabs/repos/owner/repo"
-                className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-blue-600 focus:outline-none disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500"
+                className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none disabled:opacity-50"
               />
             </div>
           </div>
-          {error && <p className="mt-2 text-xs text-red-600 dark:text-red-400">{error}</p>}
+          {error && <p className="mt-2 text-xs text-danger">{error}</p>}
           <div className="mt-3 flex items-center justify-between">
             {adding ? (
-              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center gap-2 text-xs text-on-surface-muted">
                 <svg
                   className="h-3.5 w-3.5 animate-spin text-blue-600"
                   viewBox="0 0 24 24"
@@ -159,7 +159,7 @@ export function RepoSettings() {
                   setError(null);
                 }}
                 disabled={adding}
-                className="cursor-pointer rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-gray-400 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:border-gray-600 dark:active:bg-gray-800"
+                className="cursor-pointer rounded-sm border border-outline px-3 py-1.5 text-sm text-on-surface-muted hover:border-outline-strong active:bg-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -168,7 +168,7 @@ export function RepoSettings() {
                   void handleAdd();
                 }}
                 disabled={adding}
-                className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                className="cursor-pointer rounded-sm bg-brand px-3 py-1.5 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {adding ? "Adding…" : "Add"}
               </button>
@@ -183,33 +183,33 @@ export function RepoSettings() {
           {[1, 2].map((n) => (
             <div
               key={n}
-              className="flex animate-pulse items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
+              className="flex animate-pulse items-center justify-between rounded-sm border border-outline bg-surface-sunken px-4 py-3"
             >
               <div className="space-y-2">
-                <div className="h-3 w-48 rounded bg-gray-200 dark:bg-gray-700" />
-                <div className="h-2.5 w-32 rounded bg-gray-100 dark:bg-gray-800" />
+                <div className="h-3 w-48 rounded bg-active" />
+                <div className="h-2.5 w-32 rounded bg-hover" />
               </div>
-              <div className="h-6 w-14 rounded bg-gray-100 dark:bg-gray-800" />
+              <div className="h-6 w-14 rounded bg-hover" />
             </div>
           ))}
         </div>
       ) : repos.length === 0 ? (
-        <p className="text-sm text-gray-400 dark:text-gray-500">No repositories connected yet.</p>
+        <p className="text-sm text-on-surface-faint">No repositories connected yet.</p>
       ) : (
         <div className="space-y-2">
           {repos.map((repo) => (
             <div
               key={repo.id}
-              className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900"
+              className="flex items-center justify-between rounded-sm border border-outline bg-surface-sunken px-4 py-3"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                <p className="truncate text-sm font-medium text-on-surface">
                   {repo.githubUrl}
                 </p>
-                <p className="truncate text-xs text-gray-500 dark:text-gray-400">
+                <p className="truncate text-xs text-on-surface-muted">
                   {repo.localPath}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">
+                <p className="mt-0.5 text-xs text-on-surface-faint">
                   Default branch: {repo.defaultBranch}
                 </p>
               </div>
@@ -217,7 +217,7 @@ export function RepoSettings() {
                 onClick={() => {
                   void removeRepo(repo.id);
                 }}
-                className="ml-3 shrink-0 cursor-pointer rounded-md border border-gray-300 px-2.5 py-1 text-xs text-red-500 hover:border-red-300 hover:text-red-600 active:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-gray-700 dark:text-red-400 dark:hover:border-red-800 dark:hover:text-red-300 dark:active:bg-red-950/30"
+                className="ml-3 shrink-0 cursor-pointer rounded-sm border border-outline px-2.5 py-1 text-xs text-danger hover:border-danger/30 hover:text-danger active:bg-danger-muted focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
               >
                 Remove
               </button>

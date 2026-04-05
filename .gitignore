@@ -4,3 +4,5 @@ src-tauri/target/
 src-tauri/gen/
 *.log
 .DS_Store
+e2e/screenshots/*.png
+.impeccable.md

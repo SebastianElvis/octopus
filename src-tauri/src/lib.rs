@@ -1,24 +1,26 @@
-mod commands;
-mod db;
-mod error;
-mod state;
+pub mod commands;
+pub mod db;
+pub mod error;
+pub mod state;
 
-use commands::ai::{generate_recap, get_setting, set_setting};
-use commands::filesystem::{list_dir, read_file};
+use commands::ai::{generate_branch_name, generate_recap, get_setting, set_setting};
+use commands::filesystem::{list_dir, read_file, save_temp_image, scan_slash_commands};
 use commands::git_ops::{
-    get_changed_files, get_file_at_head, get_file_diff, git_discard_files, git_stage_files,
-    git_unstage_files,
+    get_changed_files, get_file_at_head, get_file_diff, get_sync_status, git_discard_files,
+    git_stage_files, git_unstage_files,
 };
 use commands::github::{
     close_issue, create_pr, create_session_from_review, delete_remote_branch, fetch_check_runs,
-    fetch_issues, fetch_pr_review_comments, fetch_prs, get_github_token, git_commit_and_push,
-    merge_pr,
+    fetch_issues, fetch_pr_review_comments, fetch_prs, get_github_token, git_commit,
+    git_commit_and_push, git_push, merge_pr,
 };
+use commands::hooks::{get_hook_server_port, get_session_analytics, respond_to_hook};
 use commands::repos::{add_repo, list_repos, remove_repo};
 use commands::sessions::{
-    check_stuck_sessions, get_session, interrupt_session, kill_session, list_sessions,
-    pause_session, read_session_log, reply_to_session, resize_session, resume_session,
-    save_session_image, save_temp_image, spawn_session, write_to_session,
+    archive_session, check_stuck_sessions, get_session, interrupt_session, kill_session,
+    list_sessions, pause_session, read_session_events, read_session_log, resize_session,
+    respond_to_session, resume_session, save_session_image, send_followup, spawn_session,
+    write_to_session,
 };
 use commands::shell::{kill_shell, resize_shell, spawn_shell, write_to_shell};
 use commands::worktree::{create_worktree, get_diff, remove_worktree};
@@ -67,10 +69,10 @@ fn check_unclean_shutdown() -> bool {
 
 /// On startup, for each session with status "running" in the DB:
 /// check if the PID is still alive using kill(pid, 0). If alive, mark as
-/// "interrupted" (process is orphaned). If dead, already reaped correctly.
+/// "attention" (process is orphaned). If dead, already reaped correctly.
 fn recover_sessions(conn: &rusqlite::Connection) {
     let mut stmt = match conn.prepare(
-        "SELECT id, worktree_path FROM sessions WHERE status IN ('running', 'waiting', 'paused', 'stuck')",
+        "SELECT id, worktree_path, pid FROM sessions WHERE status = 'running'",
     ) {
         Ok(s) => s,
         Err(e) => {
@@ -80,7 +82,11 @@ fn recover_sessions(conn: &rusqlite::Connection) {
     };
 
     let rows = match stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, Option<String>>(1)?))
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, Option<String>>(1)?,
+            row.get::<_, Option<i64>>(2)?,
+        ))
     }) {
         Ok(r) => r,
         Err(e) => {
@@ -90,15 +96,35 @@ fn recover_sessions(conn: &rusqlite::Connection) {
     };
 
     let now = chrono::Utc::now().to_rfc3339();
-    for (session_id, _worktree_path) in rows.flatten() {
-        // Mark as interrupted — the original reap_orphaned_sessions will handle this
-        // but we log it explicitly for crash recovery context
+    for (session_id, _worktree_path, pid) in rows.flatten() {
+        // Check if process is still alive and kill orphans
+        #[cfg(unix)]
+        if let Some(raw_pid) = pid {
+            use nix::sys::signal::{kill, Signal};
+            use nix::unistd::Pid;
+
+            let p = Pid::from_raw(raw_pid as i32);
+            if kill(p, None).is_ok() {
+                // Process is still alive — kill it
+                log::warn!(
+                    "Crash recovery: killing orphan process {} for session {}",
+                    raw_pid,
+                    session_id
+                );
+                let _ = kill(p, Signal::SIGTERM);
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                if kill(p, None).is_ok() {
+                    let _ = kill(p, Signal::SIGKILL);
+                }
+            }
+        }
+
         log::info!(
-            "Crash recovery: session {} was active at shutdown, marking interrupted",
+            "Crash recovery: session {} was active at shutdown, marking attention",
             session_id
         );
         let _ = conn.execute(
-            "UPDATE sessions SET status = 'interrupted', state_changed_at = ?1 WHERE id = ?2",
+            "UPDATE sessions SET status = 'attention', pid = NULL, state_changed_at = ?1 WHERE id = ?2",
             rusqlite::params![now, session_id],
         );
     }
@@ -204,8 +230,8 @@ pub fn run() {
         recover_sessions(&conn);
     }
 
-    // Mark any sessions that were still active when the app last exited as
-    // "interrupted" — their OS processes no longer exist.
+    // Mark any sessions that were still running when the app last exited as
+    // "attention" — their OS processes no longer exist.
     db::reap_orphaned_sessions(&conn);
 
     // Scan for orphaned worktrees
@@ -227,6 +253,15 @@ pub fn run() {
                     .build(),
             )?;
 
+            // Start the hook HTTP server for Claude Code integration
+            let hook_app = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                match commands::hooks::start_hook_server(hook_app).await {
+                    Ok(port) => log::info!("Hook server started on port {}", port),
+                    Err(e) => log::error!("Failed to start hook server: {}", e),
+                }
+            });
+
             // Start background WAL checkpoint task (every 5 minutes)
             let app_handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -244,19 +279,21 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // sessions
             spawn_session,
-            reply_to_session,
             save_session_image,
-            save_temp_image,
             write_to_session,
+            respond_to_session,
             resize_session,
             interrupt_session,
             kill_session,
+            archive_session,
             list_sessions,
             get_session,
             pause_session,
             resume_session,
             check_stuck_sessions,
             read_session_log,
+            read_session_events,
+            send_followup,
             // repos
             add_repo,
             list_repos,
@@ -265,7 +302,9 @@ pub fn run() {
             get_github_token,
             fetch_issues,
             fetch_prs,
+            git_commit,
             git_commit_and_push,
+            git_push,
             create_pr,
             fetch_pr_review_comments,
             fetch_check_runs,
@@ -285,17 +324,25 @@ pub fn run() {
             // filesystem
             list_dir,
             read_file,
+            scan_slash_commands,
+            save_temp_image,
             // git operations
             get_changed_files,
+            get_sync_status,
             git_stage_files,
             git_unstage_files,
             git_discard_files,
             get_file_diff,
             get_file_at_head,
             // ai & settings
+            generate_branch_name,
+            generate_recap,
             get_setting,
             set_setting,
-            generate_recap,
+            // hooks
+            respond_to_hook,
+            get_hook_server_port,
+            get_session_analytics,
             // system
             check_prerequisites,
         ])
@@ -303,7 +350,10 @@ pub fn run() {
         .expect("error while building tauri application")
         .run(|_app, event| {
             if let tauri::RunEvent::Exit = event {
-                // Clean shutdown: remove sentinel
+                // Clean shutdown: remove hooks and sentinel
+                if let Err(e) = commands::hooks::remove_claude_hooks() {
+                    log::error!("Failed to remove Claude hooks on exit: {}", e);
+                }
                 remove_sentinel();
             }
         });
@@ -333,21 +383,100 @@ mod tests {
         }
     }
 
-    #[test]
-    fn recover_sessions_handles_empty_db() {
+    /// Helper: create an in-memory DB with schema + migrations.
+    fn test_db() -> rusqlite::Connection {
         let conn = rusqlite::Connection::open_in_memory().expect("open");
         conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
         db::create_schema(&conn).expect("create schema");
+        db::run_migrations(&conn).expect("run migrations");
+        conn
+    }
+
+    #[test]
+    fn recover_sessions_handles_empty_db() {
+        let conn = test_db();
         // Should not panic on empty DB
         recover_sessions(&conn);
     }
 
     #[test]
     fn scan_orphaned_worktrees_handles_missing_dir() {
-        let conn = rusqlite::Connection::open_in_memory().expect("open");
-        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
-        db::create_schema(&conn).expect("create schema");
+        let conn = test_db();
         // Should not panic when worktrees directory doesn't exist
         scan_orphaned_worktrees(&conn);
+    }
+
+    #[test]
+    fn recover_sessions_marks_running_as_attention() {
+        let conn = test_db();
+
+        // Insert repo and session
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/a/b",
+                "/tmp/b",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert repo");
+
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params!["s1", "r1", "Active", "running", "2024-01-01", "2024-01-01"],
+        )
+        .expect("insert session");
+
+        conn.execute(
+            "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            rusqlite::params!["s2", "r1", "Done", "attention", "2024-01-01", "2024-01-01"],
+        )
+        .expect("insert session");
+
+        recover_sessions(&conn);
+
+        let s1_status: String = conn
+            .query_row("SELECT status FROM sessions WHERE id = 's1'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(s1_status, "attention");
+
+        let s2_status: String = conn
+            .query_row("SELECT status FROM sessions WHERE id = 's2'", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(s2_status, "attention");
+    }
+
+    #[test]
+    fn prerequisites_has_bool_fields() {
+        let p = Prerequisites {
+            claude: true,
+            git: false,
+            gh: true,
+        };
+        assert!(p.claude);
+        assert!(!p.git);
+        assert!(p.gh);
+    }
+
+    #[test]
+    fn prerequisites_serializes_to_camel_case() {
+        let p = Prerequisites {
+            claude: true,
+            git: true,
+            gh: false,
+        };
+        let json = serde_json::to_value(&p).unwrap();
+        assert_eq!(json["claude"], true);
+        assert_eq!(json["git"], true);
+        assert_eq!(json["gh"], false);
     }
 }

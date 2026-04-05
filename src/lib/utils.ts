@@ -1,5 +1,13 @@
 import type { DiffFile, DiffLine } from "./types";
 
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+
+/** Strip ANSI escape codes and common control characters from PTY output. */
+export function stripAnsi(text: string): string {
+  return text.replace(ANSI_RE, "");
+}
+
 export function timeAgo(timestamp: number): string {
   const now = Date.now();
   const diff = Math.floor((now - timestamp) / 1000);

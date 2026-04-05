@@ -1,22 +1,20 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { timeAgo } from "../lib/utils";
 import {
   killSession as tauriKillSession,
   resumeSession as tauriResumeSession,
-  retrySession,
   readSessionLog,
-  generateRecap,
+  generateRecap as tauriGenerateRecap,
   fetchIssues,
   fetchPRs,
-  replyToSession,
-  saveSessionImage,
 } from "../lib/tauri";
-import { formatError } from "../lib/errors";
 import { useSessionStore } from "../stores/sessionStore";
 import { useEditorStore } from "../stores/editorStore";
 import { useUIStore } from "../stores/uiStore";
-import { TerminalPanel } from "./TerminalPanel";
+import { ClaudeOutputPanel } from "./claude/ClaudeOutputPanel";
+import { AnalyticsPanel } from "./claude/AnalyticsPanel";
 import { CodeEditor } from "./CodeEditor";
+import { DiffViewer } from "./DiffViewer";
 import { EditorTabs } from "./EditorTabs";
 import { RightPanel } from "./RightPanel";
 import { ResizeHandle } from "./ResizeHandle";
@@ -25,11 +23,8 @@ import { GitHubDetailView } from "./GitHubDetailView";
 import { ShellPanel } from "./ShellPanel";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
 import { STATUS_PILL, STATUS_DOT, RUNNING_PULSE } from "../lib/statusColors";
-import { matchesKeybindingById } from "../lib/keybindings";
-import { useImageAttachments } from "../hooks/useImageAttachments";
-import { ImagePreview } from "./ImagePreview";
 
-type CenterTab = "terminal" | "editor" | "github";
+type CenterTab = "claude" | "editor" | "github" | "log" | "recap" | "analytics";
 
 interface SessionDetailProps {
   sessionId: string;
@@ -39,8 +34,6 @@ interface SessionDetailProps {
 export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const session = useSessionStore((s) => s.sessions.find((x) => x.id === sessionId));
   const updateSession = useSessionStore((s) => s.updateSession);
-  const outputBuffer = useSessionStore((s) => s.outputBuffers[sessionId] ?? []);
-
   const activeTabId = useEditorStore((s) => s.activeTabId);
   const contents = useEditorStore((s) => s.contents);
   const tabs = useEditorStore((s) => s.tabs);
@@ -50,7 +43,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const setPanelSize = useUIStore((s) => s.setPanelSize);
 
   const [showKillConfirm, setShowKillConfirm] = useState(false);
-  const [centerTab, setCenterTab] = useState<CenterTab>("terminal");
+  const [centerTab, setCenterTab] = useState<CenterTab>("claude");
 
   // GitHub data for the detail tab
   const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
@@ -59,27 +52,11 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   // Recap state
   const [recap, setRecap] = useState<string | null>(null);
   const [recapLoading, setRecapLoading] = useState(false);
-  const [showRecap, setShowRecap] = useState(false);
+  const [recapError, setRecapError] = useState<string | null>(null);
 
   // Full log state
   const [fullLog, setFullLog] = useState<string | null>(null);
-  const [showFullLog, setShowFullLog] = useState(false);
   const [logLoading, setLogLoading] = useState(false);
-
-  // Reply state for waiting sessions
-  const [replyText, setReplyText] = useState("");
-  const [replying, setReplying] = useState(false);
-  const [replyError, setReplyError] = useState<string | null>(null);
-
-  // Image attachment state
-  const {
-    images: attachedImages,
-    removeImage,
-    clearImages,
-    handlePaste: onImagePaste,
-    handleDrop: onImageDrop,
-    handleDragOver: onImageDragOver,
-  } = useImageAttachments();
 
   const hasGitHubLink = !!(session?.linkedIssue ?? session?.linkedPR);
 
@@ -111,16 +88,18 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   }, [session?.repoId, session?.linkedIssue, session?.linkedPR]);
 
   // When a file tab is clicked, switch to editor mode
-  const [prevTabId, setPrevTabId] = useState(activeTabId);
-  if (activeTabId !== prevTabId) {
-    setPrevTabId(activeTabId);
-    if (activeTabId) {
-      setCenterTab("editor");
+  const prevTabIdRef = useRef(activeTabId);
+  useEffect(() => {
+    if (activeTabId !== prevTabIdRef.current) {
+      prevTabIdRef.current = activeTabId;
+      if (activeTabId) {
+        setCenterTab("editor");
+      }
+      if (!activeTabId && tabs.length === 0 && centerTab === "editor") {
+        setCenterTab("claude");
+      }
     }
-    if (!activeTabId && tabs.length === 0 && centerTab === "editor") {
-      setCenterTab("terminal");
-    }
-  }
+  }, [activeTabId, tabs.length, centerTab, setCenterTab]);
 
   const handleRightResize = useCallback(
     (delta: number) => {
@@ -139,7 +118,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   if (!session) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-gray-500">Session not found.</p>
+        <p className="text-on-surface-muted">Session not found.</p>
       </div>
     );
   }
@@ -148,16 +127,10 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     if (!session) return;
     try {
       await tauriKillSession(session.id);
-      updateSession(session.id, { status: "killed", stateChangedAt: Date.now() });
       onBack();
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to kill session:", err);
     }
-  }
-
-  function handleCommitted() {
-    if (!session) return;
-    updateSession(session.id, { status: "done", stateChangedAt: Date.now() });
   }
 
   async function handleResume() {
@@ -170,43 +143,24 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
-  async function handleRetry() {
+  function handleToggleRecap() {
     if (!session) return;
-    try {
-      await retrySession(session.id);
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to retry session:", err);
-    }
-  }
-
-  async function handleGenerateRecap() {
-    if (!session || recap) {
-      setShowRecap(!showRecap);
-      return;
-    }
-    setRecapLoading(true);
-    try {
-      const result = await generateRecap(session.id);
-      setRecap(result);
-      setShowRecap(true);
-    } catch (err: unknown) {
-      console.error("[SessionDetail] Failed to generate recap:", err);
-    } finally {
-      setRecapLoading(false);
+    if (recap) {
+      setCenterTab(centerTab === "recap" ? "claude" : "recap");
     }
   }
 
   async function handleViewLog() {
     if (!session) return;
     if (fullLog) {
-      setShowFullLog(!showFullLog);
+      setCenterTab(centerTab === "log" ? "claude" : "log");
       return;
     }
     setLogLoading(true);
     try {
       const log = await readSessionLog(session.id);
       setFullLog(log);
-      setShowFullLog(true);
+      setCenterTab("log");
     } catch (err: unknown) {
       console.error("[SessionDetail] Failed to read log:", err);
     } finally {
@@ -214,55 +168,23 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
-  async function handleReply() {
-    if (!session || (!replyText.trim() && attachedImages.length === 0)) return;
-    setReplying(true);
-    setReplyError(null);
-    try {
-      // Save attached images and collect their paths
-      const imagePaths: string[] = [];
-      for (const img of attachedImages) {
-        const path = await saveSessionImage(session.id, img.name, img.base64);
-        imagePaths.push(path);
-      }
-
-      // Build the message with image references
-      let message = replyText.trim();
-      if (imagePaths.length > 0) {
-        const imageRefs = imagePaths.map((p) => `[Attached image: ${p}]`).join("\n");
-        message = message ? `${imageRefs}\n\n${message}` : imageRefs;
-      }
-
-      await replyToSession(session.id, message);
-      setReplyText("");
-      clearImages();
-    } catch (err: unknown) {
-      setReplyError(formatError(err));
-    } finally {
-      setReplying(false);
-    }
-  }
-
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const activeContent = activeTabId ? contents[activeTabId] : null;
   const showEditor = centerTab === "editor" && activeTab != null && activeContent != null;
 
-  // Last few lines of output for waiting sessions
-  const lastOutputLines = outputBuffer.slice(-10);
-
   return (
     <div className="flex h-full flex-col overflow-hidden">
       {/* Session header bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-white px-4 py-2 dark:border-gray-800 dark:bg-gray-950">
+      <div className="flex shrink-0 items-center justify-between border-b border-outline bg-surface px-4 py-2">
         <div className="flex items-center gap-3">
           <button
             onClick={onBack}
-            className="cursor-pointer text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-300"
+            className="cursor-pointer text-xs text-on-surface-muted hover:text-on-surface focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             &larr; Board
           </button>
-          <span className="text-gray-300 dark:text-gray-700">|</span>
-          <h1 className="text-sm font-semibold text-gray-900 dark:text-gray-100">{session.name}</h1>
+          <span className="text-on-surface-faint">|</span>
+          <h1 className="text-sm font-semibold text-on-surface">{session.name}</h1>
           <span
             className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
           >
@@ -272,71 +194,43 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             {session.status}
           </span>
           {session.branch && (
-            <span className="font-mono text-xs text-gray-500 dark:text-gray-400">
+            <span className="font-mono text-xs text-on-surface-muted">
               {session.branch}
             </span>
           )}
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="text-xs text-on-surface-faint">
             {timeAgo(session.stateChangedAt)}
           </span>
         </div>
         <div className="flex items-center gap-2">
-          {session.status === "interrupted" && (
+          {session.status === "attention" && (
             <button
               onClick={() => {
                 void handleResume();
               }}
-              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              className="cursor-pointer rounded bg-brand px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
               Resume
             </button>
           )}
-          {(session.status === "failed" || session.status === "stuck") && (
+          {session.status === "attention" && recap && (
             <button
               onClick={() => {
-                void handleRetry();
+                handleToggleRecap();
               }}
-              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              className="cursor-pointer rounded border border-outline px-2 py-1 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
-              Retry
-            </button>
-          )}
-          {(session.status === "failed" || session.status === "stuck") && (
-            <button
-              onClick={() => {
-                void handleViewLog();
-              }}
-              disabled={logLoading}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
-            >
-              {logLoading ? "Loading..." : "View Full Log"}
-            </button>
-          )}
-          {session.status === "waiting" && (
-            <button
-              onClick={() => {
-                void handleGenerateRecap();
-              }}
-              disabled={recapLoading}
-              className="cursor-pointer rounded border border-gray-300 px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 dark:active:bg-gray-700"
-            >
-              {recapLoading
-                ? "Generating..."
-                : recap
-                  ? showRecap
-                    ? "Hide Recap"
-                    : "Show Recap"
-                  : "Generate Recap"}
+              {centerTab === "recap" ? "Hide Recap" : "Show Recap"}
             </button>
           )}
           {showKillConfirm ? (
             <>
-              <span className="text-xs text-red-600 dark:text-red-400">
+              <span className="text-xs text-danger">
                 Kill &quot;{session.name}&quot;?
               </span>
               <button
                 onClick={() => setShowKillConfirm(false)}
-                className="cursor-pointer rounded px-2 py-1 text-xs text-gray-500 hover:bg-gray-100 active:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:bg-gray-800 dark:active:bg-gray-700"
+                className="cursor-pointer rounded px-2 py-1 text-xs text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               >
                 Cancel
               </button>
@@ -345,7 +239,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   setShowKillConfirm(false);
                   void handleKill();
                 }}
-                className="cursor-pointer rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
+                className="cursor-pointer rounded bg-danger px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
               >
                 Confirm Kill
               </button>
@@ -353,7 +247,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           ) : (
             <button
               onClick={() => setShowKillConfirm(true)}
-              className="cursor-pointer rounded border border-red-300 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 active:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/30 dark:active:bg-red-950/50"
+              className="cursor-pointer rounded border border-danger/30 px-2 py-1 text-xs font-medium text-danger hover:bg-danger-muted active:bg-danger-muted focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
             >
               Kill
             </button>
@@ -361,132 +255,14 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
         </div>
       </div>
 
-      {/* Stuck warning */}
-      {session.status === "stuck" && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-orange-200 bg-orange-50 px-4 py-2 dark:border-orange-800/60 dark:bg-orange-950/30">
-          <span className="text-xs font-medium text-orange-700 dark:text-orange-400">
-            Session stuck -- no output for 20+ minutes
-          </span>
-        </div>
-      )}
-
-      {/* Interrupted warning */}
-      {session.status === "interrupted" && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 dark:border-amber-800/60 dark:bg-amber-950/30">
-          <span className="text-xs font-medium text-amber-700 dark:text-amber-400">
-            Session interrupted -- the app was restarted while this session was active. Click Resume
-            to continue.
-          </span>
-        </div>
-      )}
-
-      {/* Recap panel */}
-      {showRecap && recap && (
-        <div className="shrink-0 border-b border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-800/60 dark:bg-blue-950/20">
-          <h3 className="mb-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
-            Session Recap
-          </h3>
-          <p className="whitespace-pre-wrap text-xs leading-relaxed text-gray-700 dark:text-gray-300">
-            {recap}
-          </p>
-        </div>
-      )}
-
-      {/* Full log panel */}
-      {showFullLog && fullLog && (
-        <div className="max-h-60 shrink-0 overflow-y-auto border-b border-gray-200 bg-gray-900 px-4 py-3 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <h3 className="mb-1 text-xs font-semibold text-gray-400">Full Log</h3>
-            <button
-              onClick={() => setShowFullLog(false)}
-              className="cursor-pointer text-xs text-gray-500 hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            >
-              Close
-            </button>
-          </div>
-          <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-gray-300">
-            {fullLog}
-          </pre>
-        </div>
-      )}
-
-      {/* Waiting session reply panel */}
-      {session.status === "waiting" && (
-        <div className="shrink-0 border-b border-red-200 bg-red-50/50 px-4 py-3 dark:border-red-800/40 dark:bg-red-950/10">
-          {/* Recent output context */}
-          {lastOutputLines.length > 0 && (
-            <div className="mb-2 max-h-32 overflow-y-auto rounded bg-gray-900 px-3 py-2">
-              <pre className="font-mono text-xs leading-5 text-gray-300">
-                {lastOutputLines.join("")}
-              </pre>
-            </div>
-          )}
-          <div
-            onDrop={(e) => {
-              void onImageDrop(e);
-            }}
-            onDragOver={onImageDragOver}
-          >
-            <ImagePreview images={attachedImages} onRemove={removeImage} />
-            <div className="flex gap-2">
-              <textarea
-                value={replyText}
-                onChange={(e) => setReplyText(e.target.value)}
-                onPaste={(e) => {
-                  void onImagePaste(e);
-                }}
-                onKeyDown={(e) => {
-                  if (matchesKeybindingById(e.nativeEvent, "send-reply")) {
-                    e.preventDefault();
-                    void handleReply();
-                    return;
-                  }
-                  // Alt+Enter or Ctrl+J → insert newline
-                  if (
-                    matchesKeybindingById(e.nativeEvent, "newline-alt") ||
-                    matchesKeybindingById(e.nativeEvent, "newline-ctrl-j")
-                  ) {
-                    e.preventDefault();
-                    const textarea = e.currentTarget;
-                    const { selectionStart, selectionEnd } = textarea;
-                    const val = textarea.value;
-                    const newVal = val.slice(0, selectionStart) + "\n" + val.slice(selectionEnd);
-                    setReplyText(newVal);
-                    // Move cursor after the inserted newline on next tick
-                    requestAnimationFrame(() => {
-                      textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
-                    });
-                  }
-                }}
-                placeholder="Reply to session... (Cmd+Enter to send, paste images with Cmd+V)"
-                rows={2}
-                className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-              />
-              <button
-                onClick={() => {
-                  void handleReply();
-                }}
-                disabled={replying || (!replyText.trim() && attachedImages.length === 0)}
-                className="cursor-pointer self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {replying ? "..." : "Send"}
-              </button>
-            </div>
-          </div>
-          {replyError && (
-            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{replyError}</p>
-          )}
-        </div>
-      )}
-
       {/* Main IDE area */}
       <div className="flex flex-1 overflow-hidden">
         {/* Center panel */}
         <div className="flex flex-1 flex-col overflow-hidden">
           {/* Unified tab bar */}
           <EditorTabs
-            terminalActive={centerTab === "terminal"}
-            onSelectTerminal={() => setCenterTab("terminal")}
+            claudeActive={centerTab === "claude"}
+            onSelectClaude={() => setCenterTab("claude")}
             sessionStatus={session.status}
             hasGitHubTab={hasGitHubLink}
             githubActive={centerTab === "github"}
@@ -498,27 +274,39 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
                   ? `PR #${session.linkedPR.number}`
                   : undefined
             }
+            hasLogTab={session.status === "attention"}
+            logActive={centerTab === "log"}
+            logLoading={logLoading}
+            onSelectLog={() => {
+              void handleViewLog();
+            }}
+            hasRecapTab={recap !== null}
+            recapActive={centerTab === "recap"}
+            onSelectRecap={() => setCenterTab("recap")}
+            analyticsActive={centerTab === "analytics"}
+            onSelectAnalytics={() => setCenterTab("analytics")}
           />
 
           {/* Content area — all panels use absolute positioning + visibility toggle
               to avoid layout overlap and keep xterm dimensions valid */}
           <div className="relative flex-1 overflow-hidden">
-            {/* Terminal — always mounted, visibility toggled */}
+            {/* Claude output — structured view, primary tab */}
             <div
               className={
-                centerTab === "terminal"
-                  ? "absolute inset-0 z-10"
-                  : "invisible absolute inset-0 z-0"
+                centerTab === "claude" ? "absolute inset-0 z-10" : "invisible absolute inset-0 z-0"
               }
             >
-              <TerminalPanel
+              <ClaudeOutputPanel
                 sessionId={session.id}
                 sessionStatus={session.status}
-                visible={centerTab === "terminal"}
+                blockType={session.blockType}
+                lastMessage={session.lastMessage}
+                visible={centerTab === "claude"}
+                prompt={session.prompt}
               />
             </div>
 
-            {/* GitHub detail view — absolute positioned like terminal */}
+            {/* GitHub detail view */}
             <div
               className={
                 centerTab === "github"
@@ -529,18 +317,22 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               {hasGitHubLink && <GitHubDetailView issue={ghIssue} pr={ghPR} />}
             </div>
 
-            {/* Code editor — absolute positioned like terminal */}
+            {/* Code editor / diff viewer — absolute positioned like terminal */}
             <div
               className={showEditor ? "absolute inset-0 z-10" : "invisible absolute inset-0 z-0"}
             >
               {activeTab != null && activeContent != null && (
                 <div className="h-full">
-                  <CodeEditor
-                    content={activeContent}
-                    language={activeTab.language}
-                    readOnly
-                    darkMode
-                  />
+                  {activeTab.isDiff ? (
+                    <DiffViewer diff={activeContent} filePath={activeTab.filePath} />
+                  ) : (
+                    <CodeEditor
+                      content={activeContent}
+                      language={activeTab.language}
+                      readOnly
+                      darkMode
+                    />
+                  )}
                 </div>
               )}
             </div>
@@ -548,7 +340,84 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             {/* No file selected fallback */}
             {centerTab === "editor" && !showEditor && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#0d1117]">
-                <p className="text-sm text-gray-500">No file open</p>
+                <p className="text-sm text-on-surface-muted">No file open</p>
+              </div>
+            )}
+
+            {/* Full log panel */}
+            {centerTab === "log" && fullLog && (
+              <div className="absolute inset-0 z-10 overflow-y-auto bg-surface-sunken px-4 py-3">
+                <pre className="whitespace-pre-wrap font-mono text-xs leading-5 text-on-surface">
+                  {fullLog}
+                </pre>
+              </div>
+            )}
+
+            {/* Recap panel */}
+            {centerTab === "recap" && (
+              <div className="absolute inset-0 z-10 overflow-y-auto bg-surface px-6 py-4">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-on-surface-faint">
+                  Session Recap
+                </h3>
+                {recapLoading && (
+                  <p className="text-sm text-on-surface-muted">
+                    Generating recap…
+                  </p>
+                )}
+                {recapError && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-danger">
+                      {recapError}
+                    </p>
+                    <button
+                      className="rounded bg-hover px-3 py-1 text-xs text-on-surface hover:bg-active"
+                      onClick={() => {
+                        setRecapError(null);
+                        setRecapLoading(true);
+                        void tauriGenerateRecap(session.id)
+                          .then(setRecap)
+                          .catch((e: unknown) =>
+                            setRecapError(
+                              e instanceof Error ? e.message : "Failed to generate recap",
+                            ),
+                          )
+                          .finally(() => setRecapLoading(false));
+                      }}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {recap && (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-on-surface">
+                    {recap}
+                  </p>
+                )}
+                {!recap && !recapLoading && !recapError && (
+                  <button
+                    className="rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+                    onClick={() => {
+                      setRecapLoading(true);
+                      void tauriGenerateRecap(session.id)
+                        .then(setRecap)
+                        .catch((e: unknown) =>
+                          setRecapError(
+                            e instanceof Error ? e.message : "Failed to generate recap",
+                          ),
+                        )
+                        .finally(() => setRecapLoading(false));
+                    }}
+                  >
+                    Generate Recap
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Analytics panel */}
+            {centerTab === "analytics" && (
+              <div className="absolute inset-0 z-10 overflow-hidden bg-surface">
+                <AnalyticsPanel sessionId={session.id} sessionStatus={session.status} />
               </div>
             )}
           </div>
@@ -564,13 +433,13 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             >
               {/* Files / Changes */}
               <div className="flex-1 overflow-hidden">
-                <RightPanel session={session} onCommitted={handleCommitted} />
+                <RightPanel session={session} />
               </div>
               {/* Shell terminal */}
               <ResizeHandle direction="vertical" onResize={handleOutputResize} />
               <div
                 style={{ height: `${rightOutputHeight}px` }}
-                className="shrink-0 overflow-hidden border-t border-gray-200 dark:border-gray-800"
+                className="shrink-0 overflow-hidden border-t border-outline"
               >
                 <ShellPanel cwd={session.worktreePath ?? ""} shellKey={session.id} />
               </div>
@@ -581,7 +450,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
 
       {/* PR Review Comments */}
       {session.linkedPR && (
-        <div className="shrink-0 border-t border-gray-200 dark:border-gray-800">
+        <div className="min-h-0 shrink border-t border-outline">
           <ReviewComments repoId={session.repoId} prNumber={session.linkedPR.number} />
         </div>
       )}

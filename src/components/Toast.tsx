@@ -46,7 +46,7 @@ function ToastCard({
     requestAnimationFrame(() => setVisible(true));
 
     // Auto-dismiss
-    const duration = toast.duration ?? 8000;
+    const duration = toast.duration ?? 4000;
     if (duration > 0) {
       const timer = setTimeout(() => {
         setVisible(false);
@@ -65,7 +65,7 @@ function ToastCard({
 
   return (
     <div
-      className={`flex max-w-sm items-center gap-3 rounded-lg ${bgColor} px-4 py-3 text-white shadow-lg transition-all duration-200 ${
+      className={`flex max-w-sm items-center gap-3 rounded-sm ${bgColor} px-4 py-3 text-white shadow-lg transition-all duration-200 ${
         visible ? "translate-x-0 opacity-100" : "translate-x-4 opacity-0"
       }`}
     >

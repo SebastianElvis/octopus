@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { DispatchBoard } from "./components/DispatchBoard";
 import { SessionDetail } from "./components/SessionDetail";
 import { NewSessionModal } from "./components/NewSessionModal";
-import { RepoSettings } from "./components/RepoSettings";
+import { AddRepoDialog } from "./components/AddRepoDialog";
 import { IssueBacklog } from "./components/IssueBacklog";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ThemeToggle } from "./components/ThemeToggle";
@@ -13,12 +13,16 @@ import { ToastContainer, type ToastItem } from "./components/Toast";
 import { OnboardingDialog, useOnboarding } from "./components/OnboardingDialog";
 import { SettingsModal } from "./components/SettingsModal";
 import { KeyboardShortcutsOverlay } from "./components/KeyboardShortcutsOverlay";
+import { BrandMark } from "./components/BrandMark";
 import { useSessionStore } from "./stores/sessionStore";
 import { useRepoStore } from "./stores/repoStore";
 import { useUIStore } from "./stores/uiStore";
+import { useHookStore } from "./stores/hookStore";
 import {
   onSessionStateChanged,
-  onSessionOutput,
+  onSessionStructuredOutput,
+  onHookEvent,
+  onHookPermissionRequest,
   fetchIssues,
   fetchPRs,
   interruptSession,
@@ -29,35 +33,44 @@ import { playNotificationSound } from "./lib/sound";
 import { matchesKeybindingById } from "./lib/keybindings";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
-import type { Repo, GitHubIssue, GitHubPR } from "./lib/types";
-
-type View = "home" | "session" | "repos" | "tasks";
+import type { Repo, GitHubIssue, GitHubPR, ClaudeStreamEvent } from "./lib/types";
+type View = "home" | "session" | "tasks";
 
 function App() {
   const [view, setView] = useState<View>("home");
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [lastViewedSessionId, setLastViewedSessionId] = useState<string | null>(null);
   const [showNewSession, setShowNewSession] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showAddRepo, setShowAddRepo] = useState(false);
   const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
   const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
   const [prefillPR, setPrefillPR] = useState<GitHubPR | null>(null);
-  const [openIssueCount, setOpenIssueCount] = useState(0);
+  const [issueCountsByRepo, setIssueCountsByRepo] = useState<Record<string, number>>({});
+  const [tasksRepoId, setTasksRepoId] = useState<string | null>(null);
 
   const { showOnboarding, dismissOnboarding } = useOnboarding();
 
   const loadSessions = useSessionStore((s) => s.loadSessions);
   const updateSession = useSessionStore((s) => s.updateSession);
-  const appendOutput = useSessionStore((s) => s.appendOutput);
+  const appendStructuredEvents = useSessionStore((s) => s.appendStructuredEvents);
   const loadRepos = useRepoStore((s) => s.loadRepos);
   const repos = useRepoStore((s) => s.repos);
+  const removeRepo = useRepoStore((s) => s.removeRepo);
   const sessions = useSessionStore((s) => s.sessions);
 
   const sidebarWidth = useUIStore((s) => s.panelSizes.sidebarWidth);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setPanelSize = useUIStore((s) => s.setPanelSize);
+  const setActiveSessionIdInStore = useUIStore((s) => s.setActiveSessionId);
+
+  // Sync local activeSessionId to UI store (for PermissionDialog filtering)
+  useEffect(() => {
+    setActiveSessionIdInStore(activeSessionId);
+  }, [activeSessionId, setActiveSessionIdInStore]);
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const prevStatusRef = useRef<Record<string, string>>({});
@@ -110,7 +123,8 @@ function App() {
       }
       if (matchesKeybindingById(e, "jump-waiting")) {
         e.preventDefault();
-        const waitingSessions = sessions.filter((s) => s.status === "waiting");
+        // Jump to next waiting session
+        const waitingSessions = sessions.filter((s) => s.status === "attention");
         if (waitingSessions.length > 0) {
           const sorted = [...waitingSessions].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
           setActiveSessionId(sorted[0].id);
@@ -127,11 +141,6 @@ function App() {
       if (matchesKeybindingById(e, "go-tasks")) {
         e.preventDefault();
         setView("tasks");
-        return;
-      }
-      if (matchesKeybindingById(e, "go-repos")) {
-        e.preventDefault();
-        setView("repos");
         return;
       }
       if (matchesKeybindingById(e, "toggle-sidebar")) {
@@ -192,22 +201,28 @@ function App() {
     void loadRepos();
   }, [loadSessions, loadRepos]);
 
-  // Fetch total open issue count for badge
+  // Fetch open issue+PR counts per repo for sidebar badges
   useEffect(() => {
     if (repos.length === 0) return;
     let cancelled = false;
     void Promise.all(
-      repos.flatMap((repo) => [
-        fetchIssues(repo.id)
-          .then((issues) => issues.filter((i) => i.state === "open").length)
-          .catch(() => 0),
-        fetchPRs(repo.id)
-          .then((prs) => prs.filter((p) => p.state === "open").length)
-          .catch(() => 0),
-      ]),
-    ).then((counts) => {
+      repos.map(async (repo) => {
+        const [issues, prs] = await Promise.all([
+          fetchIssues(repo.id).catch(() => [] as { state: string }[]),
+          fetchPRs(repo.id).catch(() => [] as { state: string }[]),
+        ]);
+        const count =
+          issues.filter((i) => i.state === "open").length +
+          prs.filter((p) => p.state === "open").length;
+        return { repoId: repo.id, count };
+      }),
+    ).then((results) => {
       if (!cancelled) {
-        setOpenIssueCount(counts.reduce((a, b) => a + b, 0));
+        const counts: Record<string, number> = {};
+        for (const { repoId, count } of results) {
+          counts[repoId] = count;
+        }
+        setIssueCountsByRepo(counts);
       }
     });
     return () => {
@@ -226,73 +241,90 @@ function App() {
 
         // Notify on important status transitions
         const shouldNotify =
-          (session.status === "waiting" && prevStatus !== "waiting") ||
-          (session.status === "stuck" && prevStatus !== "stuck") ||
-          (session.status === "completed" && prevStatus !== "completed") ||
-          (session.status === "failed" && prevStatus !== "failed");
+          session.status === "attention" && prevStatus !== "attention";
 
         if (shouldNotify) {
-          const messages: Record<
-            string,
-            { toast: string; system: string; type: ToastItem["type"] }
-          > = {
-            waiting: {
-              toast: `"${session.name}" needs your input`,
-              system: `Session "${session.name}" is waiting for your response.`,
-              type: "warning",
-            },
-            stuck: {
-              toast: `"${session.name}" appears stuck`,
-              system: `Session "${session.name}" has been inactive for 20+ minutes.`,
-              type: "warning",
-            },
-            completed: {
-              toast: `"${session.name}" completed`,
-              system: `Session "${session.name}" finished successfully.`,
-              type: "success",
-            },
-            failed: {
-              toast: `"${session.name}" failed`,
-              system: `Session "${session.name}" exited with an error.`,
-              type: "warning",
-            },
+          const msg = {
+            toast: `"${session.name}" needs your attention`,
+            system: `Session "${session.name}" needs your attention.`,
+            type: "warning" as ToastItem["type"],
           };
 
-          // session.status is guaranteed to be one of the keys above due to shouldNotify check
-          const msg = messages[session.status] as {
-            toast: string;
-            system: string;
-            type: ToastItem["type"];
-          };
-          // In-app toast
-          setToasts((prev) => [
-            ...prev,
-            {
-              id: `${session.id}-${session.status}-${Date.now()}`,
-              message: msg.toast,
-              type: msg.type,
-              sessionId: session.id,
-            },
-          ]);
+          // In-app toast (deduplicate: skip if same session+status toast already showing)
+          setToasts((prev) => {
+            const prefix = `${session.id}-${session.status}-`;
+            if (prev.some((t) => t.id.startsWith(prefix))) return prev;
+            return [
+              ...prev,
+              {
+                id: `${prefix}${Date.now()}`,
+                message: msg.toast,
+                type: msg.type,
+                sessionId: session.id,
+              },
+            ];
+          });
 
           // System notification
           void sendSystemNotification("TooManyTabs", msg.system);
 
           // Sound notification
           if (soundEnabled) {
-            void playNotificationSound(session.status === "completed" ? "success" : "alert");
+            void playNotificationSound("alert");
           }
         }
       }),
     [updateSession, soundEnabled],
   );
 
+  // Batch structured events to avoid overwhelming React with rapid updates.
+  // Events are buffered in a ref and flushed once per animation frame.
+  const pendingEventsRef = useRef<{ sessionId: string; event: ClaudeStreamEvent }[]>([]);
+  const rafIdRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current != null) cancelAnimationFrame(rafIdRef.current);
+    };
+  }, []);
+
   useTauriEvent(
     () =>
-      onSessionOutput((payload) => {
-        appendOutput(payload.sessionId, payload.data);
+      onSessionStructuredOutput((payload) => {
+        pendingEventsRef.current.push({
+          sessionId: payload.sessionId,
+          event: payload.event,
+        });
+        rafIdRef.current ??= requestAnimationFrame(() => {
+          rafIdRef.current = null;
+          const batch = pendingEventsRef.current;
+          pendingEventsRef.current = [];
+          if (batch.length > 0) {
+            appendStructuredEvents(batch);
+          }
+        });
       }),
-    [appendOutput],
+    [appendStructuredEvents],
+  );
+
+  // Subscribe to hook events from the Claude Code hooks server
+  const addHookEvent = useHookStore((s) => s.addHookEvent);
+  const addPermissionRequest = useHookStore((s) => s.addPermissionRequest);
+
+  useTauriEvent(
+    () =>
+      onHookEvent((payload) => {
+        addHookEvent(payload);
+      }),
+    [addHookEvent],
+  );
+
+  useTauriEvent(
+    () =>
+      onHookPermissionRequest((payload) => {
+        addPermissionRequest(payload);
+      }),
+    [addPermissionRequest],
   );
 
   const handleSidebarResize = useCallback(
@@ -304,6 +336,7 @@ function App() {
 
   function handleViewSession(id: string) {
     setActiveSessionId(id);
+    setLastViewedSessionId(id);
     setView("session");
   }
 
@@ -349,32 +382,35 @@ function App() {
     dismissToast(toast.id);
   }
 
-  const waitingCount = sessions.filter((s) => s.status === "waiting").length;
+  const waitingCount = sessions.filter((s) => s.status === "attention").length;
   const isSessionView = view === "session" && activeSessionId;
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white text-gray-900 dark:bg-gray-950 dark:text-gray-100">
+    <div className="flex h-screen overflow-hidden bg-surface text-on-surface">
       {/* Sidebar */}
       {!sidebarCollapsed && (
         <>
           <aside
             style={{ width: `${sidebarWidth}px` }}
-            className="flex shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-950"
+            className="flex shrink-0 flex-col overflow-hidden border-r border-outline bg-surface"
           >
             {/* Brand */}
             <div className="flex shrink-0 items-center justify-between px-4 py-3">
-              <div>
-                <h1 className="text-sm font-semibold tracking-tight text-gray-900 dark:text-gray-100">
-                  TooManyTabs
-                </h1>
-                <p className="text-xs text-gray-500 dark:text-gray-500">dispatch board</p>
+              <div className="flex items-center gap-2.5">
+                <BrandMark size={22} />
+                <div>
+                  <h1 className="text-base font-bold tracking-tight text-on-surface">
+                    TooManyTabs
+                  </h1>
+                  <p className="text-[11px] text-on-surface-faint">dispatch board</p>
+                </div>
               </div>
               <div className="flex items-center gap-1">
                 {/* Settings gear */}
                 <button
                   onClick={() => setShowSettings(true)}
                   title="Settings"
-                  className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+                  className="rounded-sm p-1.5 text-on-surface-muted hover:bg-hover"
                 >
                   <svg
                     className="h-4 w-4"
@@ -401,7 +437,7 @@ function App() {
                 <button
                   onClick={toggleSidebar}
                   title="Collapse sidebar"
-                  className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+                  className="rounded-sm p-1.5 text-on-surface-muted hover:bg-hover"
                 >
                   <svg
                     className="h-4 w-4"
@@ -431,13 +467,6 @@ function App() {
                   setActiveSessionId(null);
                 }}
               />
-              <NavItem
-                label="Tasks"
-                active={view === "tasks"}
-                badge={openIssueCount > 0 ? openIssueCount : undefined}
-                onClick={() => setView("tasks")}
-              />
-              <NavItem label="Repos" active={view === "repos"} onClick={() => setView("repos")} />
             </nav>
 
             {/* Session tree */}
@@ -447,7 +476,21 @@ function App() {
                 sessions={sessions}
                 activeSessionId={activeSessionId}
                 onSelectSession={handleViewSession}
-                onNewSession={() => setShowNewSession(true)}
+                onNewSession={(repo?: Repo) => {
+                  if (repo) setPrefillRepo(repo);
+                  setShowNewSession(true);
+                }}
+                onViewRepoTasks={(repoId: string) => {
+                  setTasksRepoId(repoId);
+                  setView("tasks");
+                }}
+                onAddRepo={() => setShowAddRepo(true)}
+                onRemoveRepo={(repoId: string) => {
+                  void removeRepo(repoId);
+                }}
+                issueCountsByRepo={issueCountsByRepo}
+                activeView={view}
+                tasksRepoId={tasksRepoId}
               />
             </div>
           </aside>
@@ -455,13 +498,13 @@ function App() {
         </>
       )}
 
-      {/* Sidebar collapsed: show expand button */}
+      {/* Sidebar collapsed: show expand button + attention indicator */}
       {sidebarCollapsed && (
-        <div className="flex shrink-0 flex-col items-center border-r border-gray-200 bg-white py-3 dark:border-gray-800 dark:bg-gray-950">
+        <div className="flex shrink-0 flex-col items-center gap-2 border-r border-outline bg-surface py-3">
           <button
             onClick={toggleSidebar}
             title="Expand sidebar"
-            className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+            className="rounded-sm p-1.5 text-on-surface-muted hover:bg-hover"
           >
             <svg
               className="h-4 w-4"
@@ -473,6 +516,12 @@ function App() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
             </svg>
           </button>
+          {waitingCount > 0 && (
+            <span
+              className="h-2 w-2 animate-pulse rounded-full bg-amber-500"
+              title={`${waitingCount} session${waitingCount > 1 ? "s" : ""} need input`}
+            />
+          )}
         </div>
       )}
 
@@ -480,15 +529,16 @@ function App() {
       <main className="relative flex-1 overflow-hidden">
         <ErrorBoundary>
           {view === "home" && (
-            <div className="flex h-full flex-col">
+            <div className="absolute inset-0 flex flex-col overflow-hidden">
               <DispatchBoard
                 onViewSession={handleViewSession}
                 onNewSession={() => setShowNewSession(true)}
+                activeSessionId={lastViewedSessionId}
               />
             </div>
           )}
-          {/* SessionDetail: kept mounted with visibility:hidden to preserve xterm state.
-              xterm's IntersectionObserver auto-pauses rendering when not visible. */}
+          {/* SessionDetail: kept mounted with visibility:hidden to preserve state.
+              The raw terminal tab still uses xterm which auto-pauses when not visible. */}
           {activeSessionId && (
             <div
               className={
@@ -500,18 +550,13 @@ function App() {
               <SessionDetail sessionId={activeSessionId} onBack={handleBack} />
             </div>
           )}
-          {view === "repos" && (
-            <div className="h-full overflow-y-auto p-6">
-              <RepoSettings />
-            </div>
-          )}
           {view === "tasks" && (
-            <div className="h-full overflow-y-auto p-6">
+            <div className="absolute inset-0 overflow-y-auto p-6">
               <IssueBacklog
-                repos={repos}
+                repos={tasksRepoId ? repos.filter((r) => r.id === tasksRepoId) : repos}
                 onSelectIssue={handleSelectIssue}
                 onSelectPR={handleSelectPR}
-                onNavigateSettings={() => setView("repos")}
+                onNavigateSettings={() => setShowAddRepo(true)}
               />
             </div>
           )}
@@ -523,7 +568,7 @@ function App() {
         <OnboardingDialog
           onClose={dismissOnboarding}
           onOpenRepoSettings={() => {
-            setView("repos");
+            setShowAddRepo(true);
             dismissOnboarding();
           }}
           onOpenNewSession={() => {
@@ -544,6 +589,9 @@ function App() {
           prefillPR={prefillPR ?? undefined}
         />
       )}
+
+      {/* Add repo dialog */}
+      <AddRepoDialog open={showAddRepo} onClose={() => setShowAddRepo(false)} />
 
       {/* Command palette */}
       <CommandPalette
@@ -581,16 +629,17 @@ function NavItem({
 }) {
   return (
     <button
+      data-testid={`nav-${label.toLowerCase()}`}
       onClick={onClick}
-      className={`flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+      className={`flex items-center justify-between rounded-sm px-3 py-2 text-sm font-medium transition-colors ${
         active
-          ? "bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100"
-          : "text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200"
+          ? "bg-hover text-on-surface"
+          : "text-on-surface-muted hover:bg-hover hover:text-on-surface"
       }`}
     >
       {label}
       {badge !== undefined && (
-        <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-xs font-bold text-white">
+        <span className="rounded-full bg-danger px-1.5 py-0.5 text-xs font-bold text-white">
           {badge}
         </span>
       )}
@@ -606,7 +655,7 @@ function SoundToggle() {
     <button
       onClick={toggleSound}
       title={soundEnabled ? "Mute notifications" : "Unmute notifications"}
-      className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50"
+      className="rounded-sm p-1.5 text-on-surface-muted hover:bg-hover"
     >
       {soundEnabled ? (
         <svg

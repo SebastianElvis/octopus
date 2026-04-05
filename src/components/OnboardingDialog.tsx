@@ -45,16 +45,19 @@ export function OnboardingDialog({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-gray-800 dark:bg-gray-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75">
+      <div
+        data-testid="onboarding-dialog"
+        className="w-full max-w-lg rounded-sm border border-outline bg-surface p-6 shadow-xl"
+      >
         {/* Step indicators */}
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 className="text-lg font-semibold text-on-surface">
             Welcome to TooManyTabs
           </h2>
           <button
             onClick={onClose}
-            className="cursor-pointer text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-500 dark:hover:text-gray-300"
+            className="cursor-pointer text-on-surface-faint hover:text-on-surface-muted focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -74,8 +77,8 @@ export function OnboardingDialog({
               key={s}
               className={`h-1 flex-1 rounded-full ${
                 (["prerequisites", "repo", "session", "board"] as Step[]).indexOf(step) >= i
-                  ? "bg-blue-600"
-                  : "bg-gray-200 dark:bg-gray-700"
+                  ? "bg-brand"
+                  : "bg-active"
               }`}
             />
           ))}
@@ -84,10 +87,10 @@ export function OnboardingDialog({
         {/* Step content */}
         {step === "prerequisites" && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Step 1: Check Prerequisites
+            <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-on-surface-faint">
+              01 / check prerequisites
             </h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mb-4 text-xs text-on-surface-muted">
               TooManyTabs needs these CLI tools installed on your system.
             </p>
             <PrerequisiteCheck onAllPassed={handlePrereqsPassed} />
@@ -95,7 +98,7 @@ export function OnboardingDialog({
               <button
                 onClick={() => setStep("repo")}
                 disabled={!prereqsPassed}
-                className="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+                className="cursor-pointer rounded-sm bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Next
               </button>
@@ -105,10 +108,10 @@ export function OnboardingDialog({
 
         {step === "repo" && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Step 2: Connect a Repository
+            <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-on-surface-faint">
+              02 / connect a repository
             </h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mb-4 text-xs text-on-surface-muted">
               Add a GitHub repository to start creating sessions. You can add repos from the Repos
               settings page.
             </p>
@@ -118,13 +121,13 @@ export function OnboardingDialog({
                   onOpenRepoSettings();
                   onClose();
                 }}
-                className="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                className="cursor-pointer rounded-sm bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               >
                 Open Repo Settings
               </button>
               <button
                 onClick={() => setStep("session")}
-                className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gray-400 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-300 dark:active:bg-gray-800"
+                className="cursor-pointer rounded-sm border border-outline px-4 py-2 text-sm font-medium text-on-surface-muted hover:border-outline-strong active:bg-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               >
                 Skip
               </button>
@@ -134,10 +137,10 @@ export function OnboardingDialog({
 
         {step === "session" && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Step 3: Create Your First Session
+            <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-on-surface-faint">
+              03 / create your first session
             </h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mb-4 text-xs text-on-surface-muted">
               A session runs Claude Code in its own git worktree. Link an issue, provide a prompt,
               and let Claude work.
             </p>
@@ -147,13 +150,13 @@ export function OnboardingDialog({
                   onOpenNewSession();
                   onClose();
                 }}
-                className="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                className="cursor-pointer rounded-sm bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               >
                 Create Session
               </button>
               <button
                 onClick={() => setStep("board")}
-                className="cursor-pointer rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:border-gray-400 active:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:border-gray-700 dark:text-gray-300 dark:active:bg-gray-800"
+                className="cursor-pointer rounded-sm border border-outline px-4 py-2 text-sm font-medium text-on-surface-muted hover:border-outline-strong active:bg-hover focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               >
                 Skip
               </button>
@@ -163,10 +166,10 @@ export function OnboardingDialog({
 
         {step === "board" && (
           <div>
-            <h3 className="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">
-              Step 4: The Dispatch Board
+            <h3 className="mb-3 font-mono text-xs font-medium uppercase tracking-wider text-on-surface-faint">
+              04 / the dispatch board
             </h3>
-            <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">
+            <p className="mb-4 text-xs text-on-surface-muted">
               The board shows all your sessions organized by status. Sessions needing your input
               appear in the &quot;Needs Attention&quot; column. Use keyboard shortcuts for quick
               navigation:
@@ -181,7 +184,7 @@ export function OnboardingDialog({
             <div className="flex justify-end">
               <button
                 onClick={onClose}
-                className="cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+                className="cursor-pointer rounded-sm bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
               >
                 Get Started
               </button>
@@ -196,8 +199,8 @@ export function OnboardingDialog({
 function ShortcutRow({ keys, action }: { keys: string; action: string }) {
   return (
     <div className="flex items-center justify-between py-1">
-      <span className="text-xs text-gray-600 dark:text-gray-400">{action}</span>
-      <kbd className="rounded border border-gray-300 px-2 py-0.5 text-xs font-mono text-gray-500 dark:border-gray-700 dark:text-gray-400">
+      <span className="text-xs text-on-surface-muted">{action}</span>
+      <kbd className="rounded border border-outline px-2 py-0.5 text-xs font-mono text-on-surface-muted">
         {keys}
       </kbd>
     </div>

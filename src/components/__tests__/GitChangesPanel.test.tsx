@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, act } from "@testing-library/react";
 import { GitChangesPanel } from "../GitChangesPanel";
 import { useGitStore } from "../../stores/gitStore";
 
@@ -8,7 +8,7 @@ vi.mock("../../lib/tauri", () => ({
   gitUnstageFiles: vi.fn(() => Promise.resolve()),
   gitDiscardFiles: vi.fn(() => Promise.resolve()),
   getFileDiff: vi.fn(() => Promise.resolve("")),
-  gitCommitAndPush: vi.fn(() => Promise.resolve()),
+  sendFollowup: vi.fn(() => Promise.resolve()),
 }));
 
 function resetStore(overrides: Record<string, unknown> = {}) {
@@ -60,8 +60,8 @@ describe("GitChangesPanel", () => {
     act(() => {
       useGitStore.setState({
         changedFiles: [
-          { path: "src/main.ts", status: "modified", staged: false, oldPath: null },
-          { path: "README.md", status: "added", staged: false, oldPath: null },
+          { path: "src/main.ts", status: "modified", staged: false, oldPath: null, insertions: null, deletions: null },
+          { path: "README.md", status: "added", staged: false, oldPath: null, insertions: null, deletions: null },
         ],
       });
     });
@@ -75,8 +75,8 @@ describe("GitChangesPanel", () => {
     act(() => {
       useGitStore.setState({
         changedFiles: [
-          { path: "src/main.ts", status: "modified", staged: true, oldPath: null },
-          { path: "test.ts", status: "added", staged: false, oldPath: null },
+          { path: "src/main.ts", status: "modified", staged: true, oldPath: null, insertions: null, deletions: null },
+          { path: "test.ts", status: "added", staged: false, oldPath: null, insertions: null, deletions: null },
         ],
       });
     });
@@ -94,7 +94,7 @@ describe("GitChangesPanel", () => {
   });
 
   it("shows worktree cleaned up message for done sessions with missing path", async () => {
-    render(<GitChangesPanel worktreePath="/tmp/wt" sessionStatus="completed" />);
+    render(<GitChangesPanel worktreePath="/tmp/wt" sessionStatus="done" />);
     await act(async () => {});
     act(() => {
       useGitStore.setState({ error: "No such file or directory" });
@@ -113,46 +113,18 @@ describe("GitChangesPanel", () => {
     act(() => {
       useGitStore.setState({ commitMessage: "test commit" });
     });
-    const button = screen.getByText("Commit & Push");
+    const button = screen.getByText("Commit");
     expect(button).toBeDisabled();
   });
 
-  it("disables commit button when no commit message", async () => {
+  it("renders Create PR button", () => {
+    render(<GitChangesPanel worktreePath="/tmp/wt" sessionId="s1" />);
+    expect(screen.getByText("Create PR")).toBeInTheDocument();
+  });
+
+  it("disables Create PR button when no sessionId", () => {
     render(<GitChangesPanel worktreePath="/tmp/wt" />);
-    await act(async () => {});
-    act(() => {
-      useGitStore.setState({
-        changedFiles: [{ path: "a.ts", status: "modified", staged: true, oldPath: null }],
-        commitMessage: "",
-      });
-    });
-    const button = screen.getByText("Commit & Push");
+    const button = screen.getByText("Create PR");
     expect(button).toBeDisabled();
-  });
-
-  it("shows 'Pushing...' while pushing", async () => {
-    render(<GitChangesPanel worktreePath="/tmp/wt" />);
-    await act(async () => {});
-    act(() => {
-      useGitStore.setState({
-        changedFiles: [{ path: "a.ts", status: "modified", staged: true, oldPath: null }],
-        commitMessage: "test",
-        pushing: true,
-      });
-    });
-    expect(screen.getByText("Pushing...")).toBeInTheDocument();
-  });
-
-  it("pre-populates commit message with session name", async () => {
-    render(<GitChangesPanel worktreePath="/tmp/wt" sessionName="Fix auth" />);
-    await act(async () => {});
-    expect(screen.getByDisplayValue("Fix auth")).toBeInTheDocument();
-  });
-
-  it("updates commit message on input", () => {
-    render(<GitChangesPanel worktreePath="/tmp/wt" />);
-    const textarea = screen.getByPlaceholderText("Commit message...");
-    fireEvent.change(textarea, { target: { value: "new message" } });
-    expect(useGitStore.getState().commitMessage).toBe("new message");
   });
 });

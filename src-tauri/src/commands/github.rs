@@ -368,6 +368,59 @@ async fn github_request(
     Err(last_error.unwrap_or_else(|| AppError::Custom("GitHub request failed".to_string())))
 }
 
+/// Execute a GET request with ETag caching. Returns cached body on 304.
+async fn github_get_cached(
+    client: &reqwest::Client,
+    url: &str,
+    token: &str,
+    etag_cache: &parking_lot::Mutex<std::collections::HashMap<String, (String, String)>>,
+) -> AppResult<String> {
+    let mut req = client
+        .get(url)
+        .header("Authorization", format!("Bearer {}", token))
+        .header("User-Agent", "toomanytabs/0.1")
+        .header("Accept", "application/vnd.github+json");
+
+    // Add If-None-Match header if we have a cached ETag
+    let cached_etag = {
+        let cache = etag_cache.lock();
+        cache.get(url).map(|(etag, _)| etag.clone())
+    };
+    if let Some(ref etag) = cached_etag {
+        req = req.header("If-None-Match", etag.as_str());
+    }
+
+    let resp = req.send().await?;
+
+    if resp.status() == reqwest::StatusCode::NOT_MODIFIED {
+        // Return cached body
+        let cache = etag_cache.lock();
+        if let Some((_, body)) = cache.get(url) {
+            return Ok(body.clone());
+        }
+    }
+
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let body = resp.text().await.unwrap_or_default();
+        return Err(categorize_github_error(status, &body));
+    }
+
+    // Cache the ETag and body
+    let new_etag = resp
+        .headers()
+        .get("etag")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string());
+    let body = resp.text().await?;
+    if let Some(etag) = new_etag {
+        let mut cache = etag_cache.lock();
+        cache.insert(url.to_string(), (etag, body.clone()));
+    }
+
+    Ok(body)
+}
+
 // ---------------------------------------------------------------------------
 // Commands
 // ---------------------------------------------------------------------------
@@ -461,9 +514,9 @@ pub async fn fetch_prs(state: State<'_, AppState>, repo_id: String) -> AppResult
         .collect())
 }
 
-/// Stage all changes, commit with a message, and push in the given worktree.
+/// Stage all changes and commit with a message in the given worktree.
 #[tauri::command]
-pub async fn git_commit_and_push(worktree_path: String, commit_message: String) -> AppResult<()> {
+pub async fn git_commit(worktree_path: String, commit_message: String) -> AppResult<()> {
     // git add -A
     let add_output = Command::new("git")
         .args(["add", "-A"])
@@ -490,21 +543,150 @@ pub async fn git_commit_and_push(worktree_path: String, commit_message: String) 
         )));
     }
 
-    // git push
+    log::info!("Committed in {}", worktree_path);
+    Ok(())
+}
+
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PushResult {
+    /// GitHub commit URL, if derivable from the remote.
+    pub commit_url: Option<String>,
+    /// Short commit hash.
+    pub short_hash: String,
+}
+
+/// Derive a GitHub commit URL from the origin remote URL and HEAD commit.
+fn get_push_result(worktree_path: &str) -> PushResult {
+    let hash = Command::new("git")
+        .args(["rev-parse", "HEAD"])
+        .current_dir(worktree_path)
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    let short_hash = Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .current_dir(worktree_path)
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    let remote_url = Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .current_dir(worktree_path)
+        .output()
+        .ok()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    // Parse GitHub URL from SSH or HTTPS remote
+    let commit_url = parse_github_base_url(&remote_url)
+        .filter(|_| !hash.is_empty())
+        .map(|base| format!("{}/commit/{}", base, hash));
+
+    PushResult { commit_url, short_hash }
+}
+
+/// Extract `https://github.com/owner/repo` from SSH or HTTPS remote URLs.
+fn parse_github_base_url(remote: &str) -> Option<String> {
+    if let Some(rest) = remote.strip_prefix("git@github.com:") {
+        let repo = rest.trim_end_matches(".git");
+        Some(format!("https://github.com/{}", repo))
+    } else if remote.starts_with("https://github.com/") {
+        let repo = remote.trim_end_matches(".git");
+        Some(repo.to_string())
+    } else {
+        None
+    }
+}
+
+/// Smart push: tries `git push`, and if there's no upstream, automatically sets one.
+fn smart_push(worktree_path: &str) -> AppResult<()> {
     let push_output = Command::new("git")
         .args(["push"])
-        .current_dir(&worktree_path)
+        .current_dir(worktree_path)
         .output()?;
-    if !push_output.status.success() {
-        let stderr = String::from_utf8_lossy(&push_output.stderr);
+    if push_output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&push_output.stderr);
+    if !stderr.contains("has no upstream branch") {
         return Err(AppError::Custom(format!(
             "git push failed: {}",
             stderr.trim()
         )));
     }
 
-    log::info!("Committed and pushed in {}", worktree_path);
+    // Get current branch name and push with --set-upstream
+    let branch_output = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(worktree_path)
+        .output()?;
+    let branch = String::from_utf8_lossy(&branch_output.stdout).trim().to_string();
+
+    let retry_output = Command::new("git")
+        .args(["push", "--set-upstream", "origin", &branch])
+        .current_dir(worktree_path)
+        .output()?;
+    if !retry_output.status.success() {
+        let retry_stderr = String::from_utf8_lossy(&retry_output.stderr);
+        return Err(AppError::Custom(format!(
+            "git push failed: {}",
+            retry_stderr.trim()
+        )));
+    }
+
     Ok(())
+}
+
+/// Push the current branch in the given worktree.
+#[tauri::command]
+pub async fn git_push(worktree_path: String) -> AppResult<PushResult> {
+    smart_push(&worktree_path)?;
+    let result = get_push_result(&worktree_path);
+    log::info!("Pushed in {} ({})", worktree_path, result.short_hash);
+    Ok(result)
+}
+
+/// Stage all changes, commit with a message, and push in the given worktree.
+#[tauri::command]
+pub async fn git_commit_and_push(worktree_path: String, commit_message: String) -> AppResult<PushResult> {
+    // git add -A
+    let add_output = Command::new("git")
+        .args(["add", "-A"])
+        .current_dir(&worktree_path)
+        .output()?;
+    if !add_output.status.success() {
+        let stderr = String::from_utf8_lossy(&add_output.stderr);
+        return Err(AppError::Custom(format!(
+            "git add -A failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    // git commit (--no-gpg-sign because GPG prompts can't work in a headless context)
+    let commit_output = Command::new("git")
+        .args(["commit", "--no-gpg-sign", "-m", &commit_message])
+        .current_dir(&worktree_path)
+        .output()?;
+    if !commit_output.status.success() {
+        let stderr = String::from_utf8_lossy(&commit_output.stderr);
+        return Err(AppError::Custom(format!(
+            "git commit failed: {}",
+            stderr.trim()
+        )));
+    }
+
+    // git push (smart: auto-sets upstream if needed)
+    smart_push(&worktree_path)?;
+
+    let result = get_push_result(&worktree_path);
+    log::info!("Committed and pushed in {} ({})", worktree_path, result.short_hash);
+    Ok(result)
 }
 
 /// Create a pull request via the GitHub REST API.
@@ -621,10 +803,9 @@ pub async fn fetch_check_runs(
         owner, repo, git_ref
     );
 
-    let client = &state.http_client;
-    let resp = github_request(client, || client.get(&url), &token).await?;
+    let body = github_get_cached(&state.http_client, &url, &token, &state.etag_cache).await?;
 
-    let api_response: ApiCheckRunsResponse = resp.json().await?;
+    let api_response: ApiCheckRunsResponse = serde_json::from_str(&body)?;
 
     log::info!(
         "Fetched {} check runs for {}/{} ref {}",
@@ -911,5 +1092,199 @@ mod tests {
         let err = categorize_github_error(reqwest::StatusCode::CONFLICT, "merge conflict");
         assert!(matches!(err, AppError::Custom(_)));
         assert!(err.to_string().contains("conflict"));
+    }
+
+    #[test]
+    fn categorize_502_as_server_error() {
+        let err = categorize_github_error(reqwest::StatusCode::BAD_GATEWAY, "bad gateway");
+        assert!(matches!(err, AppError::Custom(_)));
+        assert!(err.to_string().contains("server error"));
+    }
+
+    #[test]
+    fn categorize_422_as_generic_api_error() {
+        let err = categorize_github_error(reqwest::StatusCode::UNPROCESSABLE_ENTITY, "validation");
+        assert!(matches!(err, AppError::Custom(_)));
+        assert!(err.to_string().contains("API error"));
+    }
+
+    #[test]
+    fn parse_ssh_url_without_git_suffix() {
+        let (owner, repo) = parse_owner_repo("git@github.com:org/repo-name").unwrap();
+        assert_eq!(owner, "org");
+        assert_eq!(repo, "repo-name");
+    }
+
+    #[test]
+    fn parse_https_url_complex_repo_name() {
+        let (owner, repo) =
+            parse_owner_repo("https://github.com/my-org/my.dotted.repo.git").unwrap();
+        assert_eq!(owner, "my-org");
+        assert_eq!(repo, "my.dotted.repo");
+    }
+
+    #[test]
+    fn lookup_github_url_found() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/owner/repo",
+                "/tmp/repo",
+                "main",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert");
+
+        let state = crate::state::AppState::new(conn);
+        let url = lookup_github_url(&state, "r1").unwrap();
+        assert_eq!(url, "https://github.com/owner/repo");
+    }
+
+    #[test]
+    fn lookup_github_url_not_found() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+
+        let state = crate::state::AppState::new(conn);
+        let result = lookup_github_url(&state, "nonexistent");
+        assert!(result.is_err());
+        assert!(matches!(result.unwrap_err(), AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn lookup_default_branch_found() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+        conn.execute(
+            "INSERT INTO repos (id, github_url, local_path, default_branch, added_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![
+                "r1",
+                "https://github.com/owner/repo",
+                "/tmp/repo",
+                "develop",
+                "2024-01-01"
+            ],
+        )
+        .expect("insert");
+
+        let state = crate::state::AppState::new(conn);
+        let branch = lookup_default_branch(&state, "https://github.com/owner/repo");
+        assert_eq!(branch, "develop");
+    }
+
+    #[test]
+    fn lookup_default_branch_falls_back_to_main() {
+        let conn = rusqlite::Connection::open_in_memory().expect("open");
+        conn.execute_batch("PRAGMA foreign_keys=ON;").expect("fk");
+        crate::db::create_schema(&conn).expect("schema");
+
+        let state = crate::state::AppState::new(conn);
+        let branch = lookup_default_branch(&state, "https://github.com/unknown/repo");
+        assert_eq!(branch, "main");
+    }
+
+    #[test]
+    fn github_issue_serializes_to_camel_case() {
+        let issue = GitHubIssue {
+            number: 1,
+            title: "Bug".to_string(),
+            body: Some("details".to_string()),
+            state: "open".to_string(),
+            html_url: "https://github.com/a/b/issues/1".to_string(),
+            labels: vec![LabelInfo {
+                name: "bug".to_string(),
+                color: "d73a4a".to_string(),
+            }],
+            user: "octocat".to_string(),
+            comments: 3,
+            created_at: "2024-01-01".to_string(),
+            updated_at: "2024-01-02".to_string(),
+        };
+
+        let json = serde_json::to_value(&issue).unwrap();
+        assert!(json.get("htmlUrl").is_some());
+        assert!(json.get("createdAt").is_some());
+        assert!(json.get("updatedAt").is_some());
+        assert!(json.get("html_url").is_none());
+    }
+
+    #[test]
+    fn github_pr_serializes_to_camel_case() {
+        let pr = GitHubPR {
+            number: 42,
+            title: "Feature".to_string(),
+            body: None,
+            state: "open".to_string(),
+            html_url: "https://github.com/a/b/pull/42".to_string(),
+            head_ref: "feat-branch".to_string(),
+            base_ref: "main".to_string(),
+            user: "dev".to_string(),
+            comments: 0,
+            created_at: "2024-01-01".to_string(),
+            updated_at: "2024-01-02".to_string(),
+        };
+
+        let json = serde_json::to_value(&pr).unwrap();
+        assert!(json.get("headRef").is_some());
+        assert!(json.get("baseRef").is_some());
+        assert!(json.get("htmlUrl").is_some());
+    }
+
+    #[test]
+    fn check_run_serializes_to_camel_case() {
+        let check = CheckRun {
+            id: 1,
+            name: "CI".to_string(),
+            status: "completed".to_string(),
+            conclusion: Some("success".to_string()),
+            html_url: "https://github.com/a/b/runs/1".to_string(),
+            started_at: Some("2024-01-01".to_string()),
+            completed_at: Some("2024-01-02".to_string()),
+        };
+
+        let json = serde_json::to_value(&check).unwrap();
+        assert!(json.get("htmlUrl").is_some());
+        assert!(json.get("startedAt").is_some());
+        assert!(json.get("completedAt").is_some());
+    }
+
+    #[test]
+    fn merge_result_serialization() {
+        let result = MergeResult {
+            sha: "abc123".to_string(),
+            merged: true,
+            message: "Merged".to_string(),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed["sha"], "abc123");
+        assert_eq!(parsed["merged"], true);
+        assert_eq!(parsed["message"], "Merged");
+    }
+
+    #[test]
+    fn review_comment_serializes_to_camel_case() {
+        let comment = ReviewComment {
+            id: 1,
+            body: "Fix this".to_string(),
+            path: "src/main.rs".to_string(),
+            line: Some(42),
+            user: "reviewer".to_string(),
+            created_at: "2024-01-01".to_string(),
+            updated_at: "2024-01-02".to_string(),
+        };
+
+        let json = serde_json::to_value(&comment).unwrap();
+        assert!(json.get("createdAt").is_some());
+        assert!(json.get("updatedAt").is_some());
     }
 }

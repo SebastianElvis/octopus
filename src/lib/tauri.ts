@@ -18,6 +18,7 @@ import type {
   FileEntry,
   ChangedFile,
   CheckRun,
+  ClaudeStreamEvent,
 } from "./types";
 import { mapBackendSession } from "./types";
 
@@ -77,11 +78,6 @@ export async function spawnSession(params: {
   return mapBackendSession(raw);
 }
 
-export async function replyToSession(id: string, message: string): Promise<void> {
-  requireTauri("reply_to_session");
-  return tauriInvoke<void>("reply_to_session", { id, message });
-}
-
 export async function saveSessionImage(
   sessionId: string,
   filename: string,
@@ -91,10 +87,6 @@ export async function saveSessionImage(
   return tauriInvoke<string>("save_session_image", { sessionId, filename, base64Data });
 }
 
-export async function saveTempImage(filename: string, base64Data: string): Promise<string> {
-  requireTauri("save_temp_image");
-  return tauriInvoke<string>("save_temp_image", { filename, base64Data });
-}
 
 export async function writeToSession(id: string, data: string): Promise<void> {
   requireTauri("write_to_session");
@@ -114,6 +106,11 @@ export async function interruptSession(id: string, message?: string): Promise<vo
 export async function killSession(id: string): Promise<void> {
   requireTauri("kill_session");
   return tauriInvoke<void>("kill_session", { id });
+}
+
+export async function archiveSession(id: string): Promise<void> {
+  requireTauri("archive_session");
+  return tauriInvoke<void>("archive_session", { id });
 }
 
 export async function listSessions(): Promise<Session[]> {
@@ -146,6 +143,11 @@ export async function checkStuckSessions(): Promise<string[]> {
 export async function readSessionLog(id: string): Promise<string> {
   if (!isTauri()) return "";
   return tauriInvoke<string>("read_session_log", { id });
+}
+
+export async function readSessionEvents(id: string): Promise<ClaudeStreamEvent[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<ClaudeStreamEvent[]>("read_session_events", { id });
 }
 
 export async function retrySession(sessionId: string): Promise<void> {
@@ -261,12 +263,17 @@ export async function closeIssue(repoId: string, issueNumber: number): Promise<v
 
 // ── Git commands ─────────────────────────────────────────────────────────────
 
+export interface PushResult {
+  commitUrl: string | null;
+  shortHash: string;
+}
+
 export async function gitCommitAndPush(params: {
   worktreePath: string;
   message: string;
-}): Promise<void> {
+}): Promise<PushResult> {
   requireTauri("git_commit_and_push");
-  return tauriInvoke<void>("git_commit_and_push", {
+  return tauriInvoke<PushResult>("git_commit_and_push", {
     worktreePath: params.worktreePath,
     commitMessage: params.message,
   });
@@ -277,9 +284,9 @@ export async function gitCommit(worktreePath: string, message: string): Promise<
   return tauriInvoke<void>("git_commit", { worktreePath, commitMessage: message });
 }
 
-export async function gitPush(worktreePath: string): Promise<void> {
+export async function gitPush(worktreePath: string): Promise<PushResult> {
   requireTauri("git_push");
-  return tauriInvoke<void>("git_push", { worktreePath });
+  return tauriInvoke<PushResult>("git_push", { worktreePath });
 }
 
 export async function createPR(params: {
@@ -314,11 +321,35 @@ export async function readFile(path: string): Promise<string> {
   return tauriInvoke<string>("read_file", { path });
 }
 
+export interface DiscoveredCommand {
+  command: string;
+  description: string;
+  source: string;
+}
+
+export async function scanSlashCommands(worktreePath?: string): Promise<DiscoveredCommand[]> {
+  if (!isTauri()) return [];
+  return tauriInvoke<DiscoveredCommand[]>("scan_slash_commands", {
+    worktreePath: worktreePath ?? null,
+  });
+}
+
 // ── Git operations ──────────────────────────────────────────────────────────
 
 export async function getChangedFiles(worktreePath: string): Promise<ChangedFile[]> {
   if (!isTauri()) return [];
   return tauriInvoke<ChangedFile[]>("get_changed_files", { worktreePath });
+}
+
+export interface SyncStatus {
+  ahead: number;
+  behind: number;
+  hasUpstream: boolean;
+}
+
+export async function getSyncStatus(worktreePath: string): Promise<SyncStatus> {
+  if (!isTauri()) return { ahead: 0, behind: 0, hasUpstream: false };
+  return tauriInvoke<SyncStatus>("get_sync_status", { worktreePath });
 }
 
 export async function gitStageFiles(worktreePath: string, paths: string[]): Promise<void> {
@@ -362,11 +393,16 @@ export async function setSetting(key: string, value: string): Promise<void> {
   return tauriInvoke<void>("set_setting", { key, value });
 }
 
-// ── Recap commands ───────────────────────────────────────────────────────────
+// ── AI commands ─────────────────────────────────────────────────────────────
+
+export async function generateBranchName(prompt: string): Promise<string> {
+  requireTauri("generate_branch_name");
+  return tauriInvoke<string>("generate_branch_name", { prompt });
+}
 
 export async function generateRecap(sessionId: string): Promise<string> {
   requireTauri("generate_recap");
-  return tauriInvoke<string>("generate_recap", { sessionId });
+  return tauriInvoke<string>("generate_recap", { sessionId }, 60000);
 }
 
 // ── Prerequisites commands ───────────────────────────────────────────────────
@@ -431,6 +467,11 @@ export type SessionOutputPayload = {
   data: string;
 };
 
+export type SessionStructuredPayload = {
+  sessionId: string;
+  event: ClaudeStreamEvent;
+};
+
 /** Returns a no-op unlisten function when outside Tauri. */
 export async function onSessionStateChanged(
   callback: (payload: SessionStateChangedPayload) => void,
@@ -448,4 +489,73 @@ export async function onSessionOutput(
 ): Promise<() => void> {
   if (!isTauri()) return noop;
   return tauriListen("session-output", (event) => callback(event.payload as SessionOutputPayload));
+}
+
+/** Returns a no-op unlisten function when outside Tauri. */
+export async function onSessionStructuredOutput(
+  callback: (payload: SessionStructuredPayload) => void,
+): Promise<() => void> {
+  if (!isTauri()) return noop;
+  return tauriListen("session-structured-output", (event) =>
+    callback(event.payload as SessionStructuredPayload),
+  );
+}
+
+export async function respondToSession(id: string, response: string): Promise<void> {
+  requireTauri("respond_to_session");
+  return tauriInvoke<void>("respond_to_session", { id, response });
+}
+
+export async function sendFollowup(
+  id: string,
+  prompt: string,
+  images?: string[],
+): Promise<void> {
+  requireTauri("send_followup");
+  return tauriInvoke<void>("send_followup", { id, prompt, images: images ?? null });
+}
+
+export async function saveTempImage(data: string, filename: string): Promise<string> {
+  requireTauri("save_temp_image");
+  return tauriInvoke<string>("save_temp_image", { data, filename });
+}
+
+// ---------------------------------------------------------------------------
+// Hook events
+// ---------------------------------------------------------------------------
+
+export async function respondToHook(
+  requestId: string,
+  decision: "allow" | "deny",
+  reason?: string,
+): Promise<void> {
+  requireTauri("respond_to_hook");
+  return tauriInvoke<void>("respond_to_hook", { requestId, decision, reason });
+}
+
+export async function getSessionAnalytics(
+  sessionId: string,
+): Promise<import("./types").SessionAnalytics | null> {
+  if (!isTauri()) return null;
+  return tauriInvoke<import("./types").SessionAnalytics | null>("get_session_analytics", {
+    sessionId,
+  });
+}
+
+export async function onHookEvent(
+  callback: (payload: import("./types").HookEventPayload) => void,
+): Promise<() => void> {
+  if (!isTauri()) return noop;
+  return tauriListen("hook-event", (event) =>
+    callback(event.payload as import("./types").HookEventPayload),
+  );
+}
+
+export async function onHookPermissionRequest(
+  callback: (payload: import("./types").HookEventPayload) => void,
+): Promise<() => void> {
+  if (!isTauri()) return noop;
+  return tauriListen("hook-permission-request", (event) =>
+    callback(event.payload as import("./types").HookEventPayload),
+  );
 }

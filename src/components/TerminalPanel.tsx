@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { WebglAddon } from "@xterm/addon-webgl";
 import "@xterm/xterm/css/xterm.css";
 import { isTauri } from "../lib/env";
 import { onSessionOutput, writeToSession, resizeSession, readSessionLog } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
+import { useUIStore } from "../stores/uiStore";
 import { useTauriEvent } from "../hooks/useTauriEvent";
 
 interface TerminalPanelProps {
@@ -18,13 +18,14 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
+  const terminalFontSize = useUIStore((s) => s.terminalFontSize);
 
   useEffect(() => {
     if (!containerRef.current) return;
 
     const terminal = new Terminal({
       cursorBlink: true,
-      fontSize: 13,
+      fontSize: terminalFontSize,
       fontFamily: "'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace",
       theme: {
         background: "#0d1117",
@@ -56,18 +57,6 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
     terminal.open(containerRef.current);
     fitAddon.fit();
 
-    // Use WebGL renderer for smoother rendering and fewer overlap artifacts
-    try {
-      const webglAddon = new WebglAddon();
-      webglAddon.onContextLoss(() => {
-        webglAddon.dispose();
-      });
-      terminal.loadAddon(webglAddon);
-    } catch {
-      // WebGL not available — falls back to DOM renderer automatically
-      console.warn("[TerminalPanel] WebGL addon failed to load, using DOM renderer");
-    }
-
     terminalRef.current = terminal;
     fitAddonRef.current = fitAddon;
 
@@ -83,7 +72,7 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
         terminal.write(chunk);
       }
     } else if (
-      ["done", "completed", "failed", "killed", "idle", "interrupted"].includes(sessionStatus)
+      sessionStatus === "done" || sessionStatus === "attention"
     ) {
       // Try to replay saved log output
       if (isTauri()) {
@@ -135,13 +124,18 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
       });
     }
 
-    // Resize terminal when container size changes
+    // Resize terminal when container size changes (debounced to avoid rapid redraws)
+    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
     const observer = new ResizeObserver(() => {
-      fitAddonRef.current?.fit();
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        fitAddonRef.current?.fit();
+      }, 50);
     });
     observer.observe(containerRef.current);
 
     return () => {
+      clearTimeout(resizeTimer);
       onDataDispose.dispose();
       onResizeDispose.dispose();
       observer.disconnect();
@@ -152,16 +146,24 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sessionStatus is intentionally read only on mount; adding it would re-create the terminal on every status change
   }, [sessionId]);
 
+  // Update font size when the setting changes
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.options.fontSize = terminalFontSize;
+      fitAddonRef.current?.fit();
+    }
+  }, [terminalFontSize]);
+
   // Refit terminal when tab becomes visible (xterm can't measure when hidden)
   useEffect(() => {
-    if (visible && fitAddonRef.current && terminalRef.current) {
+    if (visible && fitAddonRef.current) {
       // Use double-rAF to ensure the DOM has fully laid out after visibility change
       let cancelled = false;
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          if (cancelled) return;
-          fitAddonRef.current?.fit();
-          terminalRef.current?.refresh(0, terminalRef.current.rows - 1);
+          if (!cancelled) {
+            fitAddonRef.current?.fit();
+          }
         });
       });
       return () => {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import {
   getChangedFiles,
+  getSyncStatus,
   gitStageFiles,
   gitUnstageFiles,
   gitDiscardFiles,
@@ -9,7 +10,10 @@ import {
   gitCommit,
   gitPush,
 } from "../lib/tauri";
+import type { SyncStatus } from "../lib/tauri";
 import type { ChangedFile } from "../lib/types";
+import { formatError } from "../lib/errors";
+import { useEditorStore } from "./editorStore";
 
 interface GitState {
   worktreePath: string | null;
@@ -22,6 +26,9 @@ interface GitState {
   pushing: boolean;
   committing: boolean;
   error: string | null;
+  successMessage: string | null;
+  successUrl: string | null;
+  syncStatus: SyncStatus | null;
 
   setWorktreePath: (path: string | null) => void;
   refreshChanges: () => Promise<void>;
@@ -47,6 +54,9 @@ export const useGitStore = create<GitState>((set, get) => ({
   pushing: false,
   committing: false,
   error: null,
+  successMessage: null,
+  successUrl: null,
+  syncStatus: null,
 
   setWorktreePath: (path: string | null) => {
     set({
@@ -62,19 +72,25 @@ export const useGitStore = create<GitState>((set, get) => ({
   },
 
   refreshChanges: async () => {
-    const { worktreePath } = get();
+    const { worktreePath, changedFiles: existing } = get();
     if (!worktreePath) return;
-    set({ loading: true, error: null });
+    // Only show loading spinner on first fetch (when list is empty)
+    if (existing.length === 0) {
+      set({ loading: true, error: null });
+    }
     try {
-      const files = await getChangedFiles(worktreePath);
-      set({ changedFiles: files, loading: false });
+      const [files, sync] = await Promise.all([
+        getChangedFiles(worktreePath),
+        getSyncStatus(worktreePath),
+      ]);
+      set({ changedFiles: files, loading: false, error: null, syncStatus: sync });
     } catch (err) {
-      const msg = String(err);
+      const msg = formatError(err);
       // Don't log as error if worktree was simply cleaned up
       if (!msg.includes("No such file or directory")) {
         console.error("[gitStore] Failed to get changes:", err);
       }
-      set({ loading: false, error: msg });
+      set({ loading: false, error: msg, successMessage: null, successUrl: null });
     }
   },
 
@@ -85,7 +101,7 @@ export const useGitStore = create<GitState>((set, get) => ({
       await gitStageFiles(worktreePath, paths);
       await get().refreshChanges();
     } catch (err) {
-      set({ error: String(err) });
+      set({ error: formatError(err), successMessage: null, successUrl: null });
     }
   },
 
@@ -96,7 +112,7 @@ export const useGitStore = create<GitState>((set, get) => ({
       await gitUnstageFiles(worktreePath, paths);
       await get().refreshChanges();
     } catch (err) {
-      set({ error: String(err) });
+      set({ error: formatError(err), successMessage: null, successUrl: null });
     }
   },
 
@@ -107,7 +123,7 @@ export const useGitStore = create<GitState>((set, get) => ({
       await gitDiscardFiles(worktreePath, paths);
       await get().refreshChanges();
     } catch (err) {
-      set({ error: String(err) });
+      set({ error: formatError(err), successMessage: null, successUrl: null });
     }
   },
 
@@ -118,6 +134,9 @@ export const useGitStore = create<GitState>((set, get) => ({
     try {
       const diff = await getFileDiff(worktreePath, path, staged);
       set({ selectedFileDiff: diff });
+      if (diff) {
+        useEditorStore.getState().openDiff(path, diff);
+      }
     } catch (err) {
       console.error("[gitStore] Failed to get diff:", err);
       set({ selectedFileDiff: null });
@@ -131,38 +150,52 @@ export const useGitStore = create<GitState>((set, get) => ({
   commitAndPush: async () => {
     const { worktreePath, commitMessage } = get();
     if (!worktreePath || !commitMessage.trim()) return;
-    set({ pushing: true, error: null });
+    set({ pushing: true, error: null, successMessage: null, successUrl: null });
     try {
-      await gitCommitAndPush({ worktreePath, message: commitMessage });
-      set({ commitMessage: "", pushing: false });
+      const result = await gitCommitAndPush({ worktreePath, message: commitMessage });
+      set({
+        commitMessage: "",
+        pushing: false,
+        successMessage: `Committed and pushed ${result.shortHash}`,
+        successUrl: result.commitUrl,
+      });
       await get().refreshChanges();
     } catch (err) {
-      set({ pushing: false, error: String(err) });
+      set({ pushing: false, error: formatError(err), successMessage: null, successUrl: null });
     }
   },
 
   commit: async () => {
-    const { worktreePath, commitMessage } = get();
+    const { worktreePath, commitMessage, syncStatus } = get();
     if (!worktreePath || !commitMessage.trim()) return;
-    set({ committing: true, error: null });
+    set({ committing: true, error: null, successMessage: null, successUrl: null });
     try {
       await gitCommit(worktreePath, commitMessage);
-      set({ commitMessage: "", committing: false });
+      const unpushed = (syncStatus?.ahead ?? 0) + 1;
+      const hint = syncStatus?.hasUpstream === false
+        ? "Committed locally — push to publish branch"
+        : `Committed locally — ${unpushed} unpushed`;
+      set({ commitMessage: "", committing: false, successMessage: hint, successUrl: null });
       await get().refreshChanges();
     } catch (err) {
-      set({ committing: false, error: String(err) });
+      set({ committing: false, error: formatError(err), successMessage: null, successUrl: null });
     }
   },
 
   push: async () => {
-    const { worktreePath } = get();
+    const { worktreePath, syncStatus } = get();
     if (!worktreePath) return;
-    set({ pushing: true, error: null });
+    const count = syncStatus?.ahead ?? 0;
+    set({ pushing: true, error: null, successMessage: null, successUrl: null });
     try {
-      await gitPush(worktreePath);
-      set({ pushing: false });
+      const result = await gitPush(worktreePath);
+      const msg = count > 0
+        ? `Pushed ${count} commit${count === 1 ? "" : "s"} — ${result.shortHash}`
+        : `Pushed ${result.shortHash}`;
+      set({ pushing: false, successMessage: msg, successUrl: result.commitUrl });
+      await get().refreshChanges();
     } catch (err) {
-      set({ pushing: false, error: String(err) });
+      set({ pushing: false, error: formatError(err), successMessage: null, successUrl: null });
     }
   },
 }));

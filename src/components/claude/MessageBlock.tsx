@@ -1,0 +1,93 @@
+import type { ClaudeMessage, ClaudeContentBlock } from "../../lib/types";
+import { TextBlock } from "./TextBlock";
+import { ToolUseBlock } from "./ToolUseBlock";
+import { ThinkingBlock } from "./ThinkingBlock";
+
+interface MessageBlockProps {
+  message: ClaudeMessage;
+}
+
+/** Find the tool_result for a given tool_use in the same message */
+function findToolResult(
+  blocks: ClaudeContentBlock[],
+  toolUseId: string,
+): (ClaudeContentBlock & { type: "tool_result" }) | undefined {
+  return blocks.find(
+    (b): b is ClaudeContentBlock & { type: "tool_result" } =>
+      b.type === "tool_result" && b.tool_use_id === toolUseId,
+  );
+}
+
+export function MessageBlock({ message }: MessageBlockProps) {
+  if (message.role === "system") {
+    return (
+      <div className="my-2 flex justify-center">
+        <span className="rounded-full bg-hover px-3 py-1 text-xs text-on-surface-muted">
+          {message.blocks.map((b) => (b.type === "text" ? b.text : "")).join("")}
+        </span>
+      </div>
+    );
+  }
+
+  if (message.role === "user") {
+    // Only render user messages that contain visible text.
+    // Tool-result-only messages (sent by Claude Code as user messages wrapping
+    // tool results) have no text and would render as empty blue bubbles.
+    const visibleText = message.blocks
+      .filter((b) => b.type === "text" && "text" in b)
+      .map((b) => (b.type === "text" ? b.text : ""))
+      .join("")
+      .trim();
+    if (!visibleText) return null;
+
+    return (
+      <div className="my-2 flex justify-end">
+        <div className="max-w-[80%] rounded-sm bg-brand px-3 py-2 text-sm text-white">
+          {message.blocks.map((block, i) => (
+            <span key={i}>{block.type === "text" ? block.text : ""}</span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Assistant message
+  return (
+    <div className="my-3">
+      {message.blocks.map((block, i) => {
+        switch (block.type) {
+          case "text":
+            return (
+              <TextBlock
+                key={i}
+                text={block.text}
+                isStreaming={message.isStreaming && i === message.blocks.length - 1}
+              />
+            );
+          case "tool_use":
+            return (
+              <ToolUseBlock
+                key={block.id}
+                name={block.name}
+                input={block.input}
+                toolResult={findToolResult(message.blocks, block.id)}
+              />
+            );
+          case "tool_result":
+            // Rendered inline by ToolUseBlock, skip standalone rendering
+            return null;
+          case "thinking":
+            return (
+              <ThinkingBlock
+                key={i}
+                thinking={block.thinking}
+                isStreaming={message.isStreaming && i === message.blocks.length - 1}
+              />
+            );
+          default:
+            return null;
+        }
+      })}
+    </div>
+  );
+}

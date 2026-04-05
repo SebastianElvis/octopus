@@ -1,6 +1,6 @@
 {
   "name": "toomanytabs",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Dispatch board for managing multiple Claude Code sessions",
   "type": "module",
   "scripts": {
@@ -14,7 +14,9 @@
     "format:check": "prettier --check src/",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "tsc --noEmit && npm run lint && npm run format:check && npm test"
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "npm test && npm run test:integration",
+    "check": "tsc --noEmit && npm run lint && npm run format:check && npm run test:all"
   },
   "repository": {
     "type": "git",
@@ -22,7 +24,7 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/SebastianElvis/toomanytabs/issues"
   },
@@ -71,6 +73,7 @@
     "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "shiki": "^4.0.2",
     "zustand": "^5.0.12"
   }
 }

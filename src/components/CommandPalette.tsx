@@ -98,14 +98,15 @@ function CommandPaletteInner({
       onClick={onClose}
     >
       <div
-        className="mt-[15vh] w-full max-w-lg overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl dark:border-gray-800 dark:bg-gray-950"
+        data-testid="command-palette"
+        className="mt-[15vh] w-full max-w-lg overflow-hidden rounded-xl border border-outline bg-surface shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 border-b border-gray-200 px-4 dark:border-gray-800">
+        <div className="flex items-center gap-3 border-b border-outline px-4">
           <svg
-            className="h-4 w-4 shrink-0 text-gray-400 dark:text-gray-500"
+            className="h-4 w-4 shrink-0 text-on-surface-faint"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -123,9 +124,9 @@ function CommandPaletteInner({
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
             placeholder="Search sessions..."
-            className="h-12 flex-1 bg-transparent text-sm text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-500"
+            className="h-12 flex-1 bg-transparent text-sm text-on-surface placeholder-on-surface-faint outline-none"
           />
-          <kbd className="hidden rounded border border-gray-300 px-1.5 py-0.5 text-xs text-gray-400 sm:inline-block dark:border-gray-700 dark:text-gray-500">
+          <kbd className="hidden rounded border border-outline px-1.5 py-0.5 text-xs text-on-surface-faint sm:inline-block">
             esc
           </kbd>
         </div>
@@ -133,7 +134,7 @@ function CommandPaletteInner({
         {/* Results */}
         <div ref={listRef} className="max-h-80 overflow-y-auto py-2">
           {filtered.length === 0 && (
-            <div className="px-4 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+            <div className="px-4 py-8 text-center text-sm text-on-surface-faint">
               No sessions found
             </div>
           )}
@@ -144,8 +145,8 @@ function CommandPaletteInner({
               onMouseEnter={() => setSelectedIndex(index)}
               className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                 index === selectedIndex
-                  ? "bg-gray-100 dark:bg-gray-800/80"
-                  : "hover:bg-gray-50 dark:hover:bg-gray-900"
+                  ? "bg-hover"
+                  : "hover:bg-hover"
               }`}
             >
               {/* Status dot */}
@@ -156,7 +157,7 @@ function CommandPaletteInner({
               {/* Session info */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <span className="truncate text-sm font-medium text-on-surface">
                     {session.name}
                   </span>
                   <span
@@ -165,10 +166,10 @@ function CommandPaletteInner({
                     {session.status}
                   </span>
                 </div>
-                <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400">
+                <p className="mt-0.5 truncate text-xs text-on-surface-muted">
                   {session.repo}
                   {session.branch && (
-                    <span className="ml-1 text-gray-400 dark:text-gray-500">
+                    <span className="ml-1 text-on-surface-faint">
                       · {session.branch}
                     </span>
                   )}
@@ -176,7 +177,7 @@ function CommandPaletteInner({
               </div>
 
               {/* Time ago */}
-              <span className="shrink-0 text-xs text-gray-400 dark:text-gray-500">
+              <span className="shrink-0 text-xs text-on-surface-faint">
                 {timeAgo(session.stateChangedAt)}
               </span>
             </button>
@@ -185,18 +186,18 @@ function CommandPaletteInner({
 
         {/* Footer hint */}
         {filtered.length > 0 && (
-          <div className="flex items-center gap-3 border-t border-gray-200 px-4 py-2 dark:border-gray-800">
-            <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
-              <kbd className="rounded border border-gray-300 px-1 py-0.5 text-xs dark:border-gray-700">
+          <div className="flex items-center gap-3 border-t border-outline px-4 py-2">
+            <span className="flex items-center gap-1 text-xs text-on-surface-faint">
+              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">
                 &uarr;
               </kbd>
-              <kbd className="rounded border border-gray-300 px-1 py-0.5 text-xs dark:border-gray-700">
+              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">
                 &darr;
               </kbd>
               navigate
             </span>
-            <span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
-              <kbd className="rounded border border-gray-300 px-1 py-0.5 text-xs dark:border-gray-700">
+            <span className="flex items-center gap-1 text-xs text-on-surface-faint">
+              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">
                 &crarr;
               </kbd>
               select

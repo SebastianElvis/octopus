@@ -45,8 +45,8 @@ export function PrerequisiteCheck({ onAllPassed }: PrerequisiteCheckProps) {
   if (loading) {
     return (
       <div className="flex items-center gap-2">
-        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600 dark:border-gray-600 dark:border-t-blue-400" />
-        <span className="text-sm text-gray-500">Checking prerequisites...</span>
+        <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-outline-strong border-t-brand" />
+        <span className="text-sm text-on-surface-muted">Checking prerequisites...</span>
       </div>
     );
   }
@@ -59,7 +59,7 @@ export function PrerequisiteCheck({ onAllPassed }: PrerequisiteCheckProps) {
         const available = status[tool.key];
         return (
           <div key={tool.key} className="flex items-start gap-3">
-            <span className={`mt-0.5 text-lg ${available ? "text-green-500" : "text-red-500"}`}>
+            <span className={`mt-0.5 text-lg ${available ? "text-status-done" : "text-danger"}`}>
               {available ? (
                 <svg
                   className="h-5 w-5"
@@ -83,14 +83,14 @@ export function PrerequisiteCheck({ onAllPassed }: PrerequisiteCheckProps) {
               )}
             </span>
             <div>
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{tool.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">{tool.description}</p>
+              <p className="text-sm font-medium text-on-surface">{tool.name}</p>
+              <p className="text-xs text-on-surface-muted">{tool.description}</p>
               {!available && (
                 <a
                   href={tool.installUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-0.5 inline-block text-xs text-blue-600 hover:underline dark:text-blue-500"
+                  className="mt-0.5 inline-block text-xs text-brand hover:underline"
                 >
                   Install instructions
                 </a>

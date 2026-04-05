@@ -6,7 +6,10 @@ vi.mock("../../lib/tauri", () => ({
   gitUnstageFiles: vi.fn(() => Promise.resolve()),
   gitDiscardFiles: vi.fn(() => Promise.resolve()),
   getFileDiff: vi.fn(() => Promise.resolve("diff content")),
-  gitCommitAndPush: vi.fn(() => Promise.resolve()),
+  gitCommitAndPush: vi.fn(() => Promise.resolve({ commitUrl: null, shortHash: "abc1234" })),
+  gitCommit: vi.fn(() => Promise.resolve()),
+  gitPush: vi.fn(() => Promise.resolve({ commitUrl: null, shortHash: "abc1234" })),
+  getSyncStatus: vi.fn(() => Promise.resolve({ ahead: 0, behind: 0, hasUpstream: true })),
 }));
 
 function resetStore() {
@@ -42,7 +45,7 @@ describe("gitStore", () => {
   it("setWorktreePath resets state and triggers refreshChanges", async () => {
     const { getChangedFiles } = await import("../../lib/tauri");
     vi.mocked(getChangedFiles).mockResolvedValueOnce([
-      { path: "a.ts", status: "modified", staged: false, oldPath: null },
+      { path: "a.ts", status: "modified", staged: false, oldPath: null, insertions: null, deletions: null },
     ]);
 
     useGitStore.getState().setWorktreePath("/tmp/wt");

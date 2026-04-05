@@ -127,4 +127,66 @@ mod tests {
         let err = AppError::Custom("WORKTREE_CONFLICT: branch in use".to_string());
         assert_eq!(err.error_code(), "WORKTREE_CONFLICT");
     }
+
+    #[test]
+    fn io_error_converts_and_codes() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::NotFound, "file missing");
+        let app_err: AppError = io_err.into();
+        assert_eq!(app_err.error_code(), "IO_ERROR");
+        assert!(app_err.to_string().contains("IO error"));
+    }
+
+    #[test]
+    fn json_error_code() {
+        let bad_json = serde_json::from_str::<serde_json::Value>("not json");
+        let app_err: AppError = bad_json.unwrap_err().into();
+        assert_eq!(app_err.error_code(), "JSON_ERROR");
+    }
+
+    #[test]
+    fn lock_poisoned_detected_as_internal() {
+        let err = AppError::Custom("lock poisoned during session write".to_string());
+        assert_eq!(err.error_code(), "INTERNAL_ERROR");
+    }
+
+    #[test]
+    fn custom_error_code_for_generic_message() {
+        let err = AppError::Custom("something unusual happened".to_string());
+        assert_eq!(err.error_code(), "CUSTOM_ERROR");
+    }
+
+    #[test]
+    fn all_error_variants_serialize_with_code_and_message() {
+        let variants: Vec<AppError> = vec![
+            AppError::NotFound("x".into()),
+            AppError::AuthFailed("x".into()),
+            AppError::RateLimited("x".into()),
+            AppError::Custom("x".into()),
+        ];
+        for err in variants {
+            let json = serde_json::to_string(&err).unwrap();
+            let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+            assert!(parsed["code"].is_string(), "missing code in {:?}", err);
+            assert!(
+                parsed["message"].is_string(),
+                "missing message in {:?}",
+                err
+            );
+        }
+    }
+
+    #[test]
+    fn custom_not_found_uppercase_detected() {
+        let err = AppError::Custom("NOT_FOUND: session abc".to_string());
+        assert_eq!(err.error_code(), "NOT_FOUND");
+    }
+
+    #[test]
+    fn app_result_type_alias_works() {
+        let ok: AppResult<i32> = Ok(42);
+        assert!(ok.is_ok());
+
+        let err: AppResult<i32> = Err(AppError::Custom("fail".into()));
+        assert!(err.is_err());
+    }
 }

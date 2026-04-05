@@ -11,29 +11,15 @@ interface SessionTimelineProps {
 }
 
 const DOT_COLOR: Record<string, string> = {
-  waiting: "bg-red-500",
-  running: "bg-green-500",
-  idle: "bg-gray-500",
-  done: "bg-gray-500",
-  killed: "bg-gray-500",
-  completed: "bg-green-500",
-  failed: "bg-red-500",
-  paused: "bg-yellow-500",
-  stuck: "bg-orange-500",
-  interrupted: "bg-amber-500",
+  running: "bg-blue-500",
+  attention: "bg-amber-500",
+  done: "bg-green-500",
 };
 
 const LABEL_COLOR: Record<string, string> = {
-  waiting: "text-red-500",
-  running: "text-green-500",
-  idle: "text-gray-500 dark:text-gray-400",
-  done: "text-gray-500 dark:text-gray-400",
-  killed: "text-gray-500 dark:text-gray-400",
-  completed: "text-green-500",
-  failed: "text-red-500",
-  paused: "text-yellow-500",
-  stuck: "text-orange-500",
-  interrupted: "text-amber-500",
+  running: "text-blue-500 dark:text-blue-400",
+  attention: "text-amber-500 dark:text-amber-400",
+  done: "text-green-500 dark:text-green-400",
 };
 
 function dotColor(status: string): string {
@@ -41,14 +27,14 @@ function dotColor(status: string): string {
 }
 
 function labelColor(status: string): string {
-  return LABEL_COLOR[status] ?? "text-gray-500 dark:text-gray-400";
+  return LABEL_COLOR[status] ?? "text-on-surface-muted";
 }
 
 export default function SessionTimeline({ events, className = "" }: SessionTimelineProps) {
   if (events.length === 0) return null;
 
   return (
-    <div className={`rounded-lg bg-white p-3 dark:bg-gray-950 dark:text-gray-100 ${className}`}>
+    <div className={`rounded-sm bg-surface p-3 text-on-surface ${className}`}>
       <ol className="relative ml-2">
         {events.map((event, i) => {
           const isLast = i === events.length - 1;
@@ -58,14 +44,14 @@ export default function SessionTimeline({ events, className = "" }: SessionTimel
               {/* Connecting line */}
               {!isLast && (
                 <span
-                  className="absolute left-[5px] top-3 h-full w-px bg-gray-300 dark:bg-gray-700"
+                  className="absolute left-[5px] top-3 h-full w-px bg-outline"
                   aria-hidden="true"
                 />
               )}
 
               {/* Dot */}
               <span
-                className={`relative z-10 mt-1 h-[11px] w-[11px] shrink-0 rounded-full ring-2 ring-white dark:ring-gray-950 ${dotColor(event.status)}`}
+                className={`relative z-10 mt-1 h-[11px] w-[11px] shrink-0 rounded-full ring-2 ring-surface ${dotColor(event.status)}`}
               />
 
               {/* Content */}
@@ -73,7 +59,7 @@ export default function SessionTimeline({ events, className = "" }: SessionTimel
                 <span className={`text-xs font-semibold capitalize ${labelColor(event.status)}`}>
                   {event.status}
                 </span>
-                <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                <span className="text-xs tabular-nums text-on-surface-faint">
                   {timeAgo(event.timestamp)}
                 </span>
               </div>

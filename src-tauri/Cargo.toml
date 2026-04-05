@@ -1,6 +1,6 @@
 [package]
 name = "toomanytabs"
-version = "0.1.0"
+version = "0.2.0"
 description = "Dispatch board for managing multiple Claude Code sessions"
 authors = ["SebastianElvis"]
 license = "MIT"
@@ -35,6 +35,7 @@ nix = { version = "0.29", features = ["signal"] }
 portable-pty = { version = "0.8", default-features = false }
 ignore = "0.4"
 parking_lot = "0.12"
+axum = "0.8"
 base64 = "0.22"
 
 [dev-dependencies]

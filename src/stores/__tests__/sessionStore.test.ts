@@ -19,7 +19,7 @@ const makeSession = (id: string): Session => ({
   repo: "owner/repo",
   repoId: "repo-1",
   branch: `branch-${id}`,
-  status: "idle",
+  status: "attention",
   stateChangedAt: Date.now(),
 });
 
@@ -52,7 +52,7 @@ describe("sessionStore", () => {
       useSessionStore.getState().addSession(makeSession("s2"));
       useSessionStore.getState().updateSession("s1", { status: "done" });
       const s2 = useSessionStore.getState().sessions.find((s) => s.id === "s2");
-      expect(s2?.status).toBe("idle");
+      expect(s2?.status).toBe("attention");
     });
   });
 
@@ -114,7 +114,7 @@ describe("sessionStore", () => {
           name: "Session s1",
           repoId: "repo-1",
           branch: "branch-s1",
-          status: "idle",
+          status: "attention",
           stateChangedAt: "2025-01-01T00:00:00Z",
         },
         {
@@ -122,7 +122,7 @@ describe("sessionStore", () => {
           name: "Session s2",
           repoId: "repo-1",
           branch: "branch-s2",
-          status: "idle",
+          status: "attention",
           stateChangedAt: "2025-01-01T00:00:00Z",
         },
       ];

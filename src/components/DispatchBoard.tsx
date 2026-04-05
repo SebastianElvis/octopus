@@ -1,16 +1,31 @@
 import { useEffect, useCallback, useState, useMemo, type ReactNode } from "react";
 import { useSessionStore } from "../stores/sessionStore";
 import { KanbanCard } from "./KanbanCard";
-import { checkStuckSessions, killSession, resumeSession, retrySession } from "../lib/tauri";
-import type { Session } from "../lib/types";
+import {
+  checkStuckSessions,
+  killSession,
+  interruptSession,
+  resumeSession,
+  fetchCheckRuns,
+} from "../lib/tauri";
+import type { Session, SessionStatus } from "../lib/types";
+import type { CIStatus } from "./KanbanCard";
 import { RUNNING_PULSE } from "../lib/statusColors";
+
+type StatusFilter = "attention" | "running" | "done" | null;
+type SortKey = "recent" | "created" | "name" | "status";
 
 interface DispatchBoardProps {
   onViewSession: (id: string) => void;
   onNewSession: () => void;
+  activeSessionId?: string | null;
 }
 
-export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProps) {
+export function DispatchBoard({
+  onViewSession,
+  onNewSession,
+  activeSessionId,
+}: DispatchBoardProps) {
   const sessions = useSessionStore((s) => s.sessions);
   const sessionsLoading = useSessionStore((s) => s.sessionsLoading);
   const sessionsError = useSessionStore((s) => s.sessionsError);
@@ -18,11 +33,49 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   const loadSessions = useSessionStore((s) => s.loadSessions);
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("recent");
+  const [ciStatuses, setCiStatuses] = useState<Record<string, CIStatus>>({});
+  const [doneCollapsed, setDoneCollapsed] = useState(false);
+
+  // Fetch CI status for sessions with linked PRs
+  useEffect(() => {
+    const sessionsWithPR = sessions.filter((s) => s.linkedPR && s.repoId);
+    if (sessionsWithPR.length === 0) return;
+
+    for (const s of sessionsWithPR) {
+      if (!s.repoId || !s.branch) continue;
+      void fetchCheckRuns(s.repoId, s.branch)
+        .then((runs) => {
+          if (runs.length === 0) return;
+          const allPass = runs.every((r) => r.conclusion === "success");
+          const anyFail = runs.some((r) => r.conclusion === "failure");
+          const status: CIStatus = allPass ? "success" : anyFail ? "failure" : "pending";
+          setCiStatuses((prev) => ({ ...prev, [s.id]: status }));
+        })
+        .catch(() => {
+          /* non-critical */
+        });
+    }
+  }, [sessions]);
+
+  // Keyboard shortcut for search focus
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "/" && !(e.target as HTMLElement).matches("input,textarea,select")) {
+        e.preventDefault();
+        document.getElementById("dispatch-search")?.focus();
+      }
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   // Filter sessions
   const filteredSessions = useMemo(() => {
     let result = sessions;
+
+    // Text search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -32,51 +85,93 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
           s.branch.toLowerCase().includes(q),
       );
     }
-    return result;
-  }, [sessions, searchQuery]);
 
-  const needsAttention = [
-    ...filteredSessions.filter(
-      (s) =>
-        s.status === "waiting" ||
-        s.status === "paused" ||
-        s.status === "stuck" ||
-        s.status === "interrupted",
-    ),
-  ].sort((a, b) => a.stateChangedAt - b.stateChangedAt);
-  const running = filteredSessions.filter((s) => s.status === "running");
-  const closed = filteredSessions.filter(
-    (s) =>
-      s.status === "idle" ||
-      s.status === "done" ||
-      s.status === "completed" ||
-      s.status === "failed" ||
-      s.status === "killed",
+    // Status filter
+    if (statusFilter) {
+      const statusGroups: Record<StatusFilter & string, SessionStatus[]> = {
+        attention: ["attention"],
+        running: ["running"],
+        done: ["done"],
+      };
+      const allowed = statusGroups[statusFilter];
+      result = result.filter((s) => allowed.includes(s.status));
+    }
+
+    return result;
+  }, [sessions, searchQuery, statusFilter]);
+
+  // Sort helper
+  const sortSessions = useCallback(
+    (list: Session[]) => {
+      const sorted = [...list];
+      switch (sortKey) {
+        case "recent":
+          sorted.sort((a, b) => b.stateChangedAt - a.stateChangedAt);
+          break;
+        case "created":
+          sorted.sort((a, b) => a.stateChangedAt - b.stateChangedAt);
+          break;
+        case "name":
+          sorted.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case "status":
+          sorted.sort((a, b) => a.status.localeCompare(b.status));
+          break;
+      }
+      return sorted;
+    },
+    [sortKey],
+  );
+
+  const needsInput = useMemo(() => {
+    const items = filteredSessions.filter((s) => s.status === "attention");
+    return items.sort((a, b) => b.stateChangedAt - a.stateChangedAt);
+  }, [filteredSessions]);
+
+  const running = useMemo(
+    () => sortSessions(filteredSessions.filter((s) => s.status === "running")),
+    [filteredSessions, sortSessions],
+  );
+  const closed = useMemo(
+    () => sortSessions(filteredSessions.filter((s) => s.status === "done")),
+    [filteredSessions, sortSessions],
   );
 
   // Fleet summary counts (always from unfiltered sessions)
   const summary = useMemo(() => {
-    const counts = { attention: 0, running: 0, completed: 0, failed: 0, total: sessions.length };
+    const counts = { attention: 0, running: 0, done: 0, total: sessions.length };
     for (const s of sessions) {
-      if (
-        s.status === "waiting" ||
-        s.status === "stuck" ||
-        s.status === "paused" ||
-        s.status === "interrupted"
-      )
-        counts.attention++;
+      if (s.status === "attention") counts.attention++;
       else if (s.status === "running") counts.running++;
-      else if (s.status === "completed" || s.status === "done") counts.completed++;
-      else if (s.status === "failed") counts.failed++;
+      else if (s.status === "done") counts.done++;
     }
     return counts;
   }, [sessions]);
+
+  // Natural-language summary
+  const statusSentence = useMemo(() => {
+    const parts: string[] = [];
+    if (summary.attention > 0) {
+      parts.push(
+        `${String(summary.attention)} session${summary.attention === 1 ? "" : "s"} need${summary.attention === 1 ? "s" : ""} your input`,
+      );
+    }
+    if (summary.running > 0) {
+      parts.push(`${String(summary.running)} actively running`);
+    }
+    if (parts.length === 0) {
+      if (summary.total === 0) return null;
+      if (summary.done === summary.total) return "All sessions finished.";
+      return null;
+    }
+    return parts.join(". ") + ".";
+  }, [summary]);
 
   const markStuck = useCallback(async () => {
     try {
       const stuckIds = await checkStuckSessions();
       for (const id of stuckIds) {
-        updateSession(id, { status: "stuck" });
+        updateSession(id, { status: "attention" });
       }
     } catch {
       // ignore — backend may not be available
@@ -94,28 +189,18 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     return () => clearInterval(interval);
   }, [markStuck]);
 
-  // Clear selection when sessions change
-  const [prevSessions, setPrevSessions] = useState(sessions);
-  if (sessions !== prevSessions) {
-    setPrevSessions(sessions);
-    const validIds = new Set(sessions.map((s) => s.id));
-    setSelectedIds((prev) => {
-      const next = new Set([...prev].filter((id) => validIds.has(id)));
-      return next.size === prev.size ? prev : next;
-    });
-  }
-
-  function handleInterrupt(id: string) {
-    onViewSession(id);
-  }
-
-  function handleResume(id: string) {
-    onViewSession(id);
-  }
-
-  async function handleRetry(id: string) {
+  async function handleInterrupt(id: string) {
     try {
-      await retrySession(id);
+      await interruptSession(id);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function handleResume(id: string) {
+    try {
+      await resumeSession(id);
+      updateSession(id, { status: "running", stateChangedAt: Date.now() });
     } catch {
       /* ignore */
     }
@@ -124,43 +209,13 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   async function handleKill(id: string) {
     try {
       await killSession(id);
-      updateSession(id, { status: "killed", stateChangedAt: Date.now() });
     } catch {
       /* ignore */
     }
   }
 
-  function toggleSelect(id: string) {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  async function handleBulkKill() {
-    for (const id of selectedIds) {
-      try {
-        await killSession(id);
-        updateSession(id, { status: "killed", stateChangedAt: Date.now() });
-      } catch {
-        /* ignore */
-      }
-    }
-    setSelectedIds(new Set());
-  }
-
-  async function handleBulkResume() {
-    for (const id of selectedIds) {
-      try {
-        await resumeSession(id);
-        updateSession(id, { status: "running", stateChangedAt: Date.now() });
-      } catch {
-        /* ignore */
-      }
-    }
-    setSelectedIds(new Set());
+  function toggleStatusFilter(filter: StatusFilter) {
+    setStatusFilter((prev) => (prev === filter ? null : filter));
   }
 
   if (sessionsLoading) {
@@ -169,20 +224,20 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
         {[1, 2, 3].map((n) => (
           <div
             key={n}
-            className="flex w-72 shrink-0 animate-pulse flex-col rounded-lg bg-gray-50 dark:bg-gray-900"
+            className="flex min-w-[280px] flex-1 animate-pulse flex-col rounded-sm bg-surface"
           >
             <div className="flex items-center gap-2 px-4 py-3">
-              <div className="h-2 w-2 rounded-full bg-gray-200 dark:bg-gray-700" />
-              <div className="h-3 w-20 rounded bg-gray-200 dark:bg-gray-700" />
+              <div className="h-2 w-2 rounded-full bg-active" />
+              <div className="h-3 w-20 rounded bg-active" />
             </div>
             <div className="flex flex-col gap-2 px-3 pb-3">
               {[1, 2].map((m) => (
                 <div
                   key={m}
-                  className="rounded-md border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-950"
+                  className="rounded-sm border border-outline p-3 bg-surface"
                 >
-                  <div className="h-3 w-36 rounded bg-gray-200 dark:bg-gray-700" />
-                  <div className="mt-2 h-2.5 w-24 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-3 w-36 rounded bg-active" />
+                  <div className="mt-2 h-2.5 w-24 rounded bg-hover" />
                 </div>
               ))}
             </div>
@@ -196,9 +251,9 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
   if (sessionsError) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger-muted">
           <svg
-            className="h-6 w-6 text-red-600 dark:text-red-400"
+            className="h-6 w-6 text-danger"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -211,15 +266,15 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             />
           </svg>
         </div>
-        <p className="text-sm font-medium text-red-600 dark:text-red-400">
+        <p className="text-sm font-medium text-danger">
           Failed to load sessions
         </p>
-        <p className="mt-1 max-w-sm text-xs text-gray-500 dark:text-gray-400">{sessionsError}</p>
+        <p className="mt-1 max-w-sm text-xs text-on-surface-muted">{sessionsError}</p>
         <button
           onClick={() => {
             void loadSessions();
           }}
-          className="mt-4 cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+          className="mt-4 cursor-pointer rounded-sm bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           Retry
         </button>
@@ -227,84 +282,77 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     );
   }
 
-  // Empty state with workflow explanation
+  // Empty state — terminal-native
   if (sessions.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
-        <h2 className="text-lg font-medium text-gray-700 dark:text-gray-300">
-          Welcome to TooManyTabs
-        </h2>
-        <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
-          Manage multiple Claude Code sessions in parallel. Here is how it works:
-        </p>
-        <div className="mt-6 flex max-w-md flex-col gap-3 text-left">
-          <WorkflowStep
-            number={1}
-            title="Add a repository"
-            description="Connect a GitHub repo from the Repos tab."
-          />
-          <WorkflowStep
-            number={2}
-            title="Create a session"
-            description="Link an issue or PR, write a prompt, and spawn a session."
-          />
-          <WorkflowStep
-            number={3}
-            title="Monitor and respond"
-            description="Watch sessions run, reply when they need input, and review changes."
-          />
-          <WorkflowStep
-            number={4}
-            title="Ship it"
-            description="Commit, push, open a PR, and merge -- all from the app."
-          />
+      <div className="flex flex-1 flex-col items-center justify-center p-6">
+        <div className="w-full max-w-xs">
+          <p className="mb-3 text-xs font-medium uppercase tracking-widest text-on-surface-faint">
+            no sessions
+          </p>
+          <div className="flex flex-col gap-3 border border-outline bg-surface px-4 py-3">
+            <WorkflowStep cmd="repos add <github-url>" desc="connect a repository" />
+            <WorkflowStep cmd="session new" desc="link an issue, write a prompt" />
+            <WorkflowStep cmd="monitor" desc="watch output, respond to prompts" />
+            <WorkflowStep cmd="ship" desc="commit, push, open PR, merge" />
+          </div>
+          <button
+            onClick={onNewSession}
+            className="mt-3 w-full cursor-pointer border border-outline py-1.5 text-xs font-medium text-on-surface-muted hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
+          >
+            + new session
+          </button>
         </div>
-        <button
-          onClick={onNewSession}
-          className="mt-6 cursor-pointer rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-        >
-          Get Started
-        </button>
       </div>
     );
   }
 
-  const hasSelection = selectedIds.size > 0;
-  const selectedSessions = sessions.filter((s) => selectedIds.has(s.id));
-  const canResumeSelected = selectedSessions.some(
-    (s) => s.status === "paused" || s.status === "interrupted" || s.status === "idle",
-  );
-  const canKillSelected = selectedSessions.some(
-    (s) => s.status === "running" || s.status === "waiting" || s.status === "stuck",
-  );
-
   return (
-    <div className="flex flex-1 flex-col overflow-hidden">
-      {/* Fleet summary bar */}
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-6 py-3 dark:border-gray-800 dark:bg-gray-900/50">
-        <div className="flex items-center gap-4">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Fleet</span>
-          <div className="flex items-center gap-3">
-            <SummaryPill color="amber" count={summary.attention} label="attention" />
-            <SummaryPill color="blue" count={summary.running} label="running" pulse />
-            <SummaryPill color="green" count={summary.completed} label="completed" />
-            <SummaryPill color="red" count={summary.failed} label="failed" />
+    <div data-testid="dispatch-board" className="flex flex-1 flex-col overflow-hidden">
+      {/* Fleet summary + search bar */}
+      <div className="flex shrink-0 items-center justify-between border-b border-outline bg-surface px-4 py-2">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <SummaryPill
+              color="amber"
+              count={summary.attention}
+              label="attention"
+              active={statusFilter === "attention"}
+              onClick={() => toggleStatusFilter("attention")}
+            />
+            <SummaryPill
+              color="blue"
+              count={summary.running}
+              label="running"
+              pulse
+              active={statusFilter === "running"}
+              onClick={() => toggleStatusFilter("running")}
+            />
+            <SummaryPill
+              color="gray"
+              count={summary.done}
+              label="done"
+              active={statusFilter === "done"}
+              onClick={() => toggleStatusFilter("done")}
+            />
           </div>
-          <span className="text-xs text-gray-400 dark:text-gray-500">{summary.total} total</span>
+          {statusSentence && (
+            <span className="text-xs text-on-surface-faint">{statusSentence}</span>
+          )}
         </div>
         <button
           onClick={onNewSession}
-          className="cursor-pointer rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+          className="cursor-pointer rounded-sm bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           + New Session
         </button>
       </div>
 
-      {/* Search & filter bar */}
-      <div className="flex shrink-0 items-center gap-3 border-b border-gray-200 px-6 py-2 dark:border-gray-800">
-        <div className="flex flex-1 items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-1.5 dark:border-gray-700 dark:bg-gray-900">
+      {/* Search, filter & sort bar */}
+      <div className="flex shrink-0 items-center gap-3 border-b border-outline px-4 py-1.5">
+        <div className="flex flex-1 items-center gap-2 rounded-sm border border-outline bg-surface px-3 py-1.5">
           <svg
-            className="h-3.5 w-3.5 text-gray-400"
+            className="h-3.5 w-3.5 text-on-surface-faint"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -317,16 +365,17 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             />
           </svg>
           <input
+            id="dispatch-search"
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Filter sessions..."
-            className="flex-1 bg-transparent text-xs text-gray-900 placeholder-gray-400 outline-none dark:text-gray-100 dark:placeholder-gray-500"
+            placeholder="Filter sessions... (press / to focus)"
+            className="flex-1 bg-transparent text-xs text-on-surface placeholder-on-surface-faint outline-none"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="cursor-pointer text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:hover:text-gray-300"
+              className="cursor-pointer text-on-surface-faint hover:text-on-surface-muted focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
               <svg
                 className="h-3 w-3"
@@ -340,75 +389,57 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
             </button>
           )}
         </div>
+
+        {/* Sort dropdown */}
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="cursor-pointer rounded-sm border border-outline bg-surface px-2 py-1.5 text-xs text-on-surface-muted outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
+        >
+          <option value="recent">Most recent</option>
+          <option value="created">Oldest first</option>
+          <option value="name">Name A-Z</option>
+          <option value="status">Status</option>
+        </select>
       </div>
 
-      {/* Bulk actions bar */}
-      {hasSelection && (
-        <div className="flex shrink-0 items-center gap-3 border-b border-blue-200 bg-blue-50 px-6 py-2 dark:border-blue-900/50 dark:bg-blue-950/30">
-          <span className="text-xs font-medium text-blue-700 dark:text-blue-400">
-            {selectedIds.size} selected
+      {/* Active filter indicator */}
+      {statusFilter && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-outline bg-brand-muted px-4 py-1">
+          <span className="text-xs text-on-surface-muted">
+            Showing:{" "}
+            <span className="font-medium text-on-surface">{statusFilter}</span>
           </span>
-          {canKillSelected && (
-            <button
-              onClick={() => {
-                void handleBulkKill();
-              }}
-              className="cursor-pointer rounded bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-500 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
-            >
-              Kill Selected
-            </button>
-          )}
-          {canResumeSelected && (
-            <button
-              onClick={() => {
-                void handleBulkResume();
-              }}
-              className="cursor-pointer rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
-            >
-              Resume Selected
-            </button>
-          )}
           <button
-            onClick={() => setSelectedIds(new Set())}
-            className="ml-auto cursor-pointer text-xs text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 dark:text-gray-400 dark:hover:text-gray-200"
+            onClick={() => setStatusFilter(null)}
+            className="cursor-pointer text-xs text-brand hover:text-brand focus:outline-none"
           >
-            Clear selection
+            Clear filter
           </button>
         </div>
       )}
 
       {/* Kanban columns */}
-      <div className="flex flex-1 gap-4 overflow-x-auto p-6">
+      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto p-4">
         <Column
-          title="Needs Attention"
-          count={needsAttention.length}
+          title="Needs Input"
+          count={needsInput.length}
           accentColor="amber"
-          empty="No sessions need attention."
+          emptyIcon="check"
+          emptyTitle="All clear"
+          emptyDescription="No sessions need your attention right now."
         >
-          {needsAttention.map((s) => (
-            <SelectableCard
+          {needsInput.map((s, i) => (
+            <KanbanCard
               key={s.id}
               session={s}
-              selected={selectedIds.has(s.id)}
-              onToggleSelect={toggleSelect}
+              index={i}
+              isActive={s.id === activeSessionId}
+              ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
-              onResume={
-                s.status === "paused" || s.status === "interrupted" ? handleResume : undefined
-              }
-              onRetry={
-                s.status === "failed" || s.status === "stuck"
-                  ? (id: string) => {
-                      void handleRetry(id);
-                    }
-                  : undefined
-              }
-              onKill={
-                s.status === "running" || s.status === "waiting" || s.status === "stuck"
-                  ? (id: string) => {
-                      void handleKill(id);
-                    }
-                  : undefined
-              }
+              onResume={(id: string) => {
+                void handleResume(id);
+              }}
             />
           ))}
         </Column>
@@ -417,16 +448,21 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
           title="Running"
           count={running.length}
           accentColor="blue"
-          empty="No sessions running."
+          emptyIcon="pause"
+          emptyTitle="No active sessions"
+          emptyDescription="All sessions are paused or waiting. Resume one to continue."
         >
-          {running.map((s) => (
-            <SelectableCard
+          {running.map((s, i) => (
+            <KanbanCard
               key={s.id}
               session={s}
-              selected={selectedIds.has(s.id)}
-              onToggleSelect={toggleSelect}
+              index={i}
+              isActive={s.id === activeSessionId}
+              ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
-              onInterrupt={handleInterrupt}
+              onInterrupt={(id: string) => {
+                void handleInterrupt(id);
+              }}
               onKill={(id: string) => {
                 void handleKill(id);
               }}
@@ -434,21 +470,24 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
           ))}
         </Column>
 
-        <Column title="Closed" count={closed.length} accentColor="gray" empty="No closed sessions.">
-          {closed.map((s) => (
-            <SelectableCard
+        <Column
+          title="Done"
+          count={closed.length}
+          accentColor="green"
+          emptyIcon="inbox"
+          emptyTitle="Nothing here yet"
+          emptyDescription="Finished sessions will appear here."
+          collapsed={doneCollapsed}
+          onToggleCollapse={() => setDoneCollapsed((v) => !v)}
+        >
+          {closed.map((s, i) => (
+            <KanbanCard
               key={s.id}
               session={s}
-              selected={selectedIds.has(s.id)}
-              onToggleSelect={toggleSelect}
+              index={i}
+              isActive={s.id === activeSessionId}
+              ciStatus={ciStatuses[s.id]}
               onView={onViewSession}
-              onRetry={
-                s.status === "failed"
-                  ? (id: string) => {
-                      void handleRetry(id);
-                    }
-                  : undefined
-              }
             />
           ))}
         </Column>
@@ -459,89 +498,55 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
 
 /* ── Workflow step for empty state ─────────────────────────────────────────── */
 
-function WorkflowStep({
-  number,
-  title,
-  description,
-}: {
-  number: number;
-  title: string;
-  description: string;
-}) {
+function WorkflowStep({ cmd, desc }: { cmd: string; desc: string }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-400">
-        {number}
-      </span>
-      <div>
-        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{title}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
-      </div>
+    <div className="flex flex-col gap-0.5">
+      <span className="font-mono text-xs text-brand">$ {cmd}</span>
+      <span className="pl-2 text-xs text-on-surface-faint">{desc}</span>
     </div>
   );
 }
 
-/* ── Selectable card wrapper ─────────────────────────────────────────────── */
-
-function SelectableCard({
-  session,
-  selected,
-  onToggleSelect,
-  ...cardProps
-}: {
-  session: Session;
-  selected: boolean;
-  onToggleSelect: (id: string) => void;
-  onView: (id: string) => void;
-  onInterrupt?: (id: string) => void;
-  onResume?: (id: string) => void;
-  onRetry?: (id: string) => void;
-  onKill?: (id: string) => void;
-}) {
-  return (
-    <div className={`relative ${selected ? "rounded-md ring-2 ring-blue-500" : ""}`}>
-      <div className="absolute left-1.5 top-1.5 z-10" onClick={(e) => e.stopPropagation()}>
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={() => onToggleSelect(session.id)}
-          className="h-3.5 w-3.5 cursor-pointer rounded border-gray-300 text-blue-600 accent-blue-600"
-        />
-      </div>
-      <KanbanCard session={session} {...cardProps} />
-    </div>
-  );
-}
-
-/* ── Summary pill ────────────────────────────────────────────────────────── */
+/* ── Summary pill (clickable filter) ────────────────────────────────────── */
 
 function SummaryPill({
   color,
   count,
   label,
   pulse,
+  active,
+  onClick,
 }: {
   color: string;
   count: number;
   label: string;
   pulse?: boolean;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const dotColors: Record<string, string> = {
-    red: "bg-red-500",
-    green: "bg-green-500",
-    blue: "bg-blue-500",
-    amber: "bg-amber-500",
-    gray: "bg-gray-500",
+    red: "bg-danger",
+    green: "bg-status-done",
+    blue: "bg-status-running",
+    amber: "bg-status-attention",
+    gray: "bg-on-surface-faint",
   };
 
   return (
-    <div className="flex items-center gap-1.5">
+    <button
+      onClick={onClick}
+      className={`flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 ${
+        active
+          ? "bg-active ring-1 ring-outline-strong"
+          : "hover:bg-hover"
+      }`}
+    >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${dotColors[color] ?? "bg-gray-500"} ${pulse && count > 0 ? RUNNING_PULSE : ""}`}
+        className={`h-2 w-2 rounded-full ${dotColors[color] ?? "bg-gray-500"} ${pulse && count > 0 ? RUNNING_PULSE : ""}`}
       />
-      <span className="text-xs font-semibold text-gray-900 dark:text-gray-100">{count}</span>
-      <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
-    </div>
+      <span className="text-xs font-semibold text-on-surface">{count}</span>
+      <span className="text-xs text-on-surface-muted">{label}</span>
+    </button>
   );
 }
 
@@ -551,51 +556,129 @@ function Column({
   title,
   count,
   accentColor,
-  empty,
+  emptyIcon,
+  emptyTitle,
+  emptyDescription,
+  collapsed,
+  onToggleCollapse,
   children,
 }: {
   title: string;
   count: number;
-  accentColor: "amber" | "blue" | "gray" | "orange";
-  empty: string;
+  accentColor: "amber" | "blue" | "green" | "gray" | "orange";
+  emptyIcon: "check" | "pause" | "inbox";
+  emptyTitle: string;
+  emptyDescription: string;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
   children: ReactNode;
 }) {
   const dotColors = {
-    amber: "bg-amber-500",
-    blue: "bg-blue-500",
-    gray: "bg-gray-500",
-    orange: "bg-orange-500",
+    amber: "bg-status-attention",
+    blue: "bg-status-running",
+    green: "bg-status-done",
+    gray: "bg-on-surface-faint",
+    orange: "bg-block-permission",
   };
 
-  const headerBorder = {
-    amber: "border-amber-500",
-    blue: "border-blue-500",
-    gray: "border-gray-300 dark:border-gray-700",
-    orange: "border-orange-500",
-  };
+  if (collapsed) {
+    return (
+      <section
+        data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
+        className="flex min-h-0 w-10 shrink-0 flex-col items-center rounded-sm bg-surface-sunken"
+      >
+        <button
+          onClick={onToggleCollapse}
+          className="flex w-full cursor-pointer flex-col items-center gap-2 px-1 py-3 text-on-surface-faint hover:text-on-surface-muted"
+          title={`Expand ${title} (${count})`}
+        >
+          <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColors[accentColor]}`} />
+          <span className="text-xs font-semibold tabular-nums">{count}</span>
+          <span
+            className="text-[9px] font-medium uppercase tracking-widest"
+            style={{ writingMode: "vertical-lr" }}
+          >
+            {title}
+          </span>
+        </button>
+      </section>
+    );
+  }
 
   return (
-    <section className="flex w-72 shrink-0 flex-col rounded-lg bg-gray-50 dark:bg-gray-900/50">
-      {/* Column header */}
-      <div className={`border-t-2 ${headerBorder[accentColor]} rounded-t-lg`} />
+    <section
+      data-testid={`column-${title.toLowerCase().replace(/\s+/g, "-")}`}
+      className="flex min-h-0 min-w-[280px] flex-1 flex-col rounded-sm bg-surface-sunken"
+    >
+      {/* Column header — dot + title + count */}
       <div className="flex items-center gap-2 px-4 py-2.5">
-        <span className={`inline-block h-2 w-2 rounded-full ${dotColors[accentColor]}`} />
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <span className={`inline-block h-1.5 w-1.5 rounded-full ${dotColors[accentColor]}`} />
+        <h2 className="text-xs font-medium uppercase tracking-widest text-on-surface-faint">
           {title}
         </h2>
-        <span className="rounded-full bg-gray-200 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-          {count}
-        </span>
+        <span className="tabular-nums text-xs text-on-surface-faint">{count}</span>
+        {onToggleCollapse && count > 0 && (
+          <button
+            onClick={onToggleCollapse}
+            className="ml-auto cursor-pointer text-on-surface-faint hover:text-on-surface-muted"
+            title={`Collapse ${title}`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Cards */}
-      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-3 pb-3">
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto pb-3">
         {count === 0 ? (
-          <p className="px-1 py-4 text-center text-xs text-gray-400 dark:text-gray-500">{empty}</p>
+          <div className="flex flex-col items-center px-2 py-6 text-center">
+            <EmptyIcon type={emptyIcon} />
+            <p className="mt-2 text-xs font-medium text-on-surface-muted">
+              {emptyTitle}
+            </p>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-on-surface-faint">
+              {emptyDescription}
+            </p>
+          </div>
         ) : (
           children
         )}
       </div>
     </section>
+  );
+}
+
+/* ── Empty state icons ──────────────────────────────────────────────────── */
+
+function EmptyIcon({ type }: { type: "check" | "pause" | "inbox" }) {
+  const cls = "h-5 w-5 text-on-surface-faint";
+  if (type === "check") {
+    return (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+      </svg>
+    );
+  }
+  if (type === "pause") {
+    return (
+      <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg className={cls} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
+      />
+    </svg>
   );
 }
