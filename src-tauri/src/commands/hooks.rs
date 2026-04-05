@@ -165,7 +165,7 @@ async fn hook_handler(
 
         let app_state = state.app.state::<crate::state::AppState>();
 
-        // Map Claude's cwd to our TooManyTabs session ID so the frontend
+        // Map Claude's cwd to our Octopus session ID so the frontend
         // can match permission requests to the correct session.
         let tmt_session_id = find_session_by_cwd(&state.app, &event.cwd);
 
@@ -208,7 +208,7 @@ async fn hook_handler(
             pending.insert(request_id.clone(), tx);
         }
 
-        // Store the TooManyTabs session ID so respond_to_hook can restore status
+        // Store the Octopus session ID so respond_to_hook can restore status
         if let Some(ref tmt_id) = tmt_session_id {
             let mut map = app_state.hook_request_sessions.lock();
             map.insert(request_id.clone(), tmt_id.clone());
@@ -444,7 +444,7 @@ fn claude_settings_path() -> PathBuf {
         .join("settings.json")
 }
 
-/// Add TooManyTabs hook entries to ~/.claude/settings.json
+/// Add Octopus hook entries to ~/.claude/settings.json
 fn configure_claude_hooks(port: u16) -> AppResult<()> {
     let path = claude_settings_path();
     std::fs::create_dir_all(path.parent().unwrap())?;
@@ -533,7 +533,7 @@ fn configure_claude_hooks(port: u16) -> AppResult<()> {
         "FileChanged",
     ];
 
-    // Clean up any stale top-level hook entries from older TooManyTabs versions
+    // Clean up any stale top-level hook entries from older Octopus versions
     for event_name in &events {
         if let Some(existing) = obj.get_mut(*event_name) {
             if let Some(arr) = existing.as_array_mut() {
@@ -569,7 +569,7 @@ fn configure_claude_hooks(port: u16) -> AppResult<()> {
         let our_entry = &tmt_hooks[event_name];
         if let Some(existing) = hooks_obj.get_mut(event_name) {
             if let Some(arr) = existing.as_array_mut() {
-                // Remove any previous TooManyTabs hook entries (identified by URL pattern)
+                // Remove any previous Octopus hook entries (identified by URL pattern)
                 arr.retain(|entry| !entry_contains_tmt_url(entry));
                 // Add our new entry
                 if let Some(our_arr) = our_entry.as_array() {
@@ -590,7 +590,7 @@ fn configure_claude_hooks(port: u16) -> AppResult<()> {
     Ok(())
 }
 
-/// Remove TooManyTabs hooks from ~/.claude/settings.json
+/// Remove Octopus hooks from ~/.claude/settings.json
 pub fn remove_claude_hooks() -> AppResult<()> {
     let path = claude_settings_path();
     if !path.exists() {
@@ -660,11 +660,11 @@ pub fn remove_claude_hooks() -> AppResult<()> {
     std::fs::write(&tmp_path, serde_json::to_string_pretty(&settings)?)?;
     std::fs::rename(&tmp_path, &path)?;
 
-    log::info!("Removed TooManyTabs hooks from {:?}", path);
+    log::info!("Removed Octopus hooks from {:?}", path);
     Ok(())
 }
 
-/// Check if a hook entry array item contains a TooManyTabs URL.
+/// Check if a hook entry array item contains a Octopus URL.
 fn entry_contains_tmt_url(entry: &serde_json::Value) -> bool {
     if let Some(hooks) = entry.get("hooks").and_then(|h| h.as_array()) {
         for hook in hooks {

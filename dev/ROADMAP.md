@@ -1,4 +1,4 @@
-# TooManyTabs — Product Roadmap
+# Octopus — Product Roadmap
 
 **Last updated:** 2026-03-24
 
@@ -45,7 +45,7 @@ The full session lifecycle runs inside the app. Dispatch board with kanban colum
 
 **Exit criteria:** Zero visits to github.com required for the standard session lifecycle.
 
-**Competitive distance:** This is the first divergence from Nimbalyst. They stop at "review diff." We stop at "merged and closed." Every competitor except GitHub Copilot (which IS GitHub) has this gap. Shipping H1 creates the one-line pitch: "TooManyTabs ships your code."
+**Competitive distance:** This is the first divergence from Nimbalyst. They stop at "review diff." We stop at "merged and closed." Every competitor except GitHub Copilot (which IS GitHub) has this gap. Shipping H1 creates the one-line pitch: "Octopus ships your code."
 
 #### H1.1 — CI status in-app
 
@@ -229,7 +229,7 @@ When a session is stuck or failed, the user sees a generic warning banner with n
 
 Tasks:
 - Extract error context from terminal output: parse last 10 lines for "Error:", "fatal:", exit codes; show structured error summary in the stuck/failed banner instead of generic "No output for >20min"
-- Add "View Full Log" button in SessionDetail: opens `~/.toomanytabs/logs/{id}/stdout.log` in the code editor or downloads it
+- Add "View Full Log" button in SessionDetail: opens `~/.octopus/logs/{id}/stdout.log` in the code editor or downloads it
 - Add "Retry" action for failed sessions: re-spawn with same prompt and worktree (don't delete worktree on failure)
 - Add "Save Patch" option before kill: generate `git diff` and save to clipboard or file so partial work isn't lost
 - Improve kill confirmation: use a modal dialog with session name and warning about data loss, not inline button swap (easy to accidentally confirm)
@@ -590,10 +590,10 @@ The market has split into five categories. Each has a different theory of how AI
 
 | Horizon | Gap it creates vs. Nimbalyst |
 |---|---|
-| H1 | "TooManyTabs ships your code. Nimbalyst makes you go to GitHub." |
-| H2 | "TooManyTabs tells you what each session needs. Nimbalyst shows you a status pill." |
-| H3 | "TooManyTabs handles 50 sessions. Nimbalyst's flat kanban becomes a wall of cards at 15." |
-| H4 | "TooManyTabs merges routine PRs automatically. In Nimbalyst, every action is manual." |
+| H1 | "Octopus ships your code. Nimbalyst makes you go to GitHub." |
+| H2 | "Octopus tells you what each session needs. Nimbalyst shows you a status pill." |
+| H3 | "Octopus handles 50 sessions. Nimbalyst's flat kanban becomes a wall of cards at 15." |
+| H4 | "Octopus merges routine PRs automatically. In Nimbalyst, every action is manual." |
 
 **Key risk:** Nimbalyst ships fast (rebranded from Crystal, shipped iOS app and multi-agent support in weeks) and is free. If they add GitHub lifecycle features before we ship H1, the differentiation window closes. H1 is time-sensitive.
 
@@ -632,7 +632,7 @@ Session managers    Nimbalyst            Low — status only
 GitHub-native       Copilot agent        Medium — native context
 Terminal tools      Amp, ccmanager       Low — text UI limits
 
-TooManyTabs         Dispatch board       HIGH — structured decisions,
+Octopus         Dispatch board       HIGH — structured decisions,
                                          recaps, automation
 ```
 
@@ -663,7 +663,7 @@ More fundamentally, H1-H4 require deep, compounding GitHub integration. CI statu
 
 ### Per-competitor strategy
 
-- **vs. Nimbalyst**: H1 is the first divergence point and it's time-sensitive. Ship in-app merge + CI status before they do. This creates the pitch: "TooManyTabs ships your code. Nimbalyst makes you go to GitHub." Don't compete on their strengths (visual editing, multi-agent, mobile, free tier).
+- **vs. Nimbalyst**: H1 is the first divergence point and it's time-sensitive. Ship in-app merge + CI status before they do. This creates the pitch: "Octopus ships your code. Nimbalyst makes you go to GitHub." Don't compete on their strengths (visual editing, multi-agent, mobile, free tier).
 - **vs. Cursor/Antigravity**: H2 (structured decisions) creates a UX they structurally can't replicate — their identity is "IDE", ours is "dispatch board." They will never build a pure decision-routing interface because their users expect to edit code.
 - **vs. Devin/Codex**: They're ahead on H4 (cloud automation) but behind on H2 (decision velocity). Their chat-box interaction can't match structured prompts. And local-first execution is a permanent advantage for security-conscious teams and enterprises.
 - **vs. GitHub Copilot**: They have the data advantage (native issues/PRs/CI). We counter with the UX advantage (dispatch board, structured decisions, batch ops). H3 features (projects, chaining, dashboard) create organisational depth that a GitHub tab can't match.

@@ -55,7 +55,7 @@ describe("Keyboard shortcuts", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+      expect(screen.getByText("Octopus")).toBeInTheDocument();
     });
 
     // Open command palette

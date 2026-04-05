@@ -64,9 +64,9 @@ describe("Onboarding flow", () => {
       expect(screen.getByTestId("onboarding-dialog")).toBeInTheDocument();
     });
 
-    // "Welcome to TooManyTabs" may appear in both onboarding dialog and empty state
+    // "Welcome to Octopus" may appear in both onboarding dialog and empty state
     const dialog = screen.getByTestId("onboarding-dialog");
-    expect(dialog).toHaveTextContent("Welcome to TooManyTabs");
+    expect(dialog).toHaveTextContent("Welcome to Octopus");
     expect(screen.getByText("01 / check prerequisites")).toBeInTheDocument();
   });
 
@@ -78,7 +78,7 @@ describe("Onboarding flow", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+      expect(screen.getByText("Octopus")).toBeInTheDocument();
     });
 
     expect(screen.queryByTestId("onboarding-dialog")).not.toBeInTheDocument();

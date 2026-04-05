@@ -1,5 +1,5 @@
 {
-  "name": "toomanytabs",
+  "name": "octopus",
   "version": "0.2.0",
   "description": "Dispatch board for managing multiple Claude Code sessions",
   "type": "module",
@@ -20,15 +20,15 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/SebastianElvis/toomanytabs.git"
+    "url": "git+https://github.com/SebastianElvis/octopus.git"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/SebastianElvis/toomanytabs/issues"
+    "url": "https://github.com/SebastianElvis/octopus/issues"
   },
-  "homepage": "https://github.com/SebastianElvis/toomanytabs#readme",
+  "homepage": "https://github.com/SebastianElvis/octopus#readme",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@tailwindcss/vite": "^4.2.2",

@@ -3052,6 +3052,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "octopus"
+version = "0.2.0"
+dependencies = [
+ "axum",
+ "base64 0.22.1",
+ "chrono",
+ "dirs 5.0.1",
+ "ignore",
+ "log",
+ "nix 0.29.0",
+ "parking_lot",
+ "portable-pty",
+ "reqwest 0.12.28",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-log",
+ "tauri-plugin-notification",
+ "tauri-plugin-shell",
+ "tauri-plugin-sql",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5809,35 +5838,6 @@ name = "toml_writer"
 version = "1.0.7+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f17aaa1c6e3dc22b1da4b6bba97d066e354c7945cac2f7852d4e4e7ca7a6b56d"
-
-[[package]]
-name = "toomanytabs"
-version = "0.2.0"
-dependencies = [
- "axum",
- "base64 0.22.1",
- "chrono",
- "dirs 5.0.1",
- "ignore",
- "log",
- "nix 0.29.0",
- "parking_lot",
- "portable-pty",
- "reqwest 0.12.28",
- "rusqlite",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-log",
- "tauri-plugin-notification",
- "tauri-plugin-shell",
- "tauri-plugin-sql",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "uuid",
-]
 
 [[package]]
 name = "tower"

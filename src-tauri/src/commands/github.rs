@@ -302,7 +302,7 @@ async fn github_request(
     for attempt in 0..MAX_RETRIES {
         let resp = request_builder()
             .header("Authorization", format!("Bearer {}", token))
-            .header("User-Agent", "toomanytabs/0.1")
+            .header("User-Agent", "octopus/0.1")
             .header("Accept", "application/vnd.github+json")
             .send()
             .await?;
@@ -378,7 +378,7 @@ async fn github_get_cached(
     let mut req = client
         .get(url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "toomanytabs/0.1")
+        .header("User-Agent", "octopus/0.1")
         .header("Accept", "application/vnd.github+json");
 
     // Add If-None-Match header if we have a cached ETag

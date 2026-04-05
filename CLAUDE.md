@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-TooManyTabs is a Tauri 2 desktop app (React 19 + Rust) that serves as a dispatch board for managing multiple Claude Code sessions in parallel. It provides a kanban-style UI to track session status, integrated terminal/editor, git operations, and GitHub integration.
+Octopus is a Tauri 2 desktop app (React 19 + Rust) that serves as a dispatch board for managing multiple Claude Code sessions in parallel. It provides a kanban-style UI to track session status, integrated terminal/editor, git operations, and GitHub integration.
 
 ## Commands
 
@@ -76,7 +76,7 @@ The `attention` status consolidates waiting, stuck, and orphaned states. `BlockT
 The frontend renders structured `ClaudeStreamEvent` JSON from the CLI rather than raw terminal output. `sessionStore` processes events into `ClaudeMessage` blocks (text, thinking, tool_use, tool_result) displayed by `ClaudeOutputPanel` and its child components in `src/components/claude/`. Permission requests from Claude CLI hooks are handled by `hookStore` → `PermissionDialog`/`PermissionBanner`.
 
 ### Database (SQLite)
-Stored at `~/.toomanytabs/toomanytabs.db`. Tables: `repos` (GitHub URL, local path), `sessions` (linked to repo, tracks status, worktree path, linked issue/PR numbers, last_message, dangerously_skip_permissions), `settings` (key-value store for API keys etc.). Schema is created on startup via `db::create_schema()` using `CREATE TABLE IF NOT EXISTS`.
+Stored at `~/.octopus/octopus.db`. Tables: `repos` (GitHub URL, local path), `sessions` (linked to repo, tracks status, worktree path, linked issue/PR numbers, last_message, dangerously_skip_permissions), `settings` (key-value store for API keys etc.). Schema is created on startup via `db::create_schema()` using `CREATE TABLE IF NOT EXISTS`.
 
 ## Key Patterns
 

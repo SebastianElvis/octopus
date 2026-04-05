@@ -35,7 +35,7 @@ use tauri::Manager;
 
 /// Return the path to the sentinel file used to detect unclean shutdowns.
 fn sentinel_path() -> Option<std::path::PathBuf> {
-    dirs::home_dir().map(|h| h.join(".toomanytabs").join(".running"))
+    dirs::home_dir().map(|h| h.join(".octopus").join(".running"))
 }
 
 /// Write a sentinel file to indicate the app is running.
@@ -137,7 +137,7 @@ fn scan_orphaned_worktrees(conn: &rusqlite::Connection) {
         None => return,
     };
 
-    let worktrees_dir = home.join(".toomanytabs").join("worktrees");
+    let worktrees_dir = home.join(".octopus").join("worktrees");
     if !worktrees_dir.is_dir() {
         return;
     }
@@ -375,10 +375,10 @@ mod tests {
     }
 
     #[test]
-    fn sentinel_path_is_in_toomanytabs_dir() {
+    fn sentinel_path_is_in_octopus_dir() {
         if let Some(path) = sentinel_path() {
             let path_str = path.to_string_lossy();
-            assert!(path_str.contains(".toomanytabs"));
+            assert!(path_str.contains(".octopus"));
             assert!(path_str.ends_with(".running"));
         }
     }

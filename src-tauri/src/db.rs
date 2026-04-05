@@ -58,7 +58,7 @@ pub fn run_migrations(conn: &Connection) -> AppResult<()> {
 ///
 /// If the `TOOMANYTABS_DB_PATH` environment variable is set, use that path
 /// directly (useful for E2E test isolation). Otherwise defaults to
-/// `~/.toomanytabs/toomanytabs.db`.
+/// `~/.octopus/octopus.db`.
 pub fn db_path() -> AppResult<String> {
     if let Ok(p) = std::env::var("TOOMANYTABS_DB_PATH") {
         return Ok(p);
@@ -66,8 +66,8 @@ pub fn db_path() -> AppResult<String> {
     let home = dirs::home_dir()
         .ok_or_else(|| AppError::Custom("could not determine home directory".to_string()))?;
     Ok(home
-        .join(".toomanytabs")
-        .join("toomanytabs.db")
+        .join(".octopus")
+        .join("octopus.db")
         .to_string_lossy()
         .to_string())
 }
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn db_path_returns_expected_suffix() {
         if let Ok(p) = db_path() {
-            assert!(p.ends_with(".toomanytabs/toomanytabs.db"));
+            assert!(p.ends_with(".octopus/octopus.db"));
         }
     }
 

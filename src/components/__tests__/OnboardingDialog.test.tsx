@@ -14,7 +14,7 @@ describe("OnboardingDialog", () => {
         onOpenNewSession={() => {}}
       />,
     );
-    expect(screen.getByText("Welcome to TooManyTabs")).toBeInTheDocument();
+    expect(screen.getByText("Welcome to Octopus")).toBeInTheDocument();
   });
 
   it("shows the prerequisites step first", () => {
