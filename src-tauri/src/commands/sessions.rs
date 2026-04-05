@@ -744,6 +744,56 @@ pub async fn respond_to_session(
     Ok(())
 }
 
+/// Save a base64-encoded image to the session's worktree and return
+/// the absolute path.  Used for image-paste support — the frontend
+/// attaches the returned path when replying so Claude Code can read it.
+#[tauri::command]
+pub async fn save_session_image(
+    state: State<'_, AppState>,
+    session_id: String,
+    filename: String,
+    base64_data: String,
+) -> AppResult<String> {
+    use base64::Engine as _;
+
+    // Look up the session's worktree path
+    let worktree_path = {
+        let db = state.db.lock();
+        let mut stmt = db
+            .prepare("SELECT worktree_path FROM sessions WHERE id = ?1")
+            .map_err(|e| AppError::Custom(format!("DB prepare error: {}", e)))?;
+        stmt.query_row(rusqlite::params![session_id], |row| {
+            row.get::<_, Option<String>>(0)
+        })
+        .map_err(|_| AppError::Custom(format!("session {} not found", session_id)))?
+        .ok_or_else(|| {
+            AppError::Custom(format!("session {} has no worktree path", session_id))
+        })?
+    };
+
+    // Create an images directory inside the worktree
+    let images_dir = Path::new(&worktree_path).join(".toomanytabs-images");
+    std::fs::create_dir_all(&images_dir)?;
+
+    // Decode base64 data
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&base64_data)
+        .map_err(|e| AppError::Custom(format!("invalid base64: {}", e)))?;
+
+    // Write the file
+    let dest = images_dir.join(&filename);
+    std::fs::write(&dest, &bytes)?;
+
+    let abs_path = dest.to_string_lossy().to_string();
+    log::info!(
+        "Saved image for session {}: {} ({} bytes)",
+        session_id,
+        abs_path,
+        bytes.len()
+    );
+    Ok(abs_path)
+}
+
 /// Resize the session (no-op for piped sessions — kept for API compatibility).
 #[tauri::command]
 pub async fn resize_session(

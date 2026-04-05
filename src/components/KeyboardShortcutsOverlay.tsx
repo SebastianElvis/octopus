@@ -1,30 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
+import { getKeybindingsBySection } from "../lib/keybindings";
 
 interface KeyboardShortcutsOverlayProps {
   open: boolean;
   onClose: () => void;
 }
 
-const SHORTCUTS = [
-  {
-    section: "Navigation",
-    items: [
-      { keys: "Cmd+K", action: "Open command palette" },
-      { keys: "Cmd+1", action: "Go to Home / Board" },
-      { keys: "Esc", action: "Close modal / Go back to board" },
-    ],
-  },
-  {
-    section: "Sessions",
-    items: [
-      { keys: "Cmd+N", action: "Create new session" },
-      { keys: "Cmd+J", action: "Jump to next waiting session" },
-    ],
-  },
-  { section: "Help", items: [{ keys: "Cmd+?", action: "Toggle this shortcuts overlay" }] },
-];
-
 export function KeyboardShortcutsOverlay({ open, onClose }: KeyboardShortcutsOverlayProps) {
+  const sections = useMemo(() => getKeybindingsBySection(), []);
+
   useEffect(() => {
     if (!open) return;
     function handleKey(e: KeyboardEvent) {
@@ -65,15 +49,17 @@ export function KeyboardShortcutsOverlay({ open, onClose }: KeyboardShortcutsOve
         </div>
 
         <div className="space-y-5">
-          {SHORTCUTS.map((section) => (
+          {sections.map((section) => (
             <div key={section.section}>
               <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-on-surface-muted">
                 {section.section}
               </h3>
               <div className="space-y-1.5">
                 {section.items.map((item) => (
-                  <div key={item.keys} className="flex items-center justify-between py-0.5">
-                    <span className="text-sm text-on-surface-muted">{item.action}</span>
+                  <div key={item.id} className="flex items-center justify-between py-0.5">
+                    <span className="text-sm text-on-surface-muted">
+                      {item.description}
+                    </span>
                     <kbd className="rounded border border-outline px-2 py-0.5 text-xs font-mono text-on-surface-muted">
                       {item.keys}
                     </kbd>
@@ -83,6 +69,11 @@ export function KeyboardShortcutsOverlay({ open, onClose }: KeyboardShortcutsOve
             </div>
           ))}
         </div>
+
+        <p className="mt-5 text-xs text-gray-400 dark:text-gray-500">
+          Shortcuts can be customized via localStorage key{" "}
+          <code className="rounded bg-gray-100 px-1 dark:bg-gray-800">tmt-keybindings</code>
+        </p>
       </div>
     </div>
   );

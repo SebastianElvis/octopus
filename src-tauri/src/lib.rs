@@ -19,7 +19,8 @@ use commands::repos::{add_repo, list_repos, remove_repo};
 use commands::sessions::{
     archive_session, check_stuck_sessions, get_session, interrupt_session, kill_session,
     list_sessions, pause_session, read_session_events, read_session_log, resize_session,
-    respond_to_session, resume_session, send_followup, spawn_session, write_to_session,
+    respond_to_session, resume_session, save_session_image, send_followup, spawn_session,
+    write_to_session,
 };
 use commands::shell::{kill_shell, resize_shell, spawn_shell, write_to_shell};
 use commands::worktree::{create_worktree, get_diff, remove_worktree};
@@ -278,6 +279,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             // sessions
             spawn_session,
+            save_session_image,
             write_to_session,
             respond_to_session,
             resize_session,
