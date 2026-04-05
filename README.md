@@ -1,10 +1,10 @@
 # Octopus
 
-**The Claude Code frontend for developers who can't sit still.**
+**The Claude Code frontend for ADHD developers.**
 
-You have 15 Claude Code sessions running. Three need permission. One is waiting for a decision. Two finished and need PRs. You forgot about the one that's been stuck for 20 minutes.
+You launched 15 Claude Code sessions. Three need permission. One is waiting for a decision. Two finished and need PRs. You forgot about the one that's been stuck for 20 minutes. You opened Twitter "for a second" and now it's been 40 minutes.
 
-Octopus keeps track so your brain doesn't have to.
+Octopus is your external working memory. It keeps track so your brain doesn't have to.
 
 <p align="center">
   <img src="docs/octopus-dashboard.png" width="49%" alt="Octopus dashboard view" />
@@ -13,9 +13,9 @@ Octopus keeps track so your brain doesn't have to.
 
 ## The problem
 
-Claude Code is fast. CI is fast. GitHub is fast. **You** are the bottleneck — reading terminal output, switching tabs, checking CI, typing responses, clicking merge. At 5 sessions it's fine. At 20, you're drowning. At 50, you've mass-replied "y" to things you didn't read.
+Claude Code is powerful. You can run dozens of sessions in parallel, each one writing real code. But the bottleneck was never Claude — it's **you**. Reading terminal output. Switching tabs. Checking CI. Typing responses. Clicking merge. At 5 sessions it's fine. At 20, you're drowning. At 50, you've mass-replied "y" to things you didn't read.
 
-If you have ADHD, this hits harder. Context switches are expensive. "I'll come back to that session" means it's gone forever. The dopamine of launching 10 sessions wears off when you have to babysit all of them.
+If your brain works like ours, this hits even harder. Every context switch costs you 20 minutes. "I'll come back to that session" means it's gone forever. The dopamine of launching 10 sessions wears off fast when you have to babysit all of them. You need a system that watches everything so you can hyperfocus on what actually matters.
 
 ## What Octopus does
 
