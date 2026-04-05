@@ -59,7 +59,7 @@ export function TextBlock({ text, isStreaming }: TextBlockProps) {
                     {lang}
                   </div>
                 )}
-                <pre className="overflow-x-auto bg-surface-sunken p-3">
+                <pre className="overflow-x-auto bg-surface-sunken p-3 will-change-transform">
                   {lang ? (
                     <SyntaxHighlighter code={codeText} language={lang} />
                   ) : (
