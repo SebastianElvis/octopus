@@ -6,6 +6,11 @@ You have 15 Claude Code sessions running. Three need permission. One is waiting 
 
 Octopus keeps track so your brain doesn't have to.
 
+<p align="center">
+  <img src="docs/octopus-dashboard.png" width="49%" alt="Octopus dashboard view" />
+  <img src="docs/octopus-session.png" width="49%" alt="Octopus session view" />
+</p>
+
 ## The problem
 
 Claude Code is fast. CI is fast. GitHub is fast. **You** are the bottleneck — reading terminal output, switching tabs, checking CI, typing responses, clicking merge. At 5 sessions it's fine. At 20, you're drowning. At 50, you've mass-replied "y" to things you didn't read.
