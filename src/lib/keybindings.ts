@@ -23,7 +23,12 @@ export interface KeyBinding {
 
 const DEFAULT_KEYBINDINGS: KeyBinding[] = [
   // Navigation
-  { id: "command-palette", keys: "Cmd+K", description: "Open command palette", section: "Navigation" },
+  {
+    id: "command-palette",
+    keys: "Cmd+K",
+    description: "Open command palette",
+    section: "Navigation",
+  },
   { id: "go-home", keys: "Cmd+1", description: "Go to Home / Board", section: "Navigation" },
   { id: "go-tasks", keys: "Cmd+2", description: "Go to Tasks", section: "Navigation" },
   { id: "go-repos", keys: "Cmd+3", description: "Go to Repos", section: "Navigation" },
@@ -33,14 +38,34 @@ const DEFAULT_KEYBINDINGS: KeyBinding[] = [
 
   // Sessions
   { id: "new-session", keys: "Cmd+N", description: "Create new session", section: "Sessions" },
-  { id: "jump-waiting", keys: "Cmd+J", description: "Jump to next waiting session", section: "Sessions" },
-  { id: "interrupt-session", keys: "Ctrl+C", description: "Interrupt running session", section: "Sessions" },
+  {
+    id: "jump-waiting",
+    keys: "Cmd+J",
+    description: "Jump to next waiting session",
+    section: "Sessions",
+  },
+  {
+    id: "interrupt-session",
+    keys: "Ctrl+C",
+    description: "Interrupt running session",
+    section: "Sessions",
+  },
   { id: "clear-terminal", keys: "Ctrl+L", description: "Clear terminal", section: "Sessions" },
 
   // Input
   { id: "send-reply", keys: "Cmd+Enter", description: "Send reply", section: "Input" },
-  { id: "newline-alt", keys: "Alt+Enter", description: "Insert newline in reply", section: "Input" },
-  { id: "newline-ctrl-j", keys: "Ctrl+J", description: "Insert newline in reply", section: "Input" },
+  {
+    id: "newline-alt",
+    keys: "Alt+Enter",
+    description: "Insert newline in reply",
+    section: "Input",
+  },
+  {
+    id: "newline-ctrl-j",
+    keys: "Ctrl+J",
+    description: "Insert newline in reply",
+    section: "Input",
+  },
 
   // Help
   { id: "show-shortcuts", keys: "Cmd+?", description: "Toggle shortcuts overlay", section: "Help" },

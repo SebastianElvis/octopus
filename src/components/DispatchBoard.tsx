@@ -105,10 +105,6 @@ export function DispatchBoard({ onViewSession, onNewSession }: DispatchBoardProp
     });
   }
 
-  function handleReply(id: string) {
-    onViewSession(id);
-  }
-
   function handleInterrupt(id: string) {
     onViewSession(id);
   }
@@ -497,7 +493,6 @@ function SelectableCard({
   selected: boolean;
   onToggleSelect: (id: string) => void;
   onView: (id: string) => void;
-  onReply?: (id: string) => void;
   onInterrupt?: (id: string) => void;
   onResume?: (id: string) => void;
   onRetry?: (id: string) => void;

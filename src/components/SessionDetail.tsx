@@ -9,6 +9,7 @@ import {
   fetchIssues,
   fetchPRs,
   replyToSession,
+  saveSessionImage,
 } from "../lib/tauri";
 import { formatError } from "../lib/errors";
 import { useSessionStore } from "../stores/sessionStore";
@@ -25,6 +26,8 @@ import { ShellPanel } from "./ShellPanel";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
 import { STATUS_PILL, STATUS_DOT, RUNNING_PULSE } from "../lib/statusColors";
 import { matchesKeybindingById } from "../lib/keybindings";
+import { useImageAttachments } from "../hooks/useImageAttachments";
+import { ImagePreview } from "./ImagePreview";
 
 type CenterTab = "terminal" | "editor" | "github";
 
@@ -67,6 +70,16 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
+
+  // Image attachment state
+  const {
+    images: attachedImages,
+    removeImage,
+    clearImages,
+    handlePaste: onImagePaste,
+    handleDrop: onImageDrop,
+    handleDragOver: onImageDragOver,
+  } = useImageAttachments();
 
   const hasGitHubLink = !!(session?.linkedIssue ?? session?.linkedPR);
 
@@ -202,12 +215,27 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   }
 
   async function handleReply() {
-    if (!session || !replyText.trim()) return;
+    if (!session || (!replyText.trim() && attachedImages.length === 0)) return;
     setReplying(true);
     setReplyError(null);
     try {
-      await replyToSession(session.id, replyText.trim());
+      // Save attached images and collect their paths
+      const imagePaths: string[] = [];
+      for (const img of attachedImages) {
+        const path = await saveSessionImage(session.id, img.name, img.base64);
+        imagePaths.push(path);
+      }
+
+      // Build the message with image references
+      let message = replyText.trim();
+      if (imagePaths.length > 0) {
+        const imageRefs = imagePaths.map((p) => `[Attached image: ${p}]`).join("\n");
+        message = message ? `${imageRefs}\n\n${message}` : imageRefs;
+      }
+
+      await replyToSession(session.id, message);
       setReplyText("");
+      clearImages();
     } catch (err: unknown) {
       setReplyError(formatError(err));
     } finally {
@@ -393,46 +421,57 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               </pre>
             </div>
           )}
-          <div className="flex gap-2">
-            <textarea
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              onKeyDown={(e) => {
-                if (matchesKeybindingById(e.nativeEvent, "send-reply")) {
-                  e.preventDefault();
+          <div
+            onDrop={(e) => {
+              void onImageDrop(e);
+            }}
+            onDragOver={onImageDragOver}
+          >
+            <ImagePreview images={attachedImages} onRemove={removeImage} />
+            <div className="flex gap-2">
+              <textarea
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onPaste={(e) => {
+                  void onImagePaste(e);
+                }}
+                onKeyDown={(e) => {
+                  if (matchesKeybindingById(e.nativeEvent, "send-reply")) {
+                    e.preventDefault();
+                    void handleReply();
+                    return;
+                  }
+                  // Alt+Enter or Ctrl+J → insert newline
+                  if (
+                    matchesKeybindingById(e.nativeEvent, "newline-alt") ||
+                    matchesKeybindingById(e.nativeEvent, "newline-ctrl-j")
+                  ) {
+                    e.preventDefault();
+                    const textarea = e.currentTarget;
+                    const { selectionStart, selectionEnd } = textarea;
+                    const val = textarea.value;
+                    const newVal = val.slice(0, selectionStart) + "\n" + val.slice(selectionEnd);
+                    setReplyText(newVal);
+                    // Move cursor after the inserted newline on next tick
+                    requestAnimationFrame(() => {
+                      textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
+                    });
+                  }
+                }}
+                placeholder="Reply to session... (Cmd+Enter to send, paste images with Cmd+V)"
+                rows={2}
+                className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
+              />
+              <button
+                onClick={() => {
                   void handleReply();
-                  return;
-                }
-                // Alt+Enter or Ctrl+J → insert newline
-                if (
-                  matchesKeybindingById(e.nativeEvent, "newline-alt") ||
-                  matchesKeybindingById(e.nativeEvent, "newline-ctrl-j")
-                ) {
-                  e.preventDefault();
-                  const textarea = e.currentTarget;
-                  const { selectionStart, selectionEnd } = textarea;
-                  const val = textarea.value;
-                  const newVal = val.slice(0, selectionStart) + "\n" + val.slice(selectionEnd);
-                  setReplyText(newVal);
-                  // Move cursor after the inserted newline on next tick
-                  requestAnimationFrame(() => {
-                    textarea.selectionStart = textarea.selectionEnd = selectionStart + 1;
-                  });
-                }
-              }}
-              placeholder="Reply to session... (Cmd+Enter to send)"
-              rows={2}
-              className="flex-1 resize-none rounded border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none focus:border-blue-500 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 dark:placeholder-gray-500"
-            />
-            <button
-              onClick={() => {
-                void handleReply();
-              }}
-              disabled={replying || !replyText.trim()}
-              className="cursor-pointer self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {replying ? "..." : "Send"}
-            </button>
+                }}
+                disabled={replying || (!replyText.trim() && attachedImages.length === 0)}
+                className="cursor-pointer self-end rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-500 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {replying ? "..." : "Send"}
+              </button>
+            </div>
           </div>
           {replyError && (
             <p className="mt-1 text-xs text-red-600 dark:text-red-400">{replyError}</p>

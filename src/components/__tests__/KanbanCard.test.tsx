@@ -39,16 +39,10 @@ describe("KanbanCard", () => {
     expect(onView).toHaveBeenCalledWith("s1");
   });
 
-  it("shows Quick Reply and Full View buttons for waiting status", () => {
-    render(
-      <KanbanCard
-        session={makeSession({ status: "waiting" })}
-        onView={() => {}}
-        onReply={() => {}}
-      />,
-    );
+  it("shows Quick Reply and View buttons for waiting status", () => {
+    render(<KanbanCard session={makeSession({ status: "waiting" })} onView={() => {}} />);
     expect(screen.getByText("Quick Reply")).toBeInTheDocument();
-    expect(screen.getByText("Full View")).toBeInTheDocument();
+    expect(screen.getByText("View")).toBeInTheDocument();
   });
 
   it("shows Interrupt button for running status", () => {
@@ -89,27 +83,11 @@ describe("KanbanCard", () => {
     expect(screen.getByText("View")).toBeInTheDocument();
   });
 
-  it("calls onReply when Full View is clicked", () => {
-    const onReply = vi.fn();
-    render(
-      <KanbanCard
-        session={makeSession({ status: "waiting" })}
-        onView={() => {}}
-        onReply={onReply}
-      />,
-    );
-    fireEvent.click(screen.getByText("Full View"));
-    expect(onReply).toHaveBeenCalledWith("s1");
-  });
-
-  it("shows last message preview when present", () => {
-    render(
-      <KanbanCard
-        session={makeSession({ lastMessage: "Working on tests..." })}
-        onView={() => {}}
-      />,
-    );
-    expect(screen.getByText("Working on tests...")).toBeInTheDocument();
+  it("calls onView when View is clicked for waiting session", () => {
+    const onView = vi.fn();
+    render(<KanbanCard session={makeSession({ status: "waiting" })} onView={onView} />);
+    fireEvent.click(screen.getByText("View"));
+    expect(onView).toHaveBeenCalledWith("s1");
   });
 
   it("shows linked issue number", () => {
@@ -186,13 +164,7 @@ describe("KanbanCard", () => {
   });
 
   it("shows textarea for quick reply (multi-line)", () => {
-    render(
-      <KanbanCard
-        session={makeSession({ status: "waiting" })}
-        onView={() => {}}
-        onReply={() => {}}
-      />,
-    );
+    render(<KanbanCard session={makeSession({ status: "waiting" })} onView={() => {}} />);
     fireEvent.click(screen.getByText("Quick Reply"));
     const textarea = screen.getByPlaceholderText("Type reply... (Cmd+Enter to send)");
     expect(textarea.tagName).toBe("TEXTAREA");

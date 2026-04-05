@@ -82,6 +82,20 @@ export async function replyToSession(id: string, message: string): Promise<void>
   return tauriInvoke<void>("reply_to_session", { id, message });
 }
 
+export async function saveSessionImage(
+  sessionId: string,
+  filename: string,
+  base64Data: string,
+): Promise<string> {
+  requireTauri("save_session_image");
+  return tauriInvoke<string>("save_session_image", { sessionId, filename, base64Data });
+}
+
+export async function saveTempImage(filename: string, base64Data: string): Promise<string> {
+  requireTauri("save_temp_image");
+  return tauriInvoke<string>("save_temp_image", { filename, base64Data });
+}
+
 export async function writeToSession(id: string, data: string): Promise<void> {
   requireTauri("write_to_session");
   return tauriInvoke<void>("write_to_session", { id, data });

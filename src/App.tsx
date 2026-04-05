@@ -172,7 +172,15 @@ function App() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [view, activeSessionId, showCommandPalette, showSettings, showShortcuts, sessions, toggleSidebar]);
+  }, [
+    view,
+    activeSessionId,
+    showCommandPalette,
+    showSettings,
+    showShortcuts,
+    sessions,
+    toggleSidebar,
+  ]);
 
   // Request notification permission on startup
   useEffect(() => {

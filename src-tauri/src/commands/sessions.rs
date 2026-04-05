@@ -574,6 +574,81 @@ pub async fn reply_to_session(
     Ok(())
 }
 
+/// Save a base64-encoded image to the session's worktree and return
+/// the absolute path.  Used for image-paste support — the frontend
+/// attaches the returned path when replying so Claude Code can read it.
+#[tauri::command]
+pub async fn save_session_image(
+    state: State<'_, AppState>,
+    session_id: String,
+    filename: String,
+    base64_data: String,
+) -> AppResult<String> {
+    use base64::Engine as _;
+
+    // Look up the session's worktree path
+    let worktree_path = {
+        let db = state.db.lock();
+        let mut stmt = db
+            .prepare("SELECT worktree_path FROM sessions WHERE id = ?1")
+            .map_err(|e| AppError::Custom(format!("DB prepare error: {}", e)))?;
+        stmt.query_row(rusqlite::params![session_id], |row| {
+            row.get::<_, Option<String>>(0)
+        })
+        .map_err(|_| AppError::Custom(format!("session {} not found", session_id)))?
+        .ok_or_else(|| {
+            AppError::Custom(format!("session {} has no worktree path", session_id))
+        })?
+    };
+
+    // Create an images directory inside the worktree
+    let images_dir = Path::new(&worktree_path).join(".toomanytabs-images");
+    std::fs::create_dir_all(&images_dir)?;
+
+    // Decode base64 data
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&base64_data)
+        .map_err(|e| AppError::Custom(format!("invalid base64: {}", e)))?;
+
+    // Write the file
+    let dest = images_dir.join(&filename);
+    std::fs::write(&dest, &bytes)?;
+
+    let abs_path = dest.to_string_lossy().to_string();
+    log::info!(
+        "Saved image for session {}: {} ({} bytes)",
+        session_id,
+        abs_path,
+        bytes.len()
+    );
+    Ok(abs_path)
+}
+
+/// Save a base64-encoded image to a shared temp directory and return
+/// the absolute path.  Used for initial prompts in NewSessionModal
+/// where no session/worktree exists yet.
+#[tauri::command]
+pub async fn save_temp_image(filename: String, base64_data: String) -> AppResult<String> {
+    use base64::Engine as _;
+
+    let home = dirs::home_dir().ok_or_else(|| AppError::Custom("no home dir".to_string()))?;
+    let images_dir = home.join(".toomanytabs").join("temp-images");
+    std::fs::create_dir_all(&images_dir)?;
+
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&base64_data)
+        .map_err(|e| AppError::Custom(format!("invalid base64: {}", e)))?;
+
+    // Use a timestamped filename to avoid collisions
+    let ts = chrono::Utc::now().format("%Y%m%d%H%M%S%3f");
+    let dest = images_dir.join(format!("{}-{}", ts, filename));
+    std::fs::write(&dest, &bytes)?;
+
+    let abs_path = dest.to_string_lossy().to_string();
+    log::info!("Saved temp image: {} ({} bytes)", abs_path, bytes.len());
+    Ok(abs_path)
+}
+
 /// Send SIGINT to the running session's process group.
 #[tauri::command]
 pub async fn interrupt_session(
