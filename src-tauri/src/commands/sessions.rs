@@ -553,7 +553,7 @@ pub async fn spawn_session(
 
     // Create log directory
     let home = dirs::home_dir().ok_or_else(|| AppError::Custom("no home dir".to_string()))?;
-    let log_dir = home.join(".toomanytabs").join("logs").join(&session_id);
+    let log_dir = home.join(".octopus").join("logs").join(&session_id);
     std::fs::create_dir_all(&log_dir)?;
     let log_path = log_dir.to_string_lossy().to_string();
 
@@ -772,7 +772,7 @@ pub async fn save_session_image(
     };
 
     // Create an images directory inside the worktree
-    let images_dir = Path::new(&worktree_path).join(".toomanytabs-images");
+    let images_dir = Path::new(&worktree_path).join(".octopus-images");
     std::fs::create_dir_all(&images_dir)?;
 
     // Decode base64 data
@@ -1348,7 +1348,7 @@ pub async fn check_stuck_sessions(
             instant.elapsed() > STUCK_THRESHOLD
         } else {
             let log_path = home
-                .join(".toomanytabs")
+                .join(".octopus")
                 .join("logs")
                 .join(sid)
                 .join("stdout.log");

@@ -71,7 +71,7 @@ pub struct AppState {
     /// Pending hook permission requests awaiting frontend decisions.
     pub pending_hook_responses: Mutex<HashMap<String, oneshot::Sender<HookResponse>>>,
 
-    /// Maps hook request_id → TooManyTabs session_id so we can restore
+    /// Maps hook request_id → Octopus session_id so we can restore
     /// session status after a permission decision.
     pub hook_request_sessions: Mutex<HashMap<String, String>>,
 

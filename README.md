@@ -1,8 +1,8 @@
-# TooManyTabs
+# Octopus
 
 A desktop dispatch board for managing multiple [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions in parallel. Built with Tauri 2, React 19, and Rust.
 
-TooManyTabs gives you a kanban-style interface to spawn, monitor, and coordinate many Claude Code sessions at once — with integrated terminals, a code editor, git operations, and GitHub issue/PR workflows built in.
+Octopus gives you a kanban-style interface to spawn, monitor, and coordinate many Claude Code sessions at once — with integrated terminals, a code editor, git operations, and GitHub issue/PR workflows built in.
 
 ## Features
 
@@ -106,7 +106,7 @@ src-tauri/src/          Rust backend
 
 **Frontend-backend communication** uses Tauri's IPC: the frontend calls Rust commands via `invoke()`, and the backend emits events (`session-output`, `session-state-changed`) that the frontend subscribes to.
 
-**Data** is stored in SQLite at `~/.toomanytabs/toomanytabs.db` with tables: `repos`, `sessions`, and `settings`.
+**Data** is stored in SQLite at `~/.octopus/octopus.db` with tables: `repos`, `sessions`, and `settings`.
 
 ## License
 

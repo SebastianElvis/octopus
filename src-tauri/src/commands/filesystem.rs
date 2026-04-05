@@ -500,7 +500,7 @@ pub async fn read_file(path: String) -> AppResult<String> {
 pub async fn save_temp_image(data: String, filename: String) -> AppResult<String> {
     use base64::Engine;
 
-    let tmp_dir = std::env::temp_dir().join("toomanytabs-images");
+    let tmp_dir = std::env::temp_dir().join("octopus-images");
     fs::create_dir_all(&tmp_dir)
         .map_err(|e| AppError::Custom(format!("failed to create temp dir: {}", e)))?;
 

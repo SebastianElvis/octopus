@@ -266,7 +266,7 @@ function App() {
           });
 
           // System notification
-          void sendSystemNotification("TooManyTabs", msg.system);
+          void sendSystemNotification("Octopus", msg.system);
 
           // Sound notification
           if (soundEnabled) {
@@ -400,7 +400,7 @@ function App() {
                 <BrandMark size={22} />
                 <div>
                   <h1 className="text-base font-bold tracking-tight text-on-surface">
-                    TooManyTabs
+                    Octopus
                   </h1>
                   <p className="text-[11px] text-on-surface-faint">dispatch board</p>
                 </div>

@@ -1,4 +1,4 @@
-//! Integration tests for TooManyTabs backend.
+//! Integration tests for Octopus backend.
 //!
 //! These tests exercise the internal helper functions and database operations
 //! directly, bypassing the `#[tauri::command]` macro (which requires the Tauri
@@ -6,8 +6,8 @@
 //! commands with real (in-memory) SQLite databases and temp directories.
 
 use rusqlite::Connection;
-use toomanytabs_lib::db::create_schema;
-use toomanytabs_lib::state::AppState;
+use octopus_lib::db::create_schema;
+use octopus_lib::state::AppState;
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -376,7 +376,7 @@ fn reap_orphaned_sessions() {
     insert_session(&state, "s3", "r1", "Session 3", "done");
 
     let db = state.db.lock();
-    let reaped = toomanytabs_lib::db::reap_orphaned_sessions(&db);
+    let reaped = octopus_lib::db::reap_orphaned_sessions(&db);
     assert_eq!(reaped, 1); // only running → attention
 
     // attention and done should be untouched
@@ -409,7 +409,7 @@ fn reap_orphaned_sessions() {
 
 #[tokio::test]
 async fn list_dir_integration() {
-    use toomanytabs_lib::commands::filesystem::list_dir;
+    use octopus_lib::commands::filesystem::list_dir;
 
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(dir.path().join("a.txt"), "hello").unwrap();
@@ -436,7 +436,7 @@ async fn list_dir_integration() {
 
 #[tokio::test]
 async fn list_dir_rejects_file_path() {
-    use toomanytabs_lib::commands::filesystem::list_dir;
+    use octopus_lib::commands::filesystem::list_dir;
 
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("test.txt");
@@ -448,7 +448,7 @@ async fn list_dir_rejects_file_path() {
 
 #[tokio::test]
 async fn read_file_integration() {
-    use toomanytabs_lib::commands::filesystem::read_file;
+    use octopus_lib::commands::filesystem::read_file;
 
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("test.txt");
@@ -460,7 +460,7 @@ async fn read_file_integration() {
 
 #[tokio::test]
 async fn read_file_rejects_large_file() {
-    use toomanytabs_lib::commands::filesystem::read_file;
+    use octopus_lib::commands::filesystem::read_file;
 
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("large.bin");
@@ -474,7 +474,7 @@ async fn read_file_rejects_large_file() {
 
 #[tokio::test]
 async fn read_file_rejects_binary() {
-    use toomanytabs_lib::commands::filesystem::read_file;
+    use octopus_lib::commands::filesystem::read_file;
 
     let dir = tempfile::tempdir().unwrap();
     let file = dir.path().join("binary.bin");
@@ -486,7 +486,7 @@ async fn read_file_rejects_binary() {
 
 #[tokio::test]
 async fn read_file_nonexistent() {
-    use toomanytabs_lib::commands::filesystem::read_file;
+    use octopus_lib::commands::filesystem::read_file;
 
     let result = read_file("/tmp/nonexistent_file_abc123.txt".to_string()).await;
     assert!(result.is_err());
@@ -502,7 +502,7 @@ fn db_path_respects_env_override() {
     let original = std::env::var("TOOMANYTABS_DB_PATH").ok();
 
     std::env::set_var("TOOMANYTABS_DB_PATH", "/tmp/test-e2e.db");
-    let path = toomanytabs_lib::db::db_path().unwrap();
+    let path = octopus_lib::db::db_path().unwrap();
     assert_eq!(path, "/tmp/test-e2e.db");
 
     // Restore
@@ -520,7 +520,7 @@ fn db_path_respects_env_override() {
 fn wal_checkpoint_on_in_memory_db() {
     let state = setup();
     let db = state.db.lock();
-    toomanytabs_lib::db::run_wal_checkpoint(&db);
+    octopus_lib::db::run_wal_checkpoint(&db);
     // Should not panic
 }
 
@@ -583,7 +583,7 @@ fn init_git_repo() -> tempfile::TempDir {
 
 #[tokio::test]
 async fn git_ops_full_workflow() {
-    use toomanytabs_lib::commands::git_ops::*;
+    use octopus_lib::commands::git_ops::*;
 
     let repo = init_git_repo();
     let path = repo.path().to_string_lossy().to_string();
@@ -638,7 +638,7 @@ async fn git_ops_full_workflow() {
 
 #[tokio::test]
 async fn git_ops_get_file_at_head_integration() {
-    use toomanytabs_lib::commands::git_ops::get_file_at_head;
+    use octopus_lib::commands::git_ops::get_file_at_head;
 
     let repo = init_git_repo();
     let path = repo.path().to_string_lossy().to_string();
@@ -661,7 +661,7 @@ async fn git_ops_get_file_at_head_integration() {
 
 #[tokio::test]
 async fn list_dir_respects_gitignore() {
-    use toomanytabs_lib::commands::filesystem::list_dir;
+    use octopus_lib::commands::filesystem::list_dir;
 
     let repo = init_git_repo();
     // Create a gitignore and an ignored file
@@ -692,7 +692,7 @@ fn reap_sets_state_changed_at() {
     insert_session(&state, "s1", "r1", "Session", "running");
 
     let db = state.db.lock();
-    toomanytabs_lib::db::reap_orphaned_sessions(&db);
+    octopus_lib::db::reap_orphaned_sessions(&db);
 
     let state_changed_at: String = db
         .query_row(
@@ -948,7 +948,7 @@ fn repo_columns_are_all_queryable() {
 
 #[test]
 fn worktree_create_and_get_diff() {
-    use toomanytabs_lib::commands::worktree::create_worktree_internal;
+    use octopus_lib::commands::worktree::create_worktree_internal;
 
     let repo = init_git_repo();
     let repo_path = repo.path().to_str().unwrap();

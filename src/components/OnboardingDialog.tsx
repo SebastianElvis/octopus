@@ -53,7 +53,7 @@ export function OnboardingDialog({
         {/* Step indicators */}
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-on-surface">
-            Welcome to TooManyTabs
+            Welcome to Octopus
           </h2>
           <button
             onClick={onClose}
@@ -91,7 +91,7 @@ export function OnboardingDialog({
               01 / check prerequisites
             </h3>
             <p className="mb-4 text-xs text-on-surface-muted">
-              TooManyTabs needs these CLI tools installed on your system.
+              Octopus needs these CLI tools installed on your system.
             </p>
             <PrerequisiteCheck onAllPassed={handlePrereqsPassed} />
             <div className="mt-6 flex justify-end">

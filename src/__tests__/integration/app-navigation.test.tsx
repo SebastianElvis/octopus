@@ -102,7 +102,7 @@ describe("App navigation", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+      expect(screen.getByText("Octopus")).toBeInTheDocument();
     });
 
     expect(screen.getByTestId("nav-home")).toBeInTheDocument();

@@ -27,7 +27,7 @@ describe("ToolUseBlock", () => {
     render(
       <ToolUseBlock
         name="Read"
-        input={{ file_path: "/Users/runchao/.toomanytabs/worktrees/honolulu/src/main.ts" }}
+        input={{ file_path: "/Users/runchao/.octopus/worktrees/honolulu/src/main.ts" }}
       />,
     );
     expect(screen.getByText("src/main.ts")).toBeInTheDocument();
@@ -39,7 +39,7 @@ describe("ToolUseBlock", () => {
   });
 
   it("has tooltip with full path on shortened paths", () => {
-    const fullPath = "/Users/runchao/.toomanytabs/worktrees/honolulu/src/main.ts";
+    const fullPath = "/Users/runchao/.octopus/worktrees/honolulu/src/main.ts";
     const { container } = render(
       <ToolUseBlock name="Read" input={{ file_path: fullPath }} />,
     );

@@ -18,12 +18,12 @@ fn repo_name_from_path(local_path: &str) -> String {
         .to_string()
 }
 
-/// Build the worktree path: `~/.toomanytabs/worktrees/<repo-name>/<session-id>/`
+/// Build the worktree path: `~/.octopus/worktrees/<repo-name>/<session-id>/`
 fn worktree_dir(repo_local_path: &str, session_id: &str) -> AppResult<std::path::PathBuf> {
     let home = dirs::home_dir().ok_or_else(|| AppError::Custom("no home dir".to_string()))?;
     let repo_name = repo_name_from_path(repo_local_path);
     Ok(home
-        .join(".toomanytabs")
+        .join(".octopus")
         .join("worktrees")
         .join(repo_name)
         .join(session_id))
@@ -263,7 +263,7 @@ mod tests {
     fn worktree_dir_has_expected_structure() {
         let path = worktree_dir("/home/user/repos/my-project", "abc-123").unwrap();
         let path_str = path.to_string_lossy().to_string();
-        assert!(path_str.contains(".toomanytabs/worktrees/my-project/abc-123"));
+        assert!(path_str.contains(".octopus/worktrees/my-project/abc-123"));
     }
 
     // -- Integration tests that create real git repos in temp dirs ----------

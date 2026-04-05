@@ -61,7 +61,7 @@ async function renderAndOpenSettings() {
   });
 
   await waitFor(() => {
-    expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+    expect(screen.getByText("Octopus")).toBeInTheDocument();
   });
 
   // Click the settings gear button

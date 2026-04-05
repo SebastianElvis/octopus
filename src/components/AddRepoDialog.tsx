@@ -115,7 +115,7 @@ export function AddRepoDialog({ open, onClose }: AddRepoDialogProps) {
               value={localPath}
               onChange={(e) => setLocalPath(e.target.value)}
               disabled={adding}
-              placeholder="Default: ~/.toomanytabs/repos/owner/repo"
+              placeholder="Default: ~/.octopus/repos/owner/repo"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !adding) void handleAdd();
               }}

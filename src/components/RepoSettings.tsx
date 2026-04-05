@@ -119,7 +119,7 @@ export function RepoSettings() {
                 value={localPath}
                 onChange={(e) => setLocalPath(e.target.value)}
                 disabled={adding}
-                placeholder="Default: ~/.toomanytabs/repos/owner/repo"
+                placeholder="Default: ~/.octopus/repos/owner/repo"
                 className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none disabled:opacity-50"
               />
             </div>

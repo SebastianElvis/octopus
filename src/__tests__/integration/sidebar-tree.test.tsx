@@ -226,7 +226,7 @@ describe("Sidebar session tree", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+      expect(screen.getByText("Octopus")).toBeInTheDocument();
     });
 
     const sidebar = document.querySelector("aside")!;
@@ -264,7 +264,7 @@ describe("Sidebar session tree", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+      expect(screen.getByText("Octopus")).toBeInTheDocument();
     });
 
     const addRepoBtn = screen.getByTestId("add-repo-button");
@@ -314,7 +314,7 @@ describe("Sidebar session tree", () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+      expect(screen.getByText("Octopus")).toBeInTheDocument();
     });
 
     // Click collapse button
@@ -324,7 +324,7 @@ describe("Sidebar session tree", () => {
     });
 
     // Sidebar should be collapsed — brand name not visible
-    expect(screen.queryByText("TooManyTabs")).not.toBeInTheDocument();
+    expect(screen.queryByText("Octopus")).not.toBeInTheDocument();
 
     // Expand button should appear
     const expandBtn = screen.getByTitle("Expand sidebar");
@@ -332,6 +332,6 @@ describe("Sidebar session tree", () => {
       fireEvent.click(expandBtn);
     });
 
-    expect(screen.getByText("TooManyTabs")).toBeInTheDocument();
+    expect(screen.getByText("Octopus")).toBeInTheDocument();
   });
 });

@@ -91,7 +91,7 @@ pub async fn add_repo(
         }
     } else {
         let home = dirs::home_dir().ok_or_else(|| AppError::Custom("no home dir".to_string()))?;
-        let repos_dir = home.join(".toomanytabs").join("repos");
+        let repos_dir = home.join(".octopus").join("repos");
         std::fs::create_dir_all(&repos_dir)?;
 
         // Derive owner/repo from the URL to avoid duplication across orgs
@@ -176,11 +176,11 @@ pub async fn remove_repo(state: State<'_, AppState>, id: String) -> AppResult<()
         db.execute("DELETE FROM repos WHERE id = ?1", rusqlite::params![id])?;
     }
 
-    // If the repo was cloned under ~/.toomanytabs/repos/, remove it
+    // If the repo was cloned under ~/.octopus/repos/, remove it
     if let Some(ref path) = local_path {
         let p = std::path::Path::new(path);
         if let Some(home) = dirs::home_dir() {
-            let managed_dir = home.join(".toomanytabs").join("repos");
+            let managed_dir = home.join(".octopus").join("repos");
             if p.starts_with(&managed_dir) && p.exists() {
                 if let Err(e) = std::fs::remove_dir_all(p) {
                     log::warn!("Failed to remove repo directory {}: {}", path, e);

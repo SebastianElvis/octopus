@@ -1,15 +1,15 @@
 [package]
-name = "toomanytabs"
+name = "octopus"
 version = "0.2.0"
 description = "Dispatch board for managing multiple Claude Code sessions"
 authors = ["SebastianElvis"]
 license = "MIT"
-repository = "https://github.com/SebastianElvis/toomanytabs"
+repository = "https://github.com/SebastianElvis/octopus"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "toomanytabs_lib"
+name = "octopus_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
