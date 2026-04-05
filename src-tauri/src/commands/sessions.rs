@@ -1160,16 +1160,24 @@ pub async fn send_followup(
         query_session_by_id(&db, &id)?
     };
 
-    let worktree_path = session
-        .worktree_path
-        .as_deref()
-        .ok_or_else(|| AppError::Custom("session has no worktree path".to_string()))?;
-
-    if !Path::new(worktree_path).is_dir() {
+    // Determine working directory: prefer worktree, fall back to repo root for archived sessions
+    let working_dir = if let Some(wt) = session.worktree_path.as_deref() {
+        if Path::new(wt).is_dir() {
+            wt.to_string()
+        } else if let Some(ref repo_id) = session.repo_id {
+            lookup_repo_local_path(&state, repo_id)?
+        } else {
+            return Err(AppError::Custom(
+                "Worktree no longer exists and no repo linked. Cannot send follow-up.".to_string(),
+            ));
+        }
+    } else if let Some(ref repo_id) = session.repo_id {
+        lookup_repo_local_path(&state, repo_id)?
+    } else {
         return Err(AppError::Custom(
-            "Worktree no longer exists. Cannot send follow-up.".to_string(),
+            "Session has no worktree path or repo. Cannot send follow-up.".to_string(),
         ));
-    }
+    };
 
     let log_path = session.log_path.as_deref().unwrap_or("");
 
@@ -1188,7 +1196,7 @@ pub async fn send_followup(
         }
     }
     cmd.arg(&prompt);
-    cmd.current_dir(worktree_path);
+    cmd.current_dir(&working_dir);
     cmd.stdin(std::process::Stdio::null());
     cmd.stdout(std::process::Stdio::piped());
     cmd.stderr(std::process::Stdio::piped());

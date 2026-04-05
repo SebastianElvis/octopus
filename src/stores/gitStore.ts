@@ -85,7 +85,7 @@ export const useGitStore = create<GitState>((set, get) => ({
       ]);
       set({ changedFiles: files, loading: false, error: null, syncStatus: sync });
     } catch (err) {
-      const msg = String(err);
+      const msg = formatError(err);
       // Don't log as error if worktree was simply cleaned up
       if (!msg.includes("No such file or directory")) {
         console.error("[gitStore] Failed to get changes:", err);

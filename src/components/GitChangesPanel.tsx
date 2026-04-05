@@ -2,45 +2,13 @@ import { useEffect, useState } from "react";
 import { useGitStore } from "../stores/gitStore";
 import { useSessionStore } from "../stores/sessionStore";
 import { isTauri } from "../lib/env";
-import type { ChangedFile, ClaudeMessage } from "../lib/types";
-
-async function openExternal(url: string) {
-  if (isTauri()) {
-    const { open } = await import("@tauri-apps/plugin-shell");
-    await open(url);
-  } else {
-    window.open(url, "_blank");
-  }
-}
-
-/** Stable empty array to avoid new-reference-per-render in Zustand selectors */
-const EMPTY_MESSAGES: ClaudeMessage[] = [];
-
-/** Extract a conventional commit message from Claude's output text. */
-function extractCommitMessage(messages: { role: string; blocks: { type: string; text?: string }[] }[]): string | null {
-  // Scan assistant messages from newest to oldest for conventional commit patterns
-  const pattern = /^(feat|fix|chore|docs|refactor|test|style|perf|ci|build|revert)(\([\w-]+\))?:\s*.+/m;
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const msg = messages[i];
-    if (msg.role !== "assistant") continue;
-    for (const block of msg.blocks) {
-      if (block.type === "text" && block.text) {
-        const match = block.text.match(pattern);
-        if (match) return match[0];
-      }
-    }
-  }
-  return null;
-}
+import { sendFollowup } from "../lib/tauri";
+import type { ChangedFile } from "../lib/types";
 
 interface GitChangesPanelProps {
   worktreePath: string | undefined;
   sessionId?: string;
-  sessionName?: string;
   sessionStatus?: string;
-  repoId?: string;
-  branch?: string;
-  onCommitted?: () => void;
 }
 
 const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
@@ -55,9 +23,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
 export function GitChangesPanel({
   worktreePath,
   sessionId,
-  sessionName,
   sessionStatus,
-  onCommitted,
 }: GitChangesPanelProps) {
   const {
     changedFiles,
@@ -66,9 +32,6 @@ export function GitChangesPanel({
     pushing,
     committing,
     error,
-    successMessage,
-    successUrl,
-    syncStatus,
     setWorktreePath,
     refreshChanges,
     stageFiles,
@@ -76,10 +39,11 @@ export function GitChangesPanel({
     discardFiles,
     selectFile,
     setCommitMessage,
-    commitAndPush,
     commit,
     push,
   } = useGitStore();
+
+  const addOptimisticUserMessage = useSessionStore((s) => s.addOptimisticUserMessage);
 
   const [discardConfirmPath, setDiscardConfirmPath] = useState<string | null>(null);
   const [discardAllConfirm, setDiscardAllConfirm] = useState(false);
@@ -97,28 +61,9 @@ export function GitChangesPanel({
     return () => clearInterval(interval);
   }, [worktreePath, refreshChanges]);
 
-  // Smart commit message: extract from Claude output, fall back to session name
-  const messages = useSessionStore((s) => s.messageBuffers[sessionId ?? ""] ?? EMPTY_MESSAGES);
-  useEffect(() => {
-    if (commitMessage) return; // Don't override user-edited message
-    const extracted = extractCommitMessage(messages);
-    if (extracted) {
-      setCommitMessage(extracted);
-    } else if (sessionName) {
-      setCommitMessage(sessionName);
-    }
-  }, [sessionName, messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-dismiss success message after 4 seconds
-  useEffect(() => {
-    if (!successMessage) return;
-    const timer = setTimeout(() => {
-      useGitStore.setState({ successMessage: null, successUrl: null });
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, [successMessage]);
-
   const isSessionDone = sessionStatus === "done" || sessionStatus === "attention";
+
+  const [creatingPr, setCreatingPr] = useState(false);
 
   if (!worktreePath) {
     return (
@@ -142,18 +87,30 @@ export function GitChangesPanel({
   const staged = changedFiles.filter((f) => f.staged);
   const unstaged = changedFiles.filter((f) => !f.staged);
 
-  async function handleCommitAndPush() {
-    await commitAndPush();
-    onCommitted?.();
-  }
-
   async function handleCommit() {
     await commit();
-    onCommitted?.();
   }
 
   async function handlePush() {
     await push();
+  }
+
+  const createPrPrompt =
+    "Create a pull request for the changes on this branch. Commit any uncommitted changes first, then push and create the PR.";
+
+  async function handleCreatePr() {
+    if (!sessionId || creatingPr) return;
+    setCreatingPr(true);
+    addOptimisticUserMessage(sessionId, createPrPrompt);
+    try {
+      if (isTauri()) {
+        await sendFollowup(sessionId, createPrPrompt);
+      }
+    } catch (err: unknown) {
+      console.error("[GitChangesPanel] create PR error:", err);
+    } finally {
+      setCreatingPr(false);
+    }
   }
 
   function handleStageAll() {
@@ -270,25 +227,9 @@ export function GitChangesPanel({
         )}
       </div>
 
-      {/* Commit area */}
+      {/* Commit / Push / Create PR area */}
       <div className="shrink-0 border-t border-outline p-3">
         {error && <p className="mb-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
-        {successMessage && !error && (
-          <p className="mb-1 flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
-            <svg className="h-3 w-3 shrink-0" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 6.5L5 9l4.5-6" />
-            </svg>
-            <span>{successMessage}</span>
-            {successUrl && (
-              <button
-                onClick={() => void openExternal(successUrl)}
-                className="cursor-pointer font-medium text-green-700 underline decoration-green-400/50 underline-offset-2 hover:text-green-800 hover:decoration-green-600 dark:text-green-300 dark:decoration-green-500/50 dark:hover:text-green-200 dark:hover:decoration-green-400"
-              >
-                View
-              </button>
-            )}
-          </p>
-        )}
         <textarea
           value={commitMessage}
           onChange={(e) => setCommitMessage(e.target.value)}
@@ -302,7 +243,7 @@ export function GitChangesPanel({
               void handleCommit();
             }}
             disabled={committing || pushing || !commitMessage.trim() || staged.length === 0}
-            className="flex-1 cursor-pointer rounded bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex-1 cursor-pointer rounded bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90 active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {committing ? "Committing..." : "Commit"}
           </button>
@@ -314,20 +255,15 @@ export function GitChangesPanel({
             className="cursor-pointer rounded border border-brand px-3 py-1.5 text-xs font-medium text-brand hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {pushing ? "Pushing..." : "Push"}
-            {!pushing && syncStatus && syncStatus.ahead > 0 && (
-              <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold leading-none text-white">
-                {syncStatus.ahead}
-              </span>
-            )}
           </button>
           <button
             onClick={() => {
-              void handleCommitAndPush();
+              void handleCreatePr();
             }}
-            disabled={pushing || committing || !commitMessage.trim() || staged.length === 0}
+            disabled={creatingPr || !sessionId}
             className="cursor-pointer rounded border border-outline px-3 py-1.5 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {pushing ? "..." : "Commit & Push"}
+            {creatingPr ? "Creating..." : "Create PR"}
           </button>
         </div>
       </div>

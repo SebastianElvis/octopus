@@ -5,7 +5,6 @@ import {
   resumeSession as tauriResumeSession,
   readSessionLog,
   generateRecap as tauriGenerateRecap,
-  getDiff,
   fetchIssues,
   fetchPRs,
 } from "../lib/tauri";
@@ -134,11 +133,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
     }
   }
 
-  function handleCommitted() {
-    if (!session) return;
-    updateSession(session.id, { status: "done", stateChangedAt: Date.now() });
-  }
-
   async function handleResume() {
     if (!session) return;
     try {
@@ -227,19 +221,6 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
               className="cursor-pointer rounded border border-outline px-2 py-1 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             >
               {centerTab === "recap" ? "Hide Recap" : "Show Recap"}
-            </button>
-          )}
-          {session.worktreePath && (
-            <button
-              onClick={() => {
-                void getDiff(session.worktreePath!).then((patch) => {
-                  void navigator.clipboard.writeText(patch);
-                });
-              }}
-              className="cursor-pointer rounded border border-outline px-2 py-1 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
-              title="Copy git diff to clipboard"
-            >
-              Save Patch
             </button>
           )}
           {showKillConfirm ? (
@@ -452,7 +433,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
             >
               {/* Files / Changes */}
               <div className="flex-1 overflow-hidden">
-                <RightPanel session={session} onCommitted={handleCommitted} />
+                <RightPanel session={session} />
               </div>
               {/* Shell terminal */}
               <ResizeHandle direction="vertical" onResize={handleOutputResize} />
