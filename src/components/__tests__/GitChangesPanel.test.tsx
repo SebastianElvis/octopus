@@ -102,29 +102,56 @@ describe("GitChangesPanel", () => {
     expect(screen.getByText(/Worktree has been cleaned up/)).toBeInTheDocument();
   });
 
-  it("renders commit message textarea", () => {
-    render(<GitChangesPanel worktreePath="/tmp/wt" />);
-    expect(screen.getByPlaceholderText("Commit message...")).toBeInTheDocument();
-  });
-
-  it("disables commit button when no staged files", async () => {
+  it("renders commit message textarea when there are changed files", async () => {
     render(<GitChangesPanel worktreePath="/tmp/wt" />);
     await act(async () => {});
     act(() => {
-      useGitStore.setState({ commitMessage: "test commit" });
+      useGitStore.setState({
+        changedFiles: [
+          { path: "src/main.ts", status: "modified", staged: false, oldPath: null, insertions: null, deletions: null },
+        ],
+      });
     });
-    const button = screen.getByText("Commit");
-    expect(button).toBeDisabled();
+    expect(screen.getByPlaceholderText("Commit message...")).toBeInTheDocument();
   });
 
-  it("renders Create PR button", () => {
+  it("shows commit as primary action when files are staged", async () => {
+    render(<GitChangesPanel worktreePath="/tmp/wt" />);
+    await act(async () => {});
+    act(() => {
+      useGitStore.setState({
+        commitMessage: "test commit",
+        changedFiles: [
+          { path: "src/main.ts", status: "modified", staged: true, oldPath: null, insertions: null, deletions: null },
+        ],
+      });
+    });
+    expect(screen.getByText("Commit 1 file")).toBeInTheDocument();
+  });
+
+  it("shows Create PR as secondary action when files exist and sessionId provided", async () => {
     render(<GitChangesPanel worktreePath="/tmp/wt" sessionId="s1" />);
+    await act(async () => {});
+    act(() => {
+      useGitStore.setState({
+        changedFiles: [
+          { path: "src/main.ts", status: "modified", staged: false, oldPath: null, insertions: null, deletions: null },
+        ],
+      });
+    });
     expect(screen.getByText("Create PR")).toBeInTheDocument();
   });
 
-  it("disables Create PR button when no sessionId", () => {
-    render(<GitChangesPanel worktreePath="/tmp/wt" />);
-    const button = screen.getByText("Create PR");
-    expect(button).toBeDisabled();
+  it("shows create pull request as primary when in PR phase", async () => {
+    render(<GitChangesPanel worktreePath="/tmp/wt" sessionId="s1" />);
+    await act(async () => {});
+    act(() => {
+      useGitStore.setState({
+        changedFiles: [],
+        syncStatus: { ahead: 0, behind: 0, hasUpstream: true },
+        successMessage: "Pushed 1 commit",
+      });
+    });
+    expect(screen.getByText("Create pull request")).toBeInTheDocument();
   });
 });

@@ -41,6 +41,15 @@ export const STATUS_LABEL: Record<string, string> = {
   attention: "attention",
   running: "running",
   done: "done",
+  merged: "merged",
+};
+
+/** PR state pill classes for KanbanCard and SessionDetail. */
+export const PR_STATE_PILL: Record<string, string> = {
+  open: "bg-status-done-muted text-status-done ring-1 ring-status-done/30",
+  merged:
+    "bg-block-question-muted text-block-question ring-1 ring-block-question/30",
+  closed: "bg-danger-muted text-danger ring-1 ring-danger/30",
 };
 
 /** Block type pill classes (for waiting sessions). */
