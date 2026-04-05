@@ -157,9 +157,7 @@ function SettingsModalInner({
             <div className="space-y-4">
               <label className="flex cursor-pointer items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-on-surface">
-                    Sound Notifications
-                  </p>
+                  <p className="text-sm font-medium text-on-surface">Sound Notifications</p>
                   <p className="text-xs text-on-surface-muted">
                     Play a sound when sessions need attention
                   </p>
@@ -178,9 +176,7 @@ function SettingsModalInner({
                 </button>
               </label>
               <div>
-                <p className="text-sm font-medium text-on-surface">
-                  System Notifications
-                </p>
+                <p className="text-sm font-medium text-on-surface">System Notifications</p>
                 <p className="text-xs text-on-surface-muted">
                   Desktop notifications are managed by your OS settings
                 </p>
@@ -204,9 +200,7 @@ function SettingsModalInner({
                   placeholder="sk-ant-..."
                   className="w-full rounded-sm border border-outline bg-surface-raised px-3 py-2 text-sm text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
                 />
-                {apiKeyError && (
-                  <p className="mt-1 text-xs text-danger">{apiKeyError}</p>
-                )}
+                {apiKeyError && <p className="mt-1 text-xs text-danger">{apiKeyError}</p>}
                 <button
                   onClick={() => {
                     void handleSaveApiKey();

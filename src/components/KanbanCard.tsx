@@ -112,9 +112,7 @@ export function KanbanCard({
       {isRunning && activity ? (
         <div className="mt-1 flex items-center gap-1.5 animate-activity-in">
           <span className="inline-block h-1 w-1 shrink-0 rounded-full bg-brand animate-pulse" />
-          <span className="truncate font-mono text-[11px] text-brand/80">
-            {activity}
-          </span>
+          <span className="truncate font-mono text-[11px] text-brand/80">{activity}</span>
         </div>
       ) : (
         <p className="mt-1 text-[11px] text-on-surface-faint">
@@ -190,21 +188,17 @@ export function KanbanCard({
           </button>
         )}
         {/* Kill with confirmation — always last */}
-        {session.status === "running" &&
-          onKill &&
-          !showKillConfirm && (
-            <button
-              onClick={() => setShowKillConfirm(true)}
-              className="cursor-pointer rounded border border-danger/30 px-2 py-1 text-xs font-medium text-danger hover:bg-danger-muted active:bg-danger-muted focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
-            >
-              Kill
-            </button>
-          )}
+        {session.status === "running" && onKill && !showKillConfirm && (
+          <button
+            onClick={() => setShowKillConfirm(true)}
+            className="cursor-pointer rounded border border-danger/30 px-2 py-1 text-xs font-medium text-danger hover:bg-danger-muted active:bg-danger-muted focus:outline-none focus:ring-2 focus:ring-danger focus:ring-offset-1"
+          >
+            Kill
+          </button>
+        )}
         {showKillConfirm && onKill && (
           <>
-            <span className="text-xs text-danger">
-              Kill &quot;{session.name}&quot;?
-            </span>
+            <span className="text-xs text-danger">Kill &quot;{session.name}&quot;?</span>
             <button
               onClick={() => setShowKillConfirm(false)}
               className="cursor-pointer rounded px-1.5 py-0.5 text-xs text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"

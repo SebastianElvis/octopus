@@ -71,9 +71,7 @@ export function TerminalPanel({ sessionId, sessionStatus, visible = true }: Term
       for (const chunk of currentBuffer) {
         terminal.write(chunk);
       }
-    } else if (
-      sessionStatus === "done" || sessionStatus === "attention"
-    ) {
+    } else if (sessionStatus === "done" || sessionStatus === "attention") {
       // Try to replay saved log output
       if (isTauri()) {
         void readSessionLog(sessionId)

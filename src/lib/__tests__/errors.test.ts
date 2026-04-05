@@ -45,7 +45,7 @@ describe("formatError", () => {
   it("handles undefined", () => {
     // JSON.stringify(undefined) returns undefined (not a string), which is coerced
     const result = formatError(undefined);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+
     expect(typeof result === "string" || result === undefined).toBe(true);
   });
 

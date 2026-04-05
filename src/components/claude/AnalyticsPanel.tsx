@@ -119,9 +119,7 @@ export function AnalyticsPanel({ sessionId, sessionStatus }: AnalyticsPanelProps
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${call.success ? "bg-status-done" : "bg-danger"}`}
                   />
-                  <span className="font-mono text-on-surface-muted">
-                    {call.toolName}
-                  </span>
+                  <span className="font-mono text-on-surface-muted">{call.toolName}</span>
                   <span className="ml-auto text-on-surface-faint">
                     {formatTime(call.timestamp)}
                   </span>

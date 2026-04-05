@@ -191,10 +191,7 @@ export function DiffViewer({ diff, filePath }: DiffViewerProps) {
     [parsed],
   );
 
-  const sections = useMemo(
-    () => (parsed ? buildSections(parsed.lines) : []),
-    [parsed],
-  );
+  const sections = useMemo(() => (parsed ? buildSections(parsed.lines) : []), [parsed]);
 
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
 

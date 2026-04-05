@@ -98,6 +98,6 @@ describe("Keyboard shortcuts", () => {
     });
 
     const homeNav = screen.getByTestId("nav-home");
-    expect(homeNav.className).toContain("bg-gray-100");
+    expect(homeNav.className).toContain("bg-hover");
   });
 });

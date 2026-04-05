@@ -240,8 +240,7 @@ function App() {
         updateSession(session.id, session);
 
         // Notify on important status transitions
-        const shouldNotify =
-          session.status === "attention" && prevStatus !== "attention";
+        const shouldNotify = session.status === "attention" && prevStatus !== "attention";
 
         if (shouldNotify) {
           const msg = {
@@ -399,9 +398,7 @@ function App() {
               <div className="flex items-center gap-2.5">
                 <BrandMark size={22} />
                 <div>
-                  <h1 className="text-base font-bold tracking-tight text-on-surface">
-                    Octopus
-                  </h1>
+                  <h1 className="text-base font-bold tracking-tight text-on-surface">Octopus</h1>
                   <p className="text-[11px] text-on-surface-faint">dispatch board</p>
                 </div>
               </div>

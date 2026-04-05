@@ -40,7 +40,9 @@ export function ClaudeOutputPanel({
     // Check if we already have a prompt message injected (avoid duplicates on re-render)
     if (messages.some((m) => m.id === "initial-prompt")) return messages;
     const initIdx = messages.findIndex(
-      (m) => m.role === "system" && m.blocks.some((b) => b.type === "text" && b.text === "Session initialized"),
+      (m) =>
+        m.role === "system" &&
+        m.blocks.some((b) => b.type === "text" && b.text === "Session initialized"),
     );
     if (initIdx === -1) return messages;
     const promptMsg: ClaudeMessage = {
@@ -54,7 +56,9 @@ export function ClaudeOutputPanel({
     return result;
   }, [messages, prompt]);
 
-  const allMessages = streamingMessage ? [...messagesWithPrompt, streamingMessage] : messagesWithPrompt;
+  const allMessages = streamingMessage
+    ? [...messagesWithPrompt, streamingMessage]
+    : messagesWithPrompt;
   const isEmpty = allMessages.length === 0;
 
   // Load message history from log file on mount (if buffer is empty)
@@ -134,9 +138,7 @@ export function ClaudeOutputPanel({
               ) : sessionStatus === "running" ? (
                 <div className="flex flex-col items-center gap-2">
                   <span className="inline-block h-3 w-3 animate-pulse rounded-full bg-status-running" />
-                  <p className="text-sm text-on-surface-faint">
-                    Waiting for Claude output...
-                  </p>
+                  <p className="text-sm text-on-surface-faint">Waiting for Claude output...</p>
                 </div>
               ) : (
                 <p className="text-sm text-on-surface-faint">No messages yet</p>

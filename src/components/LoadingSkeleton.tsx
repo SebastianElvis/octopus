@@ -11,11 +11,7 @@ export function SkeletonCard({ lines = 3 }: SkeletonCardProps) {
         const widths = [75, 85, 65, 90, 70, 80];
         const width = widths[i % widths.length];
         return (
-          <div
-            key={i}
-            className="mt-1.5 h-2 rounded bg-hover"
-            style={{ width: `${width}%` }}
-          />
+          <div key={i} className="mt-1.5 h-2 rounded bg-hover" style={{ width: `${width}%` }} />
         );
       })}
       <div className="mt-3 flex gap-2">

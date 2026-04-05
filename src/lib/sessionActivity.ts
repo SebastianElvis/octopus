@@ -16,12 +16,9 @@ function activityFromBlock(block: ClaudeContentBlock): string | null {
       return "Writing";
     case "tool_use": {
       const { name, input } = block;
-      const filePath =
-        typeof input.file_path === "string" ? shortPath(input.file_path) : null;
-      const pattern =
-        typeof input.pattern === "string" ? input.pattern : null;
-      const command =
-        typeof input.command === "string" ? input.command : null;
+      const filePath = typeof input.file_path === "string" ? shortPath(input.file_path) : null;
+      const pattern = typeof input.pattern === "string" ? input.pattern : null;
+      const command = typeof input.command === "string" ? input.command : null;
 
       switch (name) {
         case "Read":
@@ -39,10 +36,7 @@ function activityFromBlock(block: ClaudeContentBlock): string | null {
         case "BashExec": {
           if (command) {
             const firstLine = command.split("\n")[0];
-            const short =
-              firstLine.length > 30
-                ? firstLine.slice(0, 30) + "\u2026"
-                : firstLine;
+            const short = firstLine.length > 30 ? firstLine.slice(0, 30) + "\u2026" : firstLine;
             return `$ ${short}`;
           }
           return "Running command";

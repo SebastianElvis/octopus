@@ -172,9 +172,10 @@ export const useGitStore = create<GitState>((set, get) => ({
     try {
       await gitCommit(worktreePath, commitMessage);
       const unpushed = (syncStatus?.ahead ?? 0) + 1;
-      const hint = syncStatus?.hasUpstream === false
-        ? "Committed locally — push to publish branch"
-        : `Committed locally — ${unpushed} unpushed`;
+      const hint =
+        syncStatus?.hasUpstream === false
+          ? "Committed locally — push to publish branch"
+          : `Committed locally — ${unpushed} unpushed`;
       set({ commitMessage: "", committing: false, successMessage: hint, successUrl: null });
       await get().refreshChanges();
     } catch (err) {
@@ -189,9 +190,10 @@ export const useGitStore = create<GitState>((set, get) => ({
     set({ pushing: true, error: null, successMessage: null, successUrl: null });
     try {
       const result = await gitPush(worktreePath);
-      const msg = count > 0
-        ? `Pushed ${count} commit${count === 1 ? "" : "s"} — ${result.shortHash}`
-        : `Pushed ${result.shortHash}`;
+      const msg =
+        count > 0
+          ? `Pushed ${count} commit${count === 1 ? "" : "s"} — ${result.shortHash}`
+          : `Pushed ${result.shortHash}`;
       set({ pushing: false, successMessage: msg, successUrl: result.commitUrl });
       await get().refreshChanges();
     } catch (err) {

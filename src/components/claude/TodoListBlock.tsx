@@ -14,12 +14,15 @@ interface TodoListBlockProps {
 function StatusIcon({ status }: { status: string }) {
   if (status === "completed") {
     return (
-      <svg
-        className="h-3.5 w-3.5 shrink-0 text-status-done"
-        viewBox="0 0 16 16"
-        fill="none"
-      >
-        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="var(--status-done-muted)" />
+      <svg className="h-3.5 w-3.5 shrink-0 text-status-done" viewBox="0 0 16 16" fill="none">
+        <circle
+          cx="8"
+          cy="8"
+          r="7"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="var(--status-done-muted)"
+        />
         <path
           d="M5 8.5l2 2 4-4.5"
           stroke="currentColor"
@@ -33,12 +36,15 @@ function StatusIcon({ status }: { status: string }) {
 
   if (status === "in_progress") {
     return (
-      <svg
-        className="h-3.5 w-3.5 shrink-0 text-brand"
-        viewBox="0 0 16 16"
-        fill="none"
-      >
-        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" fill="var(--brand-muted)" />
+      <svg className="h-3.5 w-3.5 shrink-0 text-brand" viewBox="0 0 16 16" fill="none">
+        <circle
+          cx="8"
+          cy="8"
+          r="7"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          fill="var(--brand-muted)"
+        />
         <circle cx="8" cy="8" r="2" fill="currentColor" />
       </svg>
     );
@@ -46,11 +52,7 @@ function StatusIcon({ status }: { status: string }) {
 
   // pending / unknown
   return (
-    <svg
-      className="h-3.5 w-3.5 shrink-0 text-on-surface-faint"
-      viewBox="0 0 16 16"
-      fill="none"
-    >
+    <svg className="h-3.5 w-3.5 shrink-0 text-on-surface-faint" viewBox="0 0 16 16" fill="none">
       <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.5" />
     </svg>
   );
@@ -104,10 +106,7 @@ export function TodoListBlock({ todos }: TodoListBlockProps) {
         const isCompleted = status === "completed";
 
         return (
-          <div
-            key={todo.id ?? i}
-            className="flex items-start gap-2 rounded-xs px-1 py-1"
-          >
+          <div key={todo.id ?? i} className="flex items-start gap-2 rounded-xs px-1 py-1">
             <div className="mt-px">
               <StatusIcon status={status} />
             </div>

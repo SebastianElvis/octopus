@@ -46,9 +46,7 @@ export function EditorTabs({
 
   const tabClass = (active: boolean) =>
     `flex cursor-pointer items-center gap-1.5 border-r border-outline px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 ${
-      active
-        ? "bg-surface text-on-surface"
-        : "text-on-surface-muted hover:bg-hover"
+      active ? "bg-surface text-on-surface" : "text-on-surface-muted hover:bg-hover"
     }`;
 
   return (
@@ -73,7 +71,11 @@ export function EditorTabs({
 
       {/* Log tab */}
       {hasLogTab && onSelectLog && (
-        <button onClick={onSelectLog} disabled={logLoading} className={tabClass(logActive ?? false)}>
+        <button
+          onClick={onSelectLog}
+          disabled={logLoading}
+          className={tabClass(logActive ?? false)}
+        >
           <span className="font-medium">{logLoading ? "Loading…" : "Log"}</span>
         </button>
       )}
@@ -105,9 +107,7 @@ export function EditorTabs({
           <div
             key={tab.id}
             className={`group flex items-center gap-1.5 border-r border-outline px-3 py-1.5 text-xs ${
-              isActive
-                ? "bg-surface text-on-surface"
-                : "text-on-surface-muted hover:bg-hover"
+              isActive ? "bg-surface text-on-surface" : "text-on-surface-muted hover:bg-hover"
             }`}
           >
             <button

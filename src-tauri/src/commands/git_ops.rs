@@ -209,9 +209,9 @@ pub async fn get_sync_status(worktree_path: String) -> AppResult<SyncStatus> {
     let upstream = run_git_allow_failure(&worktree_path, &["rev-parse", "--abbrev-ref", "@{u}"]);
     if upstream.trim().is_empty() {
         // No upstream — check if there are any local commits to push
-        let log_output = run_git_allow_failure(&worktree_path, &["log", "--oneline", "-1"]);
+        let _log_output = run_git_allow_failure(&worktree_path, &["log", "--oneline", "-1"]);
         return Ok(SyncStatus {
-            ahead: if log_output.trim().is_empty() { 0 } else { 0 },
+            ahead: 0,
             behind: 0,
             has_upstream: false,
         });

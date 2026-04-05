@@ -27,7 +27,7 @@ pub async fn generate_branch_name(prompt: String) -> AppResult<String> {
         ])
         .output()
         .await
-        .map_err(|e| AppError::Io(e))?;
+        .map_err(AppError::Io)?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -128,7 +128,9 @@ pub async fn generate_recap(state: State<'_, AppState>, session_id: String) -> A
     let recap = String::from_utf8_lossy(&output.stdout).trim().to_string();
 
     if recap.is_empty() {
-        return Err(AppError::Custom("Recap generation returned empty result".into()));
+        return Err(AppError::Custom(
+            "Recap generation returned empty result".into(),
+        ));
     }
 
     Ok(recap)

@@ -73,7 +73,6 @@ describe("useAsync", () => {
 
     // Now resolve the stale first request — should be ignored
     act(() => {
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       resolve1!("first");
     });
     expect(result.current.data).toBe("second");

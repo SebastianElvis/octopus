@@ -30,8 +30,9 @@ describe("EditorTabs", () => {
 
   it("highlights Claude tab when active", () => {
     render(<EditorTabs {...defaultProps} claudeActive />);
-    const claudeBtn = screen.getByText("Claude").closest("button")!;
-    expect(claudeBtn.className).toContain("bg-surface");
+    const claudeBtn = screen.getByText("Claude").closest("button");
+    expect(claudeBtn).not.toBeNull();
+    expect(claudeBtn?.className).toContain("bg-surface");
   });
 
   it("calls onSelectClaude when Claude tab is clicked", () => {

@@ -27,9 +27,7 @@ export function SessionCard({ session, onView, onInterrupt, onResume, onKill }: 
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="truncate font-medium text-on-surface">
-                {session.name}
-              </span>
+              <span className="truncate font-medium text-on-surface">{session.name}</span>
               <span
                 className={`flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
               >

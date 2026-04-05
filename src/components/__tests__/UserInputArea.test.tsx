@@ -75,9 +75,7 @@ describe("UserInputArea", () => {
 
     it("disables textarea when waiting for permission", () => {
       render(<UserInputArea sessionId="s1" sessionStatus="attention" blockType="permission" />);
-      expect(
-        screen.getByPlaceholderText("Waiting for permission approval..."),
-      ).toBeDisabled();
+      expect(screen.getByPlaceholderText("Waiting for permission approval...")).toBeDisabled();
     });
 
     it("shows waiting status indicator", () => {

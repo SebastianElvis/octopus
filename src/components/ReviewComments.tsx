@@ -85,9 +85,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
   if (error) {
     return (
       <div className="rounded-sm border border-danger bg-danger-muted p-4">
-        <p className="text-xs text-danger">
-          Failed to load review comments: {error}
-        </p>
+        <p className="text-xs text-danger">Failed to load review comments: {error}</p>
       </div>
     );
   }
@@ -143,9 +141,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-xs text-on-surface-muted">
-                  <span className="font-medium text-on-surface">
-                    {comment.user}
-                  </span>
+                  <span className="font-medium text-on-surface">{comment.user}</span>
                   <span className="text-on-surface-faint">
                     {timeAgo(new Date(comment.createdAt).getTime())}
                   </span>
@@ -156,9 +152,7 @@ export function ReviewComments({ repoId, prNumber }: ReviewCommentsProps) {
                 </div>
               </div>
             </div>
-            <p className="ml-6 text-sm leading-relaxed text-on-surface">
-              {comment.body}
-            </p>
+            <p className="ml-6 text-sm leading-relaxed text-on-surface">{comment.body}</p>
           </div>
         ))}
       </div>

@@ -30,11 +30,7 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
  */
 type WorkflowPhase = "stage" | "commit" | "push" | "pr" | "clean";
 
-export function GitChangesPanel({
-  worktreePath,
-  sessionId,
-  sessionStatus,
-}: GitChangesPanelProps) {
+export function GitChangesPanel({ worktreePath, sessionId, sessionStatus }: GitChangesPanelProps) {
   const {
     changedFiles,
     loading,
@@ -282,7 +278,11 @@ export function GitChangesPanel({
         {/* Success banner */}
         {successMessage && (
           <div className="flex items-center gap-2 border-b border-status-done/20 bg-status-done-muted px-3 py-2">
-            <svg className="h-3.5 w-3.5 shrink-0 text-status-done" viewBox="0 0 16 16" fill="currentColor">
+            <svg
+              className="h-3.5 w-3.5 shrink-0 text-status-done"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+            >
               <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16Zm3.78-9.72a.75.75 0 0 0-1.06-1.06L6.75 9.19 5.28 7.72a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0l4.5-4.5Z" />
             </svg>
             <span className="flex-1 text-xs font-medium text-status-done">{successMessage}</span>
@@ -302,7 +302,11 @@ export function GitChangesPanel({
         {/* Error banner */}
         {error && (
           <div className="flex items-center gap-2 border-b border-danger/20 bg-danger-muted px-3 py-2">
-            <svg className="h-3.5 w-3.5 shrink-0 text-danger" viewBox="0 0 16 16" fill="currentColor">
+            <svg
+              className="h-3.5 w-3.5 shrink-0 text-danger"
+              viewBox="0 0 16 16"
+              fill="currentColor"
+            >
               <path d="M2.343 13.657A8 8 0 1 1 13.658 2.343 8 8 0 0 1 2.343 13.657ZM6.03 4.97a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042L6.94 8 4.97 9.97a.749.749 0 0 0 .326 1.275.749.749 0 0 0 .734-.215L8 9.06l1.97 1.97a.749.749 0 0 0 1.275-.326.749.749 0 0 0-.215-.734L9.06 8l1.97-1.97a.749.749 0 0 0-.326-1.275.749.749 0 0 0-.734.215L8 6.94Z" />
             </svg>
             <span className="flex-1 text-xs text-danger">{error}</span>
@@ -332,17 +336,9 @@ export function GitChangesPanel({
               label="Commit"
             />
             <div className="h-px w-3 bg-outline-muted" />
-            <StepDot
-              active={phase === "push"}
-              done={phase === "pr"}
-              label="Push"
-            />
+            <StepDot active={phase === "push"} done={phase === "pr"} label="Push" />
             <div className="h-px w-3 bg-outline-muted" />
-            <StepDot
-              active={phase === "pr"}
-              done={false}
-              label="PR"
-            />
+            <StepDot active={phase === "pr"} done={false} label="PR" />
           </div>
 
           {/* Primary action — contextual */}
@@ -584,43 +580,23 @@ function DiffSummary({ files }: { files: ChangedFile[] }) {
   return (
     <span className="text-[11px] text-on-surface-faint">
       {files.length} file{files.length !== 1 ? "s" : ""}
-      {totalIns > 0 && (
-        <span className="ml-1 text-green-600 dark:text-green-500">+{totalIns}</span>
-      )}
-      {totalDel > 0 && (
-        <span className="ml-0.5 text-red-600 dark:text-red-500">-{totalDel}</span>
-      )}
+      {totalIns > 0 && <span className="ml-1 text-green-600 dark:text-green-500">+{totalIns}</span>}
+      {totalDel > 0 && <span className="ml-0.5 text-red-600 dark:text-red-500">-{totalDel}</span>}
     </span>
   );
 }
 
-function StepDot({
-  active,
-  done,
-  label,
-}: {
-  active: boolean;
-  done: boolean;
-  label: string;
-}) {
+function StepDot({ active, done, label }: { active: boolean; done: boolean; label: string }) {
   return (
     <div className="flex flex-col items-center gap-0.5">
       <div
         className={`h-1.5 w-1.5 rounded-full transition-colors ${
-          active
-            ? "bg-brand"
-            : done
-              ? "bg-status-done"
-              : "bg-outline"
+          active ? "bg-brand" : done ? "bg-status-done" : "bg-outline"
         }`}
       />
       <span
         className={`text-[9px] leading-none ${
-          active
-            ? "font-medium text-brand"
-            : done
-              ? "text-status-done"
-              : "text-on-surface-faint"
+          active ? "font-medium text-brand" : done ? "text-status-done" : "text-on-surface-faint"
         }`}
       >
         {label}

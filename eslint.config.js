@@ -72,12 +72,19 @@ export default tseslint.config(
 
   // Relaxed rules for test files
   {
-    files: ["src/**/*.test.{ts,tsx}", "src/test/**/*.{ts,tsx}"],
+    files: [
+      "src/**/*.test.{ts,tsx}",
+      "src/__tests__/**/*.{ts,tsx}",
+      "src/test/**/*.{ts,tsx}",
+    ],
     rules: {
       "@typescript-eslint/no-unsafe-call": "off",
       "@typescript-eslint/no-unsafe-member-access": "off",
       "@typescript-eslint/no-unsafe-assignment": "off",
       "@typescript-eslint/no-empty-function": "off",
+      "@typescript-eslint/require-await": "off",
+      "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-unnecessary-condition": "off",
     },
   },
 

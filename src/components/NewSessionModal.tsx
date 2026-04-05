@@ -223,7 +223,7 @@ export function NewSessionModal({
     return prompt.trim().slice(0, 60) || `session-${Date.now()}`;
   }
 
-  const branchPreview = deriveBranchNameSync() || generatedBranch || sessionFallback.current;
+  const branchPreview = deriveBranchNameSync() || (generatedBranch ?? sessionFallback.current);
   const canSubmit = prompt.trim().length > 0 && repos.length > 0 && !submitting;
 
   async function handleSubmit(force = false) {
@@ -236,7 +236,7 @@ export function NewSessionModal({
     setWorktreeConflict(false);
     setCreationStep("worktree");
     try {
-      const branch = deriveBranchNameSync() || generatedBranch || `session-${Date.now()}`;
+      const branch = deriveBranchNameSync() || (generatedBranch ?? `session-${Date.now()}`);
       setCreationStep("spawning");
       const session = await spawnSession({
         repoId,
@@ -421,9 +421,7 @@ export function NewSessionModal({
                 {showDropdown && (
                   <div className="absolute left-0 right-0 z-10 mt-1 max-h-48 overflow-y-auto rounded-sm border border-outline bg-surface-raised shadow-lg">
                     {loadingItems && (
-                      <div className="px-3 py-2 text-xs text-on-surface-faint">
-                        Loading...
-                      </div>
+                      <div className="px-3 py-2 text-xs text-on-surface-faint">Loading...</div>
                     )}
                     {!loadingItems && filteredItems.length === 0 && (
                       <div className="px-3 py-2 text-xs text-on-surface-faint">
@@ -453,12 +451,8 @@ export function NewSessionModal({
                         >
                           {item.kind === "issue" ? "I" : "PR"}
                         </span>
-                        <span className="text-xs text-on-surface-faint">
-                          #{item.number}
-                        </span>
-                        <span className="truncate text-on-surface">
-                          {item.title}
-                        </span>
+                        <span className="text-xs text-on-surface-faint">#{item.number}</span>
+                        <span className="truncate text-on-surface">{item.title}</span>
                       </button>
                     ))}
                   </div>
@@ -469,9 +463,7 @@ export function NewSessionModal({
 
           {/* Prompt */}
           <div>
-            <label className="mb-1 block text-xs font-medium text-on-surface-muted">
-              Prompt
-            </label>
+            <label className="mb-1 block text-xs font-medium text-on-surface-muted">Prompt</label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
@@ -488,9 +480,7 @@ export function NewSessionModal({
                   <span className="italic">generating...</span>
                 </span>
               ) : (
-                <code className="rounded bg-hover px-1 py-0.5 font-mono">
-                  {branchPreview}
-                </code>
+                <code className="rounded bg-hover px-1 py-0.5 font-mono">{branchPreview}</code>
               )}
               {!linked && prompt.trim() && !generatingBranch && (
                 <button
@@ -514,9 +504,7 @@ export function NewSessionModal({
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-danger/30 accent-red-500 focus:ring-danger"
             />
             <div>
-              <span className="text-sm font-medium text-danger">
-                Dangerously skip permissions
-              </span>
+              <span className="text-sm font-medium text-danger">Dangerously skip permissions</span>
               <p className="mt-0.5 text-xs text-danger/70">
                 Disables Claude&apos;s permission prompts — use only in trusted environments
               </p>
@@ -574,18 +562,12 @@ function StepIndicator({ active, done, label }: { active: boolean; done: boolean
     <div className="flex items-center gap-1.5">
       <span
         className={`h-2 w-2 rounded-full ${
-          done
-            ? "bg-green-500"
-            : active
-              ? "animate-pulse bg-brand"
-              : "bg-active"
+          done ? "bg-green-500" : active ? "animate-pulse bg-brand" : "bg-active"
         }`}
       />
       <span
         className={`text-xs ${
-          active || done
-            ? "font-medium text-on-surface"
-            : "text-on-surface-faint"
+          active || done ? "font-medium text-on-surface" : "text-on-surface-faint"
         }`}
       >
         {label}

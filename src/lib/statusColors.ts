@@ -10,10 +10,8 @@
 
 /** Status pill classes used inside badges (KanbanCard, SessionDetail, CommandPalette, SessionCard). */
 export const STATUS_PILL: Record<string, string> = {
-  running:
-    "bg-status-running-muted text-status-running ring-1 ring-status-running/30",
-  attention:
-    "bg-status-attention-muted text-status-attention ring-1 ring-status-attention/30",
+  running: "bg-status-running-muted text-status-running ring-1 ring-status-running/30",
+  attention: "bg-status-attention-muted text-status-attention ring-1 ring-status-attention/30",
   done: "bg-status-done-muted text-status-done ring-1 ring-status-done/30",
 };
 
@@ -47,21 +45,17 @@ export const STATUS_LABEL: Record<string, string> = {
 /** PR state pill classes for KanbanCard and SessionDetail. */
 export const PR_STATE_PILL: Record<string, string> = {
   open: "bg-status-done-muted text-status-done ring-1 ring-status-done/30",
-  merged:
-    "bg-block-question-muted text-block-question ring-1 ring-block-question/30",
+  merged: "bg-block-question-muted text-block-question ring-1 ring-block-question/30",
   closed: "bg-danger-muted text-danger ring-1 ring-danger/30",
 };
 
 /** Block type pill classes (for waiting sessions). */
 export const BLOCK_TYPE_PILL: Record<string, string> = {
-  permission:
-    "bg-block-permission-muted text-block-permission ring-1 ring-block-permission/30",
+  permission: "bg-block-permission-muted text-block-permission ring-1 ring-block-permission/30",
   confirmation:
     "bg-block-confirmation-muted text-block-confirmation ring-1 ring-block-confirmation/30",
-  question:
-    "bg-block-question-muted text-block-question ring-1 ring-block-question/30",
-  input:
-    "bg-block-input-muted text-block-input ring-1 ring-block-input/30",
+  question: "bg-block-question-muted text-block-question ring-1 ring-block-question/30",
+  input: "bg-block-input-muted text-block-input ring-1 ring-block-input/30",
 };
 
 /**

@@ -5,9 +5,9 @@
 //! runtime). This lets us test repos, sessions, settings, and filesystem
 //! commands with real (in-memory) SQLite databases and temp directories.
 
-use rusqlite::Connection;
 use octopus_lib::db::create_schema;
 use octopus_lib::state::AppState;
+use rusqlite::Connection;
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -743,7 +743,14 @@ fn session_all_nullable_fields() {
         db.execute(
             "INSERT INTO sessions (id, repo_id, name, status, created_at, state_changed_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            rusqlite::params!["s1", "r1", "Minimal", "attention", "2025-01-01", "2025-01-01"],
+            rusqlite::params![
+                "s1",
+                "r1",
+                "Minimal",
+                "attention",
+                "2025-01-01",
+                "2025-01-01"
+            ],
         )
         .unwrap();
     }

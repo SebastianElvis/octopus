@@ -174,7 +174,7 @@ describe("Sidebar session tree", () => {
     // The acme/frontend repo should have a waiting badge (1 waiting session: s2)
     // This is rendered as a red badge with the count
     const sidebar = document.querySelector("aside")!;
-    const badges = sidebar.querySelectorAll(".bg-red-500");
+    const badges = sidebar.querySelectorAll(".bg-status-attention");
     expect(badges.length).toBeGreaterThan(0);
   });
 
@@ -284,7 +284,7 @@ describe("Sidebar session tree", () => {
     // Each expanded repo should have an "Issues & PRs" button
     const sidebar = document.querySelector("aside")!;
     const issueButtons = Array.from(sidebar.querySelectorAll("button")).filter((b) =>
-      b.textContent?.includes("Issues & PRs"),
+      b.textContent.includes("Issues & PRs"),
     );
     expect(issueButtons.length).toBeGreaterThan(0);
   });

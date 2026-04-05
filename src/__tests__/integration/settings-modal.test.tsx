@@ -41,7 +41,8 @@ beforeEach(() => {
       case "get_setting":
         return savedSettings[(a?.key as string | undefined) ?? ""] ?? null;
       case "set_setting":
-        savedSettings[(a?.key as string | undefined) ?? ""] = (a?.value as string | undefined) ?? "";
+        savedSettings[(a?.key as string | undefined) ?? ""] =
+          (a?.value as string | undefined) ?? "";
         return null;
       case "get_github_token":
         return null;
@@ -125,7 +126,7 @@ describe("Settings modal", () => {
 
     // Verify the key was saved through the mock IPC
     await waitFor(() => {
-      expect(savedSettings["claude_api_key"]).toBe("sk-ant-test-key");
+      expect(savedSettings.claude_api_key).toBe("sk-ant-test-key");
     });
 
     // Button should show "Saved" feedback

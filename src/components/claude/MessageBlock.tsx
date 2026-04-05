@@ -113,9 +113,7 @@ export function MessageBlock({ message }: MessageBlockProps) {
     // Tool-result-only messages (sent by Claude Code as user messages wrapping
     // tool results) have no text and would render as empty blue bubbles.
     const visibleText = otherBlocks
-      .filter(
-        (b): b is ClaudeContentBlock & { type: "text" } => b.type === "text",
-      )
+      .filter((b): b is ClaudeContentBlock & { type: "text" } => b.type === "text")
       .map((b) => b.text)
       .join("")
       .trim();
@@ -152,10 +150,7 @@ export function MessageBlock({ message }: MessageBlockProps) {
               <TextBlock
                 key={item.index}
                 text={item.block.text}
-                isStreaming={
-                  message.isStreaming &&
-                  item.index === message.blocks.length - 1
-                }
+                isStreaming={message.isStreaming && item.index === message.blocks.length - 1}
               />
             );
           case "tool_use":
@@ -188,10 +183,7 @@ export function MessageBlock({ message }: MessageBlockProps) {
               <ThinkingBlock
                 key={item.index}
                 thinking={item.block.thinking}
-                isStreaming={
-                  message.isStreaming &&
-                  item.index === message.blocks.length - 1
-                }
+                isStreaming={message.isStreaming && item.index === message.blocks.length - 1}
               />
             );
           default:

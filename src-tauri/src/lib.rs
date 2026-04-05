@@ -71,9 +71,9 @@ fn check_unclean_shutdown() -> bool {
 /// check if the PID is still alive using kill(pid, 0). If alive, mark as
 /// "attention" (process is orphaned). If dead, already reaped correctly.
 fn recover_sessions(conn: &rusqlite::Connection) {
-    let mut stmt = match conn.prepare(
-        "SELECT id, worktree_path, pid FROM sessions WHERE status = 'running'",
-    ) {
+    let mut stmt = match conn
+        .prepare("SELECT id, worktree_path, pid FROM sessions WHERE status = 'running'")
+    {
         Ok(s) => s,
         Err(e) => {
             log::error!("Failed to query sessions for recovery: {}", e);

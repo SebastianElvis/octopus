@@ -144,9 +144,7 @@ function CommandPaletteInner({
               onClick={() => handleSelect(session.id)}
               onMouseEnter={() => setSelectedIndex(index)}
               className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                index === selectedIndex
-                  ? "bg-hover"
-                  : "hover:bg-hover"
+                index === selectedIndex ? "bg-hover" : "hover:bg-hover"
               }`}
             >
               {/* Status dot */}
@@ -169,9 +167,7 @@ function CommandPaletteInner({
                 <p className="mt-0.5 truncate text-xs text-on-surface-muted">
                   {session.repo}
                   {session.branch && (
-                    <span className="ml-1 text-on-surface-faint">
-                      · {session.branch}
-                    </span>
+                    <span className="ml-1 text-on-surface-faint">· {session.branch}</span>
                   )}
                 </p>
               </div>
@@ -188,18 +184,12 @@ function CommandPaletteInner({
         {filtered.length > 0 && (
           <div className="flex items-center gap-3 border-t border-outline px-4 py-2">
             <span className="flex items-center gap-1 text-xs text-on-surface-faint">
-              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">
-                &uarr;
-              </kbd>
-              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">
-                &darr;
-              </kbd>
+              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">&uarr;</kbd>
+              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">&darr;</kbd>
               navigate
             </span>
             <span className="flex items-center gap-1 text-xs text-on-surface-faint">
-              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">
-                &crarr;
-              </kbd>
+              <kbd className="rounded border border-outline px-1 py-0.5 text-xs">&crarr;</kbd>
               select
             </span>
           </div>

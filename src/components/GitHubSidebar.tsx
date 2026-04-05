@@ -224,13 +224,9 @@ export function GitHubSidebar({
                   Issue #{issue.number} closed
                 </p>
               )}
-              <p className="mt-1 text-sm font-medium text-on-surface">
-                {issue.title}
-              </p>
+              <p className="mt-1 text-sm font-medium text-on-surface">{issue.title}</p>
               {issue.body && (
-                <p className="mt-1 line-clamp-3 text-xs text-on-surface-muted">
-                  {issue.body}
-                </p>
+                <p className="mt-1 line-clamp-3 text-xs text-on-surface-muted">{issue.body}</p>
               )}
               {issue.labels.length > 0 && (
                 <div className="mt-2 flex flex-wrap gap-1">
@@ -268,18 +264,12 @@ export function GitHubSidebar({
             <>
               <div className="flex items-center gap-2">
                 <PRIcon state={merged ? "merged" : pr.state} />
-                <span className="text-xs font-medium text-on-surface-muted">
-                  PR #{pr.number}
-                </span>
+                <span className="text-xs font-medium text-on-surface-muted">PR #{pr.number}</span>
                 <StateBadge state={merged ? "merged" : pr.state} />
               </div>
-              <p className="mt-1 text-sm font-medium text-on-surface">
-                {pr.title}
-              </p>
+              <p className="mt-1 text-sm font-medium text-on-surface">{pr.title}</p>
               {pr.body && (
-                <p className="mt-1 line-clamp-3 text-xs text-on-surface-muted">
-                  {pr.body}
-                </p>
+                <p className="mt-1 line-clamp-3 text-xs text-on-surface-muted">{pr.body}</p>
               )}
               <div className="mt-2 flex items-center gap-1.5 text-xs">
                 <code className="rounded bg-brand-muted px-1 py-0.5 font-mono text-brand">
@@ -307,9 +297,7 @@ export function GitHubSidebar({
               {/* CI Status Pills */}
               {(checkRuns.length > 0 || loadingChecks) && (
                 <div className="mt-3 border-t border-outline pt-2">
-                  <h4 className="mb-1.5 text-xs font-medium text-on-surface-muted">
-                    CI Checks
-                  </h4>
+                  <h4 className="mb-1.5 text-xs font-medium text-on-surface-muted">CI Checks</h4>
                   {loadingChecks && checkRuns.length === 0 && (
                     <span className="text-xs text-on-surface-faint">Loading...</span>
                   )}
@@ -333,9 +321,7 @@ export function GitHubSidebar({
               {/* Merge PR section */}
               {pr.state === "open" && !merged && (
                 <div className="mt-3 border-t border-outline pt-2">
-                  {mergeError && (
-                    <p className="mb-1 text-xs text-danger">{mergeError}</p>
-                  )}
+                  {mergeError && <p className="mb-1 text-xs text-danger">{mergeError}</p>}
                   <div className="flex items-center gap-2">
                     <select
                       value={mergeMethod}
@@ -352,9 +338,7 @@ export function GitHubSidebar({
                       onClick={() => {
                         void handleMerge();
                       }}
-                      disabled={
-                        merging || (checkRuns.length > 0 && !allChecksPass)
-                      }
+                      disabled={merging || (checkRuns.length > 0 && !allChecksPass)}
                       className="flex-1 cursor-pointer rounded bg-status-done px-3 py-1 text-xs font-medium text-white hover:bg-green-500 active:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {merging ? "Merging..." : "Merge PR"}
@@ -409,9 +393,7 @@ export function GitHubSidebar({
       {/* Open PR button */}
       {!pr && hasCommittedChanges && repoId && branch && (
         <div>
-          {createError && (
-            <p className="mb-1 text-xs text-danger">{createError}</p>
-          )}
+          {createError && <p className="mb-1 text-xs text-danger">{createError}</p>}
           <button
             onClick={() => {
               void handleOpenPR();

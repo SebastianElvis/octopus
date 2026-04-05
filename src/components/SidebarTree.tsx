@@ -117,7 +117,13 @@ export function SidebarTree({
                 title="Remove repo"
                 className="mr-1 shrink-0 rounded p-1 text-on-surface-faint opacity-0 transition-opacity hover:bg-hover hover:text-on-surface-muted group-hover:opacity-100"
               >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg
+                  className="h-3 w-3"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -137,18 +143,26 @@ export function SidebarTree({
                   }`}
                 >
                   <span className="flex items-center gap-1.5">
-                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg
+                      className="h-3 w-3"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
                       <circle cx="12" cy="12" r="10" />
                       <path strokeLinecap="round" d="M12 8v4M12 16h.01" />
                     </svg>
                     Issues & PRs
                   </span>
                   {issueCount > 0 && (
-                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                      isTasksActive
-                        ? "bg-brand-muted text-brand"
-                        : "bg-hover text-on-surface-muted"
-                    }`}>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                        isTasksActive
+                          ? "bg-brand-muted text-brand"
+                          : "bg-hover text-on-surface-muted"
+                      }`}
+                    >
                       {issueCount}
                     </span>
                   )}
@@ -293,9 +307,7 @@ function SessionNode({
         onClick={onClick}
         title={statusLabel}
         className={`flex w-full flex-col gap-0.5 rounded px-2 py-1.5 text-left transition-colors ${statusTint} ${
-          isActive
-            ? "bg-brand-muted text-brand"
-            : "text-on-surface-muted hover:bg-hover"
+          isActive ? "bg-brand-muted text-brand" : "text-on-surface-muted hover:bg-hover"
         }`}
       >
         {/* First line: status dot + session name */}
@@ -315,12 +327,24 @@ function SessionNode({
       </button>
       {/* Archive button (visible on hover) */}
       <button
-        onClick={(e) => { void handleArchive(e); }}
+        onClick={(e) => {
+          void handleArchive(e);
+        }}
         title="Archive"
         className="absolute right-1 top-1/2 -translate-y-1/2 rounded p-1 text-on-surface-faint opacity-0 transition-opacity hover:bg-active hover:text-on-surface-muted group-hover/session:opacity-100"
       >
-        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-2-3H6L4 7m16 0v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7m16 0H4m4 4h8" />
+        <svg
+          className="h-3.5 w-3.5"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M20 7l-2-3H6L4 7m16 0v12a1 1 0 01-1 1H5a1 1 0 01-1-1V7m16 0H4m4 4h8"
+          />
         </svg>
       </button>
     </div>
