@@ -7,6 +7,7 @@ import {
   generateRecap as tauriGenerateRecap,
   fetchIssues,
   fetchPRs,
+  fetchCheckRuns,
 } from "../lib/tauri";
 import { useSessionStore } from "../stores/sessionStore";
 import { useEditorStore } from "../stores/editorStore";
@@ -22,7 +23,7 @@ import { ReviewComments } from "./ReviewComments";
 import { GitHubDetailView } from "./GitHubDetailView";
 import { ShellPanel } from "./ShellPanel";
 import type { GitHubIssue, GitHubPR } from "../lib/types";
-import { STATUS_PILL, STATUS_DOT, RUNNING_PULSE } from "../lib/statusColors";
+import { STATUS_PILL, STATUS_DOT, RUNNING_PULSE, PR_STATE_PILL } from "../lib/statusColors";
 
 type CenterTab = "claude" | "editor" | "github" | "log" | "recap" | "analytics";
 
@@ -48,6 +49,7 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
   // GitHub data for the detail tab
   const [ghIssue, setGhIssue] = useState<GitHubIssue | null>(null);
   const [ghPR, setGhPR] = useState<GitHubPR | null>(null);
+  const [ciStatus, setCiStatus] = useState<"success" | "failure" | "pending" | null>(null);
 
   // Recap state
   const [recap, setRecap] = useState<string | null>(null);
@@ -85,7 +87,20 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           /* fetch error ignored */
         });
     }
-  }, [session?.repoId, session?.linkedIssue, session?.linkedPR]);
+    // Fetch CI status for the branch
+    if (session.branch) {
+      fetchCheckRuns(session.repoId, session.branch)
+        .then((runs) => {
+          if (runs.length === 0) return;
+          const allPass = runs.every((r) => r.conclusion === "success");
+          const anyFail = runs.some((r) => r.conclusion === "failure");
+          setCiStatus(allPass ? "success" : anyFail ? "failure" : "pending");
+        })
+        .catch(() => {
+          /* non-critical */
+        });
+    }
+  }, [session?.repoId, session?.linkedIssue, session?.linkedPR, session?.branch]);
 
   // When a file tab is clicked, switch to editor mode
   const prevTabIdRef = useRef(activeTabId);
@@ -201,6 +216,30 @@ export function SessionDetail({ sessionId, onBack }: SessionDetailProps) {
           <span className="text-xs text-on-surface-faint">
             {timeAgo(session.stateChangedAt)}
           </span>
+          {/* PR state pill */}
+          {ghPR && (
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${PR_STATE_PILL[ghPR.state] ?? ""}`}
+            >
+              PR #{ghPR.number} {ghPR.state}
+            </span>
+          )}
+          {/* CI status dot */}
+          {ciStatus && (
+            <span className="flex items-center gap-1">
+              <span
+                className={`h-2 w-2 rounded-full ${
+                  ciStatus === "success"
+                    ? "bg-green-500"
+                    : ciStatus === "failure"
+                      ? "bg-red-500"
+                      : "bg-yellow-500"
+                }`}
+                title={`CI: ${ciStatus}`}
+              />
+              <span className="text-xs text-on-surface-faint">CI</span>
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {session.status === "attention" && (

@@ -7,10 +7,13 @@ import {
   interruptSession,
   resumeSession,
   fetchCheckRuns,
+  fetchPRs,
 } from "../lib/tauri";
 import type { Session, SessionStatus } from "../lib/types";
 import type { CIStatus } from "./KanbanCard";
 import { RUNNING_PULSE } from "../lib/statusColors";
+
+export type PRState = "open" | "closed" | "merged";
 
 type StatusFilter = "attention" | "running" | "done" | null;
 type SortKey = "recent" | "created" | "name" | "status";
@@ -36,13 +39,45 @@ export function DispatchBoard({
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(null);
   const [sortKey, setSortKey] = useState<SortKey>("recent");
   const [ciStatuses, setCiStatuses] = useState<Record<string, CIStatus>>({});
+  const [prStates, setPrStates] = useState<Record<string, PRState>>({});
   const [doneCollapsed, setDoneCollapsed] = useState(false);
 
-  // Fetch CI status for sessions with linked PRs
+  // Fetch CI status and PR state for sessions with linked PRs
   useEffect(() => {
     const sessionsWithPR = sessions.filter((s) => s.linkedPR && s.repoId);
     if (sessionsWithPR.length === 0) return;
 
+    // Group sessions by repoId to batch PR fetches
+    const byRepo = new Map<string, Session[]>();
+    for (const s of sessionsWithPR) {
+      if (!s.repoId) continue;
+      let list = byRepo.get(s.repoId);
+      if (!list) {
+        list = [];
+        byRepo.set(s.repoId, list);
+      }
+      list.push(s);
+    }
+
+    // Fetch PR states per repo (one API call per repo)
+    for (const [repoId, repoSessions] of byRepo) {
+      void fetchPRs(repoId)
+        .then((prs) => {
+          for (const s of repoSessions) {
+            if (!s.linkedPR) continue;
+            const prNum = s.linkedPR.number;
+            const pr = prs.find((p) => p.number === prNum);
+            if (pr) {
+              setPrStates((prev) => ({ ...prev, [s.id]: pr.state as PRState }));
+            }
+          }
+        })
+        .catch(() => {
+          /* non-critical */
+        });
+    }
+
+    // Fetch CI statuses
     for (const s of sessionsWithPR) {
       if (!s.repoId || !s.branch) continue;
       void fetchCheckRuns(s.repoId, s.branch)
@@ -436,6 +471,7 @@ export function DispatchBoard({
               index={i}
               isActive={s.id === activeSessionId}
               ciStatus={ciStatuses[s.id]}
+              prState={prStates[s.id]}
               onView={onViewSession}
               onResume={(id: string) => {
                 void handleResume(id);
@@ -459,6 +495,7 @@ export function DispatchBoard({
               index={i}
               isActive={s.id === activeSessionId}
               ciStatus={ciStatuses[s.id]}
+              prState={prStates[s.id]}
               onView={onViewSession}
               onInterrupt={(id: string) => {
                 void handleInterrupt(id);
@@ -487,6 +524,7 @@ export function DispatchBoard({
               index={i}
               isActive={s.id === activeSessionId}
               ciStatus={ciStatuses[s.id]}
+              prState={prStates[s.id]}
               onView={onViewSession}
             />
           ))}

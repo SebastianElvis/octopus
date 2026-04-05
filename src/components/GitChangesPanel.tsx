@@ -20,6 +20,16 @@ const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
   copied: { label: "C", cls: "text-purple-600 dark:text-purple-400" },
 };
 
+/**
+ * Determine the workflow phase based on git state.
+ * - "stage": there are unstaged changes to stage
+ * - "commit": there are staged files ready to commit
+ * - "push": there are unpushed commits
+ * - "pr": everything is pushed, ready to open a PR
+ * - "clean": nothing to do
+ */
+type WorkflowPhase = "stage" | "commit" | "push" | "pr" | "clean";
+
 export function GitChangesPanel({
   worktreePath,
   sessionId,
@@ -32,6 +42,9 @@ export function GitChangesPanel({
     pushing,
     committing,
     error,
+    successMessage,
+    successUrl,
+    syncStatus,
     setWorktreePath,
     refreshChanges,
     stageFiles,
@@ -47,6 +60,7 @@ export function GitChangesPanel({
 
   const [discardConfirmPath, setDiscardConfirmPath] = useState<string | null>(null);
   const [discardAllConfirm, setDiscardAllConfirm] = useState(false);
+  const [creatingPr, setCreatingPr] = useState(false);
 
   useEffect(() => {
     setWorktreePath(worktreePath ?? null);
@@ -62,8 +76,6 @@ export function GitChangesPanel({
   }, [worktreePath, refreshChanges]);
 
   const isSessionDone = sessionStatus === "done" || sessionStatus === "attention";
-
-  const [creatingPr, setCreatingPr] = useState(false);
 
   if (!worktreePath) {
     return (
@@ -86,6 +98,22 @@ export function GitChangesPanel({
 
   const staged = changedFiles.filter((f) => f.staged);
   const unstaged = changedFiles.filter((f) => !f.staged);
+
+  // Determine workflow phase
+  const ahead = syncStatus?.ahead ?? 0;
+  const hasUpstream = syncStatus?.hasUpstream ?? true;
+  const phase: WorkflowPhase =
+    staged.length > 0 || (unstaged.length > 0 && commitMessage.trim())
+      ? "commit"
+      : unstaged.length > 0
+        ? "stage"
+        : ahead > 0 || !hasUpstream
+          ? "push"
+          : changedFiles.length === 0 && !loading
+            ? successMessage
+              ? "pr"
+              : "clean"
+            : "clean";
 
   async function handleCommit() {
     await commit();
@@ -146,7 +174,10 @@ export function GitChangesPanel({
     <div className="flex h-full flex-col">
       {/* Header */}
       <div className="flex shrink-0 items-center justify-between border-b border-outline px-3 py-2">
-        <h3 className="text-xs font-semibold text-on-surface">Changes</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-xs font-semibold text-on-surface">Changes</h3>
+          {changedFiles.length > 0 && <DiffSummary files={changedFiles} />}
+        </div>
         <button
           onClick={() => {
             void refreshChanges();
@@ -227,44 +258,189 @@ export function GitChangesPanel({
         )}
       </div>
 
-      {/* Commit / Push / Create PR area */}
-      <div className="shrink-0 border-t border-outline p-3">
-        {error && <p className="mb-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
-        <textarea
-          value={commitMessage}
-          onChange={(e) => setCommitMessage(e.target.value)}
-          placeholder="Commit message..."
-          rows={2}
-          className="mb-2 w-full resize-none rounded border border-outline bg-surface-raised px-2 py-1.5 text-xs text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
-        />
-        <div className="flex gap-1.5">
-          <button
-            onClick={() => {
-              void handleCommit();
-            }}
-            disabled={committing || pushing || !commitMessage.trim() || staged.length === 0}
-            className="flex-1 cursor-pointer rounded bg-brand px-3 py-1.5 text-xs font-medium text-white hover:bg-brand/90 active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {committing ? "Committing..." : "Commit"}
-          </button>
-          <button
-            onClick={() => {
-              void handlePush();
-            }}
-            disabled={pushing || committing}
-            className="cursor-pointer rounded border border-brand px-3 py-1.5 text-xs font-medium text-brand hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {pushing ? "Pushing..." : "Push"}
-          </button>
-          <button
-            onClick={() => {
-              void handleCreatePr();
-            }}
-            disabled={creatingPr || !sessionId}
-            className="cursor-pointer rounded border border-outline px-3 py-1.5 text-xs font-medium text-on-surface-muted hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {creatingPr ? "Creating..." : "Create PR"}
-          </button>
+      {/* ── Action area ── */}
+      <div className="shrink-0 border-t border-outline">
+        {/* Sync status strip */}
+        {syncStatus && (ahead > 0 || syncStatus.behind > 0 || !hasUpstream) && (
+          <div className="flex items-center gap-2 border-b border-outline-muted px-3 py-1.5">
+            {!hasUpstream && (
+              <span className="text-xs text-on-surface-faint">No upstream branch</span>
+            )}
+            {hasUpstream && ahead > 0 && (
+              <span className="text-xs text-on-surface-muted">
+                <span className="font-medium text-brand">{ahead}</span> unpushed
+              </span>
+            )}
+            {hasUpstream && syncStatus.behind > 0 && (
+              <span className="text-xs text-on-surface-muted">
+                <span className="font-medium text-accent">{syncStatus.behind}</span> behind
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Success banner */}
+        {successMessage && (
+          <div className="flex items-center gap-2 border-b border-status-done/20 bg-status-done-muted px-3 py-2">
+            <svg className="h-3.5 w-3.5 shrink-0 text-status-done" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16Zm3.78-9.72a.75.75 0 0 0-1.06-1.06L6.75 9.19 5.28 7.72a.75.75 0 0 0-1.06 1.06l2 2a.75.75 0 0 0 1.06 0l4.5-4.5Z" />
+            </svg>
+            <span className="flex-1 text-xs font-medium text-status-done">{successMessage}</span>
+            {successUrl && (
+              <a
+                href={successUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-status-done hover:underline"
+              >
+                View
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Error banner */}
+        {error && (
+          <div className="flex items-center gap-2 border-b border-danger/20 bg-danger-muted px-3 py-2">
+            <svg className="h-3.5 w-3.5 shrink-0 text-danger" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M2.343 13.657A8 8 0 1 1 13.658 2.343 8 8 0 0 1 2.343 13.657ZM6.03 4.97a.751.751 0 0 0-1.042.018.751.751 0 0 0-.018 1.042L6.94 8 4.97 9.97a.749.749 0 0 0 .326 1.275.749.749 0 0 0 .734-.215L8 9.06l1.97 1.97a.749.749 0 0 0 1.275-.326.749.749 0 0 0-.215-.734L9.06 8l1.97-1.97a.749.749 0 0 0-.326-1.275.749.749 0 0 0-.734.215L8 6.94Z" />
+            </svg>
+            <span className="flex-1 text-xs text-danger">{error}</span>
+          </div>
+        )}
+
+        {/* Commit message — only when there are staged or unstaged files */}
+        {changedFiles.length > 0 && (
+          <div className="px-3 pt-3 pb-2">
+            <textarea
+              value={commitMessage}
+              onChange={(e) => setCommitMessage(e.target.value)}
+              placeholder="Commit message..."
+              rows={2}
+              className="w-full resize-none rounded border border-outline bg-surface-raised px-2 py-1.5 text-xs text-on-surface placeholder-on-surface-faint focus:border-brand focus:outline-none"
+            />
+          </div>
+        )}
+
+        {/* Workflow step indicator + actions */}
+        <div className="px-3 pb-3">
+          {/* Step dots */}
+          <div className="mb-2 flex items-center justify-center gap-1.5">
+            <StepDot
+              active={phase === "stage" || phase === "commit"}
+              done={phase === "push" || phase === "pr"}
+              label="Commit"
+            />
+            <div className="h-px w-3 bg-outline-muted" />
+            <StepDot
+              active={phase === "push"}
+              done={phase === "pr"}
+              label="Push"
+            />
+            <div className="h-px w-3 bg-outline-muted" />
+            <StepDot
+              active={phase === "pr"}
+              done={false}
+              label="PR"
+            />
+          </div>
+
+          {/* Primary action — contextual */}
+          {phase === "stage" && (
+            <button
+              onClick={handleStageAll}
+              className="w-full cursor-pointer rounded bg-surface-raised px-3 py-2 text-xs font-medium text-on-surface hover:bg-hover active:bg-active focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
+            >
+              Stage all {unstaged.length} file{unstaged.length !== 1 ? "s" : ""}
+            </button>
+          )}
+
+          {phase === "commit" && (
+            <button
+              onClick={() => {
+                void handleCommit();
+              }}
+              disabled={committing || pushing || !commitMessage.trim() || staged.length === 0}
+              className="w-full cursor-pointer rounded bg-brand px-3 py-2 text-xs font-medium text-white hover:bg-brand/90 active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {committing
+                ? "Committing..."
+                : staged.length > 0
+                  ? `Commit ${staged.length} file${staged.length !== 1 ? "s" : ""}`
+                  : "Stage files to commit"}
+            </button>
+          )}
+
+          {phase === "push" && (
+            <button
+              onClick={() => {
+                void handlePush();
+              }}
+              disabled={pushing || committing}
+              className="w-full cursor-pointer rounded bg-brand px-3 py-2 text-xs font-medium text-white hover:bg-brand/90 active:bg-brand focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {pushing
+                ? "Pushing..."
+                : !hasUpstream
+                  ? "Publish branch"
+                  : `Push ${ahead} commit${ahead !== 1 ? "s" : ""}`}
+            </button>
+          )}
+
+          {phase === "pr" && (
+            <button
+              onClick={() => {
+                void handleCreatePr();
+              }}
+              disabled={creatingPr || !sessionId}
+              className="w-full cursor-pointer rounded bg-status-done px-3 py-2 text-xs font-medium text-white hover:opacity-90 active:opacity-100 focus:outline-none focus:ring-2 focus:ring-status-done focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {creatingPr ? "Creating..." : "Create pull request"}
+            </button>
+          )}
+
+          {phase === "clean" && !successMessage && (
+            <p className="py-1 text-center text-xs text-on-surface-faint">Up to date</p>
+          )}
+
+          {/* Secondary actions — always accessible */}
+          {phase !== "clean" && (
+            <div className="mt-2 flex justify-center gap-3">
+              {phase !== "commit" && phase !== "stage" && changedFiles.length > 0 && (
+                <button
+                  onClick={() => {
+                    void handleCommit();
+                  }}
+                  disabled={committing || !commitMessage.trim() || staged.length === 0}
+                  className="cursor-pointer text-xs text-on-surface-faint hover:text-on-surface-muted disabled:opacity-40"
+                >
+                  Commit
+                </button>
+              )}
+              {phase !== "push" && (ahead > 0 || !hasUpstream) && (
+                <button
+                  onClick={() => {
+                    void handlePush();
+                  }}
+                  disabled={pushing}
+                  className="cursor-pointer text-xs text-on-surface-faint hover:text-on-surface-muted disabled:opacity-40"
+                >
+                  Push
+                </button>
+              )}
+              {phase !== "pr" && sessionId && (
+                <button
+                  onClick={() => {
+                    void handleCreatePr();
+                  }}
+                  disabled={creatingPr}
+                  className="cursor-pointer text-xs text-on-surface-faint hover:text-on-surface-muted disabled:opacity-40"
+                >
+                  Create PR
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -397,6 +573,58 @@ function FileSection({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function DiffSummary({ files }: { files: ChangedFile[] }) {
+  const totalIns = files.reduce((sum, f) => sum + (f.insertions ?? 0), 0);
+  const totalDel = files.reduce((sum, f) => sum + (f.deletions ?? 0), 0);
+  if (totalIns === 0 && totalDel === 0) return null;
+  return (
+    <span className="text-[11px] text-on-surface-faint">
+      {files.length} file{files.length !== 1 ? "s" : ""}
+      {totalIns > 0 && (
+        <span className="ml-1 text-green-600 dark:text-green-500">+{totalIns}</span>
+      )}
+      {totalDel > 0 && (
+        <span className="ml-0.5 text-red-600 dark:text-red-500">-{totalDel}</span>
+      )}
+    </span>
+  );
+}
+
+function StepDot({
+  active,
+  done,
+  label,
+}: {
+  active: boolean;
+  done: boolean;
+  label: string;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <div
+        className={`h-1.5 w-1.5 rounded-full transition-colors ${
+          active
+            ? "bg-brand"
+            : done
+              ? "bg-status-done"
+              : "bg-outline"
+        }`}
+      />
+      <span
+        className={`text-[9px] leading-none ${
+          active
+            ? "font-medium text-brand"
+            : done
+              ? "text-status-done"
+              : "text-on-surface-faint"
+        }`}
+      >
+        {label}
+      </span>
     </div>
   );
 }

@@ -8,8 +8,10 @@ import {
   BLOCK_TYPE_PILL,
   RUNNING_PULSE,
   STATUS_DOT,
+  PR_STATE_PILL,
 } from "../lib/statusColors";
 import { useSessionActivity } from "../lib/sessionActivity";
+import type { PRState } from "./DispatchBoard";
 
 export type CIStatus = "success" | "failure" | "pending" | null;
 
@@ -20,6 +22,7 @@ interface KanbanCardProps {
   onResume?: (id: string) => void;
   onKill?: (id: string) => void;
   ciStatus?: CIStatus;
+  prState?: PRState;
   isActive?: boolean;
   /** Index within column for staggered entrance animation */
   index?: number;
@@ -32,6 +35,7 @@ export function KanbanCard({
   onResume,
   onKill,
   ciStatus,
+  prState,
   isActive,
   index = 0,
 }: KanbanCardProps) {
@@ -85,6 +89,14 @@ export function KanbanCard({
                   ? `PR #${String(session.linkedPR.number)}`
                   : ""}
             </span>
+            {/* PR state indicator */}
+            {session.linkedPR && prState && (
+              <span
+                className={`rounded-full px-1 py-px text-[9px] font-medium ${PR_STATE_PILL[prState] ?? ""}`}
+              >
+                {prState}
+              </span>
+            )}
           </>
         )}
         {/* CI indicator dot */}
@@ -121,17 +133,25 @@ export function KanbanCard({
 
       {/* Pills row — status pill without inner dot (pill color is the signal) */}
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-        <span
-          className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
-        >
-          {/* Only show animated dot for running — otherwise pill color is enough */}
-          {session.status === "running" && (
-            <span
-              className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status]} ${RUNNING_PULSE}`}
-            />
-          )}
-          {STATUS_LABEL[session.status] ?? session.status}
-        </span>
+        {isClosed && prState === "merged" ? (
+          <span
+            className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors duration-300 ${PR_STATE_PILL.merged}`}
+          >
+            {STATUS_LABEL.merged}
+          </span>
+        ) : (
+          <span
+            className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors duration-300 ${STATUS_PILL[session.status]}`}
+          >
+            {/* Only show animated dot for running — otherwise pill color is enough */}
+            {session.status === "running" && (
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full ${STATUS_DOT[session.status]} ${RUNNING_PULSE}`}
+              />
+            )}
+            {STATUS_LABEL[session.status] ?? session.status}
+          </span>
+        )}
         {session.status === "attention" && session.blockType && (
           <span
             className={`rounded-full px-1.5 py-0.5 text-xs font-medium ${BLOCK_TYPE_PILL[session.blockType]}`}
