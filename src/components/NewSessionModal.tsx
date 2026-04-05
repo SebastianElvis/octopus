@@ -17,10 +17,9 @@ type LinkedItem = { kind: "issue"; issue: GitHubIssue } | { kind: "pr"; pr: GitH
 
 type CreationStep = "idle" | "worktree" | "spawning" | "done";
 
-function generatePrompt(kind: "issue" | "pr", url: string, body?: string): string {
-  const bodyNote = body ? `\n\nIssue body:\n${body}` : "";
+function generatePrompt(kind: "issue" | "pr", url: string): string {
   if (kind === "issue") {
-    return `Read ${url} , understand the requirements, and resolve the issue.${bodyNote}`;
+    return `Investigate and solve ${url}`;
   }
   return `Read ${url} , review the changes, and address any feedback or requested changes.`;
 }
@@ -73,7 +72,7 @@ export function NewSessionModal({
   useEffect(() => {
     if (prefillIssue) {
       setLinked({ kind: "issue", issue: prefillIssue });
-      setPrompt(generatePrompt("issue", prefillIssue.htmlUrl, prefillIssue.body));
+      setPrompt(generatePrompt("issue", prefillIssue.htmlUrl));
       setQuery(`#${prefillIssue.number}`);
     }
     if (prefillPR) {
@@ -143,7 +142,7 @@ export function NewSessionModal({
   function selectIssue(issue: GitHubIssue) {
     setLinked({ kind: "issue", issue });
     if (!prompt) {
-      setPrompt(generatePrompt("issue", issue.htmlUrl, issue.body));
+      setPrompt(generatePrompt("issue", issue.htmlUrl));
     }
     setShowDropdown(false);
   }
