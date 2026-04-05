@@ -121,7 +121,7 @@ export function ClaudeOutputPanel({
       <div
         ref={scrollContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-3"
+        className="flex-1 overflow-y-auto px-4 py-3 will-change-transform"
       >
         {isEmpty && (
           <div className="flex h-full items-center justify-center">
