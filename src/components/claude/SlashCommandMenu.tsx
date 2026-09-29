@@ -299,7 +299,7 @@ export function SlashCommandMenu({
   useEffect(() => {
     if (!listRef.current) return;
     const selected = listRef.current.querySelector("[data-selected='true']");
-    if (selected) {
+    if (selected && typeof selected.scrollIntoView === "function") {
       selected.scrollIntoView({ block: "nearest" });
     }
   }, [selectedIndex]);

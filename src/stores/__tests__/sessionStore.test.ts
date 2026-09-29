@@ -162,4 +162,56 @@ describe("sessionStore", () => {
       expect(useSessionStore.getState().sessionsError).toBeNull();
     });
   });
+
+  describe("permission modes and clearing", () => {
+    it("cycles permission modes through default -> accept-edits -> plan -> bypass", () => {
+      useSessionStore.setState({
+        sessions: [
+          {
+            id: "s1",
+            name: "Session s1",
+            repo: "r1",
+            repoId: "repo-1",
+            branch: "main",
+            status: "running",
+            stateChangedAt: 12345,
+          },
+        ],
+        sessionModes: {},
+      });
+
+      expect(useSessionStore.getState().cycleSessionMode("s1")).toBe("accept-edits");
+      expect(useSessionStore.getState().sessionModes.s1).toBe("accept-edits");
+
+      expect(useSessionStore.getState().cycleSessionMode("s1")).toBe("plan");
+      expect(useSessionStore.getState().sessionModes.s1).toBe("plan");
+
+      expect(useSessionStore.getState().cycleSessionMode("s1")).toBe("bypass");
+      expect(useSessionStore.getState().sessionModes.s1).toBe("bypass");
+
+      expect(useSessionStore.getState().cycleSessionMode("s1")).toBe("default");
+      expect(useSessionStore.getState().sessionModes.s1).toBe("default");
+    });
+
+    it("clears messages, streaming, and output buffers", () => {
+      useSessionStore.setState({
+        messageBuffers: {
+          s1: [{ id: "m1", role: "assistant", blocks: [], timestamp: 1 }],
+        },
+        streamingMessage: {
+          s1: { id: "m2", role: "assistant", blocks: [], timestamp: 2, isStreaming: true },
+        },
+        outputBuffers: {
+          s1: ["output line 1", "output line 2"],
+        },
+      });
+
+      useSessionStore.getState().clearMessages("s1");
+
+      const state = useSessionStore.getState();
+      expect(state.messageBuffers.s1).toEqual([]);
+      expect(state.streamingMessage.s1).toBeNull();
+      expect(state.outputBuffers.s1).toEqual([]);
+    });
+  });
 });

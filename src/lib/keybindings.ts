@@ -47,23 +47,42 @@ const DEFAULT_KEYBINDINGS: KeyBinding[] = [
   {
     id: "interrupt-session",
     keys: "Ctrl+C",
-    description: "Interrupt running session",
+    description: "Cancel active stream / interrupt session",
     section: "Sessions",
   },
+  { id: "clear-output", keys: "Ctrl+L", description: "Clear output", section: "Sessions" },
   { id: "clear-terminal", keys: "Ctrl+L", description: "Clear terminal", section: "Sessions" },
+  {
+    id: "toggle-verbose",
+    keys: "Ctrl+O",
+    description: "Toggle verbose output",
+    section: "Sessions",
+  },
 
   // Input
-  { id: "send-reply", keys: "Cmd+Enter", description: "Send reply", section: "Input" },
+  { id: "send-reply", keys: "Enter", description: "Send message", section: "Input" },
+  {
+    id: "cycle-mode",
+    keys: "Shift+Tab",
+    description: "Cycle permission modes",
+    section: "Input",
+  },
+  {
+    id: "newline-shift",
+    keys: "Shift+Enter",
+    description: "Insert newline",
+    section: "Input",
+  },
   {
     id: "newline-alt",
-    keys: "Alt+Enter",
-    description: "Insert newline in reply",
+    keys: "Option+Enter",
+    description: "Insert newline",
     section: "Input",
   },
   {
     id: "newline-ctrl-j",
     keys: "Ctrl+J",
-    description: "Insert newline in reply",
+    description: "Insert newline",
     section: "Input",
   },
 
@@ -73,21 +92,67 @@ const DEFAULT_KEYBINDINGS: KeyBinding[] = [
 
 // ── Storage ──────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = "tmt-keybindings";
+const STORAGE_KEYS = ["tmt-keybindings", "octopus-keybindings", "keybindings.json"];
+
+/**
+ * Parse keybindings config from JSON string or object.
+ * Supports:
+ * - Direct object: { "interrupt-session": "Ctrl+C" }
+ * - Nested object: { "keybindings": { "interrupt-session": "Ctrl+C" } }
+ * - Array format: [ { "id": "interrupt-session", "keys": "Ctrl+C" } ]
+ */
+export function parseKeybindingsConfig(raw: string): Record<string, string> {
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return {};
+    if (Array.isArray(parsed)) {
+      const result: Record<string, string> = {};
+      for (const item of parsed) {
+        if (
+          item &&
+          typeof item === "object" &&
+          "id" in item &&
+          "keys" in item &&
+          typeof (item as { id: string; keys: string }).id === "string" &&
+          typeof (item as { id: string; keys: string }).keys === "string"
+        ) {
+          result[(item as { id: string; keys: string }).id] = (
+            item as { id: string; keys: string }
+          ).keys;
+        }
+      }
+      return result;
+    }
+    if (
+      "keybindings" in parsed &&
+      typeof (parsed as { keybindings: unknown }).keybindings === "object"
+    ) {
+      return (parsed as { keybindings: Record<string, string> }).keybindings;
+    }
+    return parsed as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
 
 function loadOverrides(): Record<string, string> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Record<string, string>;
-  } catch {
-    /* ignore */
+  for (const key of STORAGE_KEYS) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const overrides = parseKeybindingsConfig(raw);
+        if (Object.keys(overrides).length > 0) return overrides;
+      }
+    } catch {
+      /* ignore */
+    }
   }
   return {};
 }
 
 export function saveOverrides(overrides: Record<string, string>): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides));
+    localStorage.setItem(STORAGE_KEYS[0], JSON.stringify(overrides));
   } catch {
     /* ignore */
   }
@@ -156,6 +221,7 @@ export function matchesKeybinding(e: KeyboardEvent, keys: string): boolean {
         needCtrl = true;
         break;
       case "Alt":
+      case "Option":
         needAlt = true;
         break;
       case "Shift":
@@ -199,4 +265,24 @@ export function matchesKeybindingById(e: KeyboardEvent, id: string): boolean {
   const kb = getKeybinding(id);
   if (!kb) return false;
   return matchesKeybinding(e, kb.keys);
+}
+
+/**
+ * Checks whether text is currently selected in the document,
+ * properly taking into account active <input> and <textarea> elements.
+ */
+export function hasTextSelection(): boolean {
+  if (typeof document === "undefined") return false;
+  const activeEl = document.activeElement;
+  if (activeEl instanceof HTMLInputElement || activeEl instanceof HTMLTextAreaElement) {
+    if (
+      activeEl.selectionStart !== null &&
+      activeEl.selectionEnd !== null &&
+      activeEl.selectionStart !== activeEl.selectionEnd
+    ) {
+      return true;
+    }
+  }
+  const sel = window.getSelection();
+  return sel != null && sel.toString().length > 0;
 }

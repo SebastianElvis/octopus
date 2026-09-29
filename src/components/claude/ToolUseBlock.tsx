@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ClaudeContentBlock } from "../../lib/types";
 import { AnimatedCollapse } from "./AnimatedCollapse";
 import { TodoListBlock } from "./TodoListBlock";
+import { useUIStore } from "../../stores/uiStore";
 
 interface ToolUseBlockProps {
   name: string;
@@ -150,9 +151,12 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
   const todos = isTodo ? extractTodos(input) : [];
   const hasTodos = todos.length > 0;
 
+  const verboseMode = useUIStore((s) => s.verboseMode);
   // Todo tools with valid data are expanded by default to show the checklist
   const [expanded, setExpanded] = useState(hasTodos);
   const [resultExpanded, setResultExpanded] = useState(false);
+  const isExpanded = expanded || verboseMode;
+  const isResultExpanded = resultExpanded || verboseMode;
 
   const accent = getToolAccent(name);
   const { verb, icon } = getToolVerb(name);
@@ -172,7 +176,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
         className="flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left"
       >
         <svg
-          className={`h-3 w-3 shrink-0 text-on-surface-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+          className={`h-3 w-3 shrink-0 text-on-surface-faint transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -210,7 +214,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
       </button>
 
       {/* Input details — render checklist for todo tools, raw JSON otherwise */}
-      <AnimatedCollapse expanded={expanded}>
+      <AnimatedCollapse expanded={isExpanded}>
         <div className="border-t border-outline-muted px-3 py-2">
           {hasTodos ? (
             <TodoListBlock todos={todos} />
@@ -230,7 +234,7 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
             className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs text-on-surface-faint hover:text-on-surface-muted"
           >
             <svg
-              className={`h-2.5 w-2.5 shrink-0 transition-transform duration-200 ${resultExpanded ? "rotate-90" : ""}`}
+              className={`h-2.5 w-2.5 shrink-0 transition-transform duration-200 ${isResultExpanded ? "rotate-90" : ""}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -239,14 +243,14 @@ export function ToolUseBlock({ name, input, toolResult }: ToolUseBlockProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
             <span>Output</span>
-            {isLongResult && !resultExpanded && (
+            {isLongResult && !isResultExpanded && (
               <span className="text-on-surface-faint">({resultLines.length} lines)</span>
             )}
           </button>
-          <AnimatedCollapse expanded={resultExpanded}>
+          <AnimatedCollapse expanded={isResultExpanded}>
             <div className="px-3 pb-2">
               <pre className="max-h-80 overflow-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-on-surface-muted">
-                {isLongResult && !expanded
+                {isLongResult && !isExpanded
                   ? resultLines.slice(0, 15).join("\n") +
                     `\n... (${resultLines.length - 15} more lines)`
                   : resultText}

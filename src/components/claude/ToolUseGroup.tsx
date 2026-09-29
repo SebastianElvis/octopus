@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { ClaudeContentBlock } from "../../lib/types";
 import { AnimatedCollapse } from "./AnimatedCollapse";
 import { getToolSummary, formatToolResult } from "./ToolUseBlock";
+import { useUIStore } from "../../stores/uiStore";
 
 export interface ToolUseGroupItem {
   name: string;
@@ -17,7 +18,9 @@ interface ToolUseGroupProps {
 }
 
 function GroupItemRow({ item, isLast }: { item: ToolUseGroupItem; isLast: boolean }) {
+  const verboseMode = useUIStore((s) => s.verboseMode);
   const [expanded, setExpanded] = useState(false);
+  const isExpanded = expanded || verboseMode;
   const summary = getToolSummary(item.name, item.input);
   const resultText = item.toolResult ? formatToolResult(item.toolResult.content) : null;
   const resultLines = resultText?.split("\n") ?? [];
@@ -30,7 +33,7 @@ function GroupItemRow({ item, isLast }: { item: ToolUseGroupItem; isLast: boolea
         className="flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left"
       >
         <svg
-          className={`h-2.5 w-2.5 shrink-0 text-on-surface-faint transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}
+          className={`h-2.5 w-2.5 shrink-0 text-on-surface-faint transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"

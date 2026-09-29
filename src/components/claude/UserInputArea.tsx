@@ -1,12 +1,32 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { SessionStatus, BlockType } from "../../lib/types";
 import { isTauri } from "../../lib/env";
-import { interruptSession, sendFollowup, saveTempImage, scanSlashCommands } from "../../lib/tauri";
+import {
+  interruptSession,
+  sendFollowup,
+  saveTempImage,
+  scanSlashCommands,
+  writeToSession,
+} from "../../lib/tauri";
 import { useSessionStore } from "../../stores/sessionStore";
+import { useUIStore } from "../../stores/uiStore";
 import { useSessionActivity } from "../../lib/sessionActivity";
 import type { SlashCommand } from "./SlashCommandMenu";
 import { PermissionBanner } from "./PermissionBanner";
 import { SlashCommandMenu, filterCommands, buildCommandList } from "./SlashCommandMenu";
+
+function getModeClass(mode: string): string {
+  switch (mode) {
+    case "accept-edits":
+      return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30 hover:bg-emerald-500/20";
+    case "plan":
+      return "text-purple-400 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20";
+    case "bypass":
+      return "text-amber-400 bg-amber-500/10 border-amber-500/30 hover:bg-amber-500/20";
+    default:
+      return "text-on-surface-muted border-outline hover:bg-hover";
+  }
+}
 
 interface AttachedImage {
   id: string;
@@ -46,6 +66,15 @@ export function UserInputArea({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addOptimisticUserMessage = useSessionStore((s) => s.addOptimisticUserMessage);
+  const cycleSessionMode = useSessionStore((s) => s.cycleSessionMode);
+  const sessionModes = useSessionStore((s) => s.sessionModes);
+  const session = useSessionStore((s) => s.sessions.find((sess) => sess.id === sessionId));
+  const currentMode =
+    sessionModes[sessionId] ??
+    session?.permissionMode ??
+    (session?.dangerouslySkipPermissions ? "bypass" : "default");
+  const verboseMode = useUIStore((s) => s.verboseMode);
+  const toggleVerboseMode = useUIStore((s) => s.toggleVerboseMode);
 
   // Get the session's worktree path and init info from the store
   const worktreePath = useSessionStore(
@@ -183,6 +212,12 @@ export function UserInputArea({
   }
 
   function handleSlashSelect(command: string) {
+    if (command === "/keybindings" || command === "/shortcuts") {
+      useUIStore.getState().setShowShortcuts(true);
+      setInputText("");
+      setSlashMenuOpen(false);
+      return;
+    }
     setInputText(command + " ");
     setSlashMenuOpen(false);
     textareaRef.current?.focus();
@@ -191,6 +226,11 @@ export function UserInputArea({
   async function handleSend() {
     if ((!inputText.trim() && attachedImages.length === 0) || sending) return;
     const text = inputText.trim() || (attachedImages.length > 0 ? "Attached image(s)" : "");
+    if (text === "/keybindings" || text === "/shortcuts") {
+      useUIStore.getState().setShowShortcuts(true);
+      setInputText("");
+      return;
+    }
     addOptimisticUserMessage(sessionId, text);
     setSending(true);
     try {
@@ -455,7 +495,7 @@ export function UserInputArea({
                     setSlashSelectedIndex((i) => Math.max(i - 1, 0));
                     return;
                   }
-                  if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+                  if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey && !e.altKey)) {
                     e.preventDefault();
                     handleSlashSelect(slashFiltered[slashSelectedIndex].command);
                     return;
@@ -466,7 +506,84 @@ export function UserInputArea({
                     return;
                   }
                 }
-                if (e.key === "Enter" && !e.shiftKey) {
+
+                // Shift+Tab: cycle permission modes
+                if (e.key === "Tab" && e.shiftKey) {
+                  e.preventDefault();
+                  cycleSessionMode(sessionId);
+                  return;
+                }
+
+                // Ctrl+C: cancel active stream / interrupt session if no text is selected
+                if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === "c" || e.key === "C")) {
+                  const el = textareaRef.current;
+                  const hasSelection = el != null && el.selectionStart !== el.selectionEnd;
+                  if (!hasSelection) {
+                    e.preventDefault();
+                    void handleInterrupt();
+                    return;
+                  }
+                }
+
+                // Ctrl+L: clear output
+                if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === "l" || e.key === "L")) {
+                  e.preventDefault();
+                  useSessionStore.getState().clearMessages(sessionId);
+                  if (isTauri()) {
+                    void writeToSession(sessionId, "\x0c");
+                  }
+                  return;
+                }
+
+                // Ctrl+O: toggle verbose mode
+                if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === "o" || e.key === "O")) {
+                  e.preventDefault();
+                  toggleVerboseMode();
+                  return;
+                }
+
+                // Multiline input: Option+Enter / Alt+Enter
+                if (e.key === "Enter" && e.altKey) {
+                  e.preventDefault();
+                  const el = textareaRef.current;
+                  if (el) {
+                    const start = el.selectionStart;
+                    const end = el.selectionEnd;
+                    const nextVal = inputText.substring(0, start) + "\n" + inputText.substring(end);
+                    handleInputChange(nextVal);
+                    requestAnimationFrame(() => {
+                      el.selectionStart = el.selectionEnd = start + 1;
+                      adjustHeight();
+                    });
+                  }
+                  return;
+                }
+
+                // Multiline input: Ctrl+J
+                if (e.ctrlKey && !e.metaKey && !e.altKey && (e.key === "j" || e.key === "J")) {
+                  e.preventDefault();
+                  const el = textareaRef.current;
+                  if (el) {
+                    const start = el.selectionStart;
+                    const end = el.selectionEnd;
+                    const nextVal = inputText.substring(0, start) + "\n" + inputText.substring(end);
+                    handleInputChange(nextVal);
+                    requestAnimationFrame(() => {
+                      el.selectionStart = el.selectionEnd = start + 1;
+                      adjustHeight();
+                    });
+                  }
+                  return;
+                }
+
+                // Multiline input: Shift+Enter allows newline insertion
+                if (e.key === "Enter" && e.shiftKey) {
+                  requestAnimationFrame(() => adjustHeight());
+                  return;
+                }
+
+                // Enter (without Shift or Alt or Meta or Ctrl) sends
+                if (e.key === "Enter" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
                   e.preventDefault();
                   void handleSend();
                 }
@@ -522,6 +639,28 @@ export function UserInputArea({
               <span className="text-[11px] text-on-surface-faint">Waiting for your input</span>
             </>
           )}
+
+          {/* Mode indicator (clickable, Shift+Tab to cycle) */}
+          <button
+            type="button"
+            onClick={() => cycleSessionMode(sessionId)}
+            title="Permission mode (Shift+Tab to cycle)"
+            className={`cursor-pointer rounded border px-1.5 py-0.5 font-mono text-[10px] font-medium transition-colors ${getModeClass(currentMode)}`}
+          >
+            mode: {currentMode}
+          </button>
+
+          {/* Verbose mode badge (clickable, Ctrl+O to toggle) */}
+          {verboseMode && (
+            <button
+              type="button"
+              onClick={() => toggleVerboseMode()}
+              title="Verbose output active (Ctrl+O to toggle)"
+              className="cursor-pointer rounded border border-brand/30 bg-brand/10 px-1.5 py-0.5 font-mono text-[10px] font-medium text-brand transition-colors hover:bg-brand/20"
+            >
+              verbose
+            </button>
+          )}
         </div>
         {isRunning && (
           <button
@@ -529,6 +668,7 @@ export function UserInputArea({
               void handleInterrupt();
             }}
             className="cursor-pointer rounded px-2 py-0.5 text-[11px] font-medium text-on-surface-faint hover:bg-hover hover:text-on-surface-muted"
+            title="Interrupt (Ctrl+C)"
           >
             Interrupt
           </button>

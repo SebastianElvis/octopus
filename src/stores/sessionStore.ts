@@ -1,9 +1,11 @@
 import { create } from "zustand";
-import type { Session, ClaudeMessage, ClaudeStreamEvent } from "../lib/types";
+import type { Session, ClaudeMessage, ClaudeStreamEvent, PermissionMode } from "../lib/types";
+import { PERMISSION_MODES } from "../lib/types";
 import { listSessions, readSessionEvents } from "../lib/tauri";
 import { formatError } from "../lib/errors";
 
-export type { Session };
+export type { Session, PermissionMode };
+export { PERMISSION_MODES };
 export type { SessionStatus, BlockType } from "../lib/types";
 export type { ClaudeMessage, ClaudeStreamEvent, ClaudeContentBlock } from "../lib/types";
 
@@ -298,6 +300,8 @@ interface SessionState {
   sessionInitInfo: Record<string, SessionInitInfo>;
   sessionsLoading: boolean;
   sessionsError: string | null;
+  /** Active permission mode per session */
+  sessionModes: Record<string, PermissionMode | undefined>;
 
   // Actions
   addSession: (session: Session) => void;
@@ -310,6 +314,8 @@ interface SessionState {
   addOptimisticUserMessage: (sessionId: string, text: string) => void;
   loadSessionHistory: (sessionId: string) => Promise<void>;
   loadSessions: () => Promise<void>;
+  setSessionMode: (sessionId: string, mode: PermissionMode) => void;
+  cycleSessionMode: (sessionId: string) => PermissionMode;
 }
 
 export const useSessionStore = create<SessionState>((set) => ({
@@ -321,6 +327,7 @@ export const useSessionStore = create<SessionState>((set) => ({
   sessionInitInfo: {},
   sessionsLoading: true,
   sessionsError: null,
+  sessionModes: {},
 
   addSession: (session) => set((state) => ({ sessions: [...state.sessions, session] })),
 
@@ -462,6 +469,7 @@ export const useSessionStore = create<SessionState>((set) => ({
     set((state) => ({
       messageBuffers: { ...state.messageBuffers, [sessionId]: [] },
       streamingMessage: { ...state.streamingMessage, [sessionId]: null },
+      outputBuffers: { ...state.outputBuffers, [sessionId]: [] },
     })),
 
   addOptimisticUserMessage: (sessionId, text) =>
@@ -525,5 +533,26 @@ export const useSessionStore = create<SessionState>((set) => ({
     } catch (err) {
       set({ sessionsLoading: false, sessionsError: formatError(err) });
     }
+  },
+
+  setSessionMode: (sessionId: string, mode: PermissionMode) =>
+    set((state) => ({
+      sessionModes: { ...state.sessionModes, [sessionId]: mode },
+      sessions: state.sessions.map((s) =>
+        s.id === sessionId ? { ...s, permissionMode: mode } : s,
+      ),
+    })),
+
+  cycleSessionMode: (sessionId: string) => {
+    const state = useSessionStore.getState();
+    const session = state.sessions.find((s) => s.id === sessionId);
+    const current =
+      state.sessionModes[sessionId] ??
+      session?.permissionMode ??
+      (session?.dangerouslySkipPermissions ? "bypass" : "default");
+    const currentIndex = PERMISSION_MODES.indexOf(current);
+    const nextMode = PERMISSION_MODES[(currentIndex + 1) % PERMISSION_MODES.length];
+    useSessionStore.getState().setSessionMode(sessionId, nextMode);
+    return nextMode;
   },
 }));

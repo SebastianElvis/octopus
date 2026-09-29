@@ -65,4 +65,18 @@ describe("uiStore", () => {
   it("defaults to changes tab", () => {
     expect(useUIStore.getState().rightPanelTab).toBe("changes");
   });
+
+  it("toggles and sets verboseMode", () => {
+    expect(useUIStore.getState().verboseMode).toBe(false);
+    useUIStore.getState().toggleVerboseMode();
+    expect(useUIStore.getState().verboseMode).toBe(true);
+    useUIStore.getState().setVerboseMode(false);
+    expect(useUIStore.getState().verboseMode).toBe(false);
+  });
+
+  it("sets showShortcuts", () => {
+    expect(useUIStore.getState().showShortcuts).toBe(false);
+    useUIStore.getState().setShowShortcuts(true);
+    expect(useUIStore.getState().showShortcuts).toBe(true);
+  });
 });

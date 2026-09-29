@@ -20,6 +20,9 @@ export interface BackendSession {
   stateChangedAt?: string;
 }
 
+export type PermissionMode = "default" | "accept-edits" | "plan" | "bypass";
+export const PERMISSION_MODES: PermissionMode[] = ["default", "accept-edits", "plan", "bypass"];
+
 export interface Session {
   id: string;
   name: string;
@@ -35,6 +38,8 @@ export interface Session {
   worktreePath?: string;
   logPath?: string;
   prompt?: string;
+  dangerouslySkipPermissions?: boolean;
+  permissionMode?: PermissionMode;
 }
 
 /** Convert a backend session to the frontend Session shape. */
@@ -53,6 +58,7 @@ export function mapBackendSession(raw: BackendSession): Session {
     worktreePath: raw.worktreePath,
     logPath: raw.logPath,
     prompt: raw.prompt,
+    dangerouslySkipPermissions: raw.dangerouslySkipPermissions,
     stateChangedAt: raw.stateChangedAt ? new Date(raw.stateChangedAt).getTime() : Date.now(),
     linkedIssue: raw.linkedIssueNumber ? { number: raw.linkedIssueNumber, title: "" } : undefined,
     linkedPR: raw.linkedPrNumber ? { number: raw.linkedPrNumber, title: "" } : undefined,
