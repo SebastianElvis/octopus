@@ -30,7 +30,7 @@ import {
 } from "./lib/tauri";
 import { requestNotificationPermission, sendSystemNotification } from "./lib/notifications";
 import { playNotificationSound } from "./lib/sound";
-import { matchesKeybindingById } from "./lib/keybindings";
+import { matchesKeybindingById, hasTextSelection } from "./lib/keybindings";
 import { useTauriEvent } from "./hooks/useTauriEvent";
 import { useTheme } from "./hooks/useTheme";
 import type { Repo, GitHubIssue, GitHubPR, ClaudeStreamEvent } from "./lib/types";
@@ -43,7 +43,8 @@ function App() {
   const [showNewSession, setShowNewSession] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
+  const showShortcuts = useUIStore((s) => s.showShortcuts);
+  const setShowShortcuts = useUIStore((s) => s.setShowShortcuts);
   const [showAddRepo, setShowAddRepo] = useState(false);
   const [prefillRepo, setPrefillRepo] = useState<Repo | null>(null);
   const [prefillIssue, setPrefillIssue] = useState<GitHubIssue | null>(null);
@@ -82,14 +83,14 @@ function App() {
   // Keyboard shortcuts
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      // Interrupt shortcut (Ctrl+C) — works globally when viewing a running session
+      // Interrupt / cancel active stream (Ctrl+C) — works when viewing a running session
       // and no text is selected (so native copy still works)
       if (matchesKeybindingById(e, "interrupt-session")) {
-        const sel = window.getSelection();
-        const hasSelection = sel != null && sel.toString().length > 0;
+        const hasSelection = hasTextSelection();
         if (!hasSelection && view === "session" && activeSessionId) {
           const activeSession = sessions.find((s) => s.id === activeSessionId);
-          if (activeSession?.status === "running") {
+          const isStreaming = useSessionStore.getState().streamingMessage[activeSessionId] != null;
+          if (activeSession?.status === "running" || isStreaming) {
             e.preventDefault();
             void interruptSession(activeSessionId);
             return;
@@ -97,12 +98,28 @@ function App() {
         }
       }
 
-      // Clear terminal (Ctrl+L) — works when viewing a session
-      if (matchesKeybindingById(e, "clear-terminal")) {
+      // Clear terminal / output (Ctrl+L) — works when viewing a session
+      if (matchesKeybindingById(e, "clear-terminal") || matchesKeybindingById(e, "clear-output")) {
         if (view === "session" && activeSessionId) {
           e.preventDefault();
-          // Send form-feed character to clear terminal
+          useSessionStore.getState().clearMessages(activeSessionId);
           void writeToSession(activeSessionId, "\x0c");
+          return;
+        }
+      }
+
+      // Toggle verbose mode (Ctrl+O)
+      if (matchesKeybindingById(e, "toggle-verbose")) {
+        e.preventDefault();
+        useUIStore.getState().toggleVerboseMode();
+        return;
+      }
+
+      // Cycle permission modes (Shift+Tab)
+      if (matchesKeybindingById(e, "cycle-mode")) {
+        if (view === "session" && activeSessionId) {
+          e.preventDefault();
+          useSessionStore.getState().cycleSessionMode(activeSessionId);
           return;
         }
       }
@@ -155,7 +172,7 @@ function App() {
       }
       if (matchesKeybindingById(e, "show-shortcuts")) {
         e.preventDefault();
-        setShowShortcuts((v) => !v);
+        setShowShortcuts(!showShortcuts);
         return;
       }
       if (matchesKeybindingById(e, "close-or-back")) {
@@ -189,6 +206,7 @@ function App() {
     showShortcuts,
     sessions,
     toggleSidebar,
+    setShowShortcuts,
   ]);
 
   // Request notification permission on startup

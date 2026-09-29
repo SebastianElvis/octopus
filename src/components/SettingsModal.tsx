@@ -218,6 +218,11 @@ function SettingsModalInner({
               <ShortcutRow keys="Cmd+K" action="Command palette" />
               <ShortcutRow keys="Cmd+N" action="New session" />
               <ShortcutRow keys="Cmd+J" action="Jump to next waiting session" />
+              <ShortcutRow keys="Ctrl+C" action="Cancel active stream / interrupt" />
+              <ShortcutRow keys="Ctrl+L" action="Clear output" />
+              <ShortcutRow keys="Ctrl+O" action="Toggle verbose output" />
+              <ShortcutRow keys="Shift+Tab" action="Cycle permission modes" />
+              <ShortcutRow keys="Option+Enter" action="Insert newline (multiline)" />
               <ShortcutRow keys="Cmd+1" action="Home / Board" />
               <ShortcutRow keys="Cmd+2" action="Tasks" />
               <ShortcutRow keys="Cmd+3" action="Repos" />

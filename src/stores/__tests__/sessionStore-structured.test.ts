@@ -633,10 +633,10 @@ describe("sessionStore — structured events", () => {
         },
       ];
 
-      // Strip timestamps for comparison since Date.now() differs between runs
+      // Strip timestamps and generated IDs for comparison since Date.now() differs between runs
       const stripTimestamps = (msgs: unknown[]) =>
         msgs.map((m) => {
-          const { timestamp: _, ...rest } = m as Record<string, unknown>;
+          const { timestamp: _t, id: _id, ...rest } = m as Record<string, unknown>;
           return rest;
         });
 

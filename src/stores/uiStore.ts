@@ -17,6 +17,8 @@ interface UIState {
   soundEnabled: boolean;
   terminalFontSize: number;
   activeSessionId: string | null;
+  verboseMode: boolean;
+  showShortcuts: boolean;
 
   setPanelSize: (key: keyof PanelSizes, value: number) => void;
   setRightPanelTab: (tab: RightPanelTab) => void;
@@ -25,6 +27,9 @@ interface UIState {
   toggleSound: () => void;
   setTerminalFontSize: (size: number) => void;
   setActiveSessionId: (id: string | null) => void;
+  toggleVerboseMode: () => void;
+  setVerboseMode: (enabled: boolean) => void;
+  setShowShortcuts: (open: boolean) => void;
 }
 
 const STORAGE_KEY = "tmt-panel-sizes";
@@ -69,6 +74,15 @@ function loadSoundPref(): boolean {
   }
 }
 
+function loadVerboseMode(): boolean {
+  try {
+    const val = localStorage.getItem("tmt-verbose-mode");
+    return val === "true";
+  } catch {
+    return false;
+  }
+}
+
 export const useUIStore = create<UIState>((set, get) => ({
   panelSizes: loadSizes(),
   rightPanelTab: "changes",
@@ -77,6 +91,8 @@ export const useUIStore = create<UIState>((set, get) => ({
   soundEnabled: loadSoundPref(),
   terminalFontSize: loadTerminalFontSize(),
   activeSessionId: null,
+  verboseMode: loadVerboseMode(),
+  showShortcuts: false,
 
   setPanelSize: (key, value) => {
     const newSizes = { ...get().panelSizes, [key]: value };
@@ -105,4 +121,22 @@ export const useUIStore = create<UIState>((set, get) => ({
     set({ terminalFontSize: size });
   },
   setActiveSessionId: (id) => set({ activeSessionId: id }),
+  toggleVerboseMode: () => {
+    const next = !get().verboseMode;
+    try {
+      localStorage.setItem("tmt-verbose-mode", String(next));
+    } catch {
+      /* ignore */
+    }
+    set({ verboseMode: next });
+  },
+  setVerboseMode: (enabled) => {
+    try {
+      localStorage.setItem("tmt-verbose-mode", String(enabled));
+    } catch {
+      /* ignore */
+    }
+    set({ verboseMode: enabled });
+  },
+  setShowShortcuts: (open) => set({ showShortcuts: open }),
 }));
